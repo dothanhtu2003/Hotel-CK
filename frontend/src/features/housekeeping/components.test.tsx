@@ -1,0 +1,13 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthContext } from '../auth/auth-context';
+import { ToastContext } from '../../components/toast-context';
+import { RoomBoard, WorkAction } from './components';
+import type { BoardRoom, Task } from './contracts';
+import type { User } from '../auth/contracts';
+afterEach(cleanup);
+const room: BoardRoom = { id: 'room', roomNumber: '301', floor: 3, roomType: { id: 'type', name: 'Phòng thực từ API' }, housekeepingStatus: 'DIRTY', operationalStatus: 'ACTIVE', openTask: null };
+it('room cards provide text labels and real callbacks instead of color alone', () => { const create = vi.fn(); render(<MemoryRouter><RoomBoard rooms={[room]} onCreate={create} /></MemoryRouter>); expect(screen.getByText('Cần dọn')).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Tạo công việc' })); expect(create).toHaveBeenCalledWith(room); expect(screen.getByRole('link', { name: 'Lịch sử công việc →' }).getAttribute('href')).toContain('roomId=room'); });
+it('staff cannot see start/complete controls even when their ID matches the assignee', () => { const user = { id: 'staff', role: 'ADMIN' } as User; render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><AuthContext.Provider value={{ user, notice: null, login: vi.fn(), logout: vi.fn(), updateUser: vi.fn() }}><ToastContext.Provider value={vi.fn()}><WorkAction action="start" task={{ ...room, room, assignedStaffId: 'staff', status: 'TODO' } as unknown as Task} /></ToastContext.Provider></AuthContext.Provider></QueryClientProvider></MemoryRouter>); expect(screen.queryByRole('button')).toBeNull(); });

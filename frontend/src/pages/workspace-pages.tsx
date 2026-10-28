@@ -1,0 +1,21 @@
+import { ArrowRight, ArrowUpRight, Clock3, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
+import { Link, useParams } from 'react-router';
+import { useAuth } from '../features/auth/auth-context';
+import { homeForRole, roleLabel } from '../features/auth/contracts';
+import { featuresForRole } from '../features/workspace/navigation';
+import { EmptyState, LinkButton, PageHeading, StatusBadge, Table } from '../components/ui';
+
+export function OverviewPage() {
+  const { user } = useAuth(); if (!user) return null;
+  const home = homeForRole[user.role], features = featuresForRole[user.role];
+  return <><PageHeading eyebrow={user.role === 'GUEST' ? 'KHÔNG GIAN CỦA BẠN' : 'AN NHIÊN · MANAGEMENT PORTAL'} title={`Chào mừng, ${user.fullName.split(' ').at(-1)}.`} description="Một ngày mới, những trải nghiệm được chăm chút hơn." /><section className="welcome-panel"><div><span className="eyebrow light">RẤT VUI ĐƯỢC ĐỒNG HÀNH CÙNG BẠN</span><h2>{user.role === 'GUEST' ? <>Hành trình của bạn,<br />bắt đầu từ <em>an nhiên.</em></> : <>Sự tận tâm tạo nên<br />những kỳ nghỉ <em>đáng nhớ.</em></>}</h2><p>{user.role === 'GUEST' ? 'Tìm phòng, theo dõi booking, đặt dịch vụ và xem chi phí lưu trú ngay trong tài khoản của bạn.' : 'Thông tin tài khoản đã được kết nối. Các không gian nghiệp vụ đang được chuẩn bị cho giai đoạn tiếp theo.'}</p><LinkButton to={`${home}/profile`} variant="light">Xem hồ sơ cá nhân <ArrowUpRight size={17} /></LinkButton></div><span className="welcome-art" aria-hidden="true">A<span>✦</span></span></section>
+    <div className="account-stats">{[{ icon: UserRound, label: 'VAI TRÒ CỦA BẠN', value: roleLabel[user.role], note: 'Quyền truy cập được xác nhận bởi hệ thống' }, { icon: ShieldCheck, label: 'TRẠNG THÁI TÀI KHOẢN', value: user.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã vô hiệu hóa', note: 'Thông tin từ tài khoản hiện tại' }, { icon: LockKeyhole, label: 'PHIÊN TRUY CẬP', value: 'Đã xác thực', note: 'Chỉ duy trì trong tab đang mở' }].map(({ icon: Icon, label, value, note }) => <article key={label}><Icon size={21} strokeWidth={1.5} /><p>{label}</p><h3>{value}</h3><small>{note}</small></article>)}</div>
+    <section className="panel feature-panel"><div className="panel-heading"><div><p className="eyebrow">TỪNG BƯỚC HOÀN THIỆN</p><h2>Không gian nghiệp vụ</h2></div><StatusBadge tone="gold">{user.role === 'GUEST' ? 'Sẵn sàng' : 'Đang chuẩn bị'}</StatusBadge></div><Table caption="Các giao diện nghiệp vụ đang được chuẩn bị" rows={features} rowKey={row => row.slug} columns={[{ title: 'CHỨC NĂNG', render: row => <div className="feature-cell"><span><row.icon size={21} strokeWidth={1.5} /></span><div><strong>{row.title}</strong><small>{row.description}</small></div></div> }, { title: 'TRẠNG THÁI GIAO DIỆN', render: () => <StatusBadge>{user.role === 'GUEST' ? 'Sẵn sàng' : 'Chưa sẵn sàng'}</StatusBadge> }, { title: 'CHI TIẾT', render: row => <Link className="table-link" to={`${home}/${row.slug}`} aria-label={`Xem trạng thái ${row.title}`}><ArrowUpRight size={20} /></Link> }]} /><div className="panel-footnote"><Clock3 size={15} />{user.role === 'GUEST' ? 'Chọn một chức năng để bắt đầu quản lý kỳ nghỉ.' : 'Hiện có thể sử dụng đăng nhập, xem và cập nhật hồ sơ cá nhân.'}</div></section>
+  </>;
+}
+export function ComingSoonPage() {
+  const { user } = useAuth(), { feature } = useParams(); if (!user) return null;
+  const item = featuresForRole[user.role].find(f => f.slug === feature);
+  if (!item) return <EmptyState title="Không tìm thấy trang" description="Trang này không thuộc không gian tài khoản của bạn." action={<LinkButton to={homeForRole[user.role]}>Về tổng quan</LinkButton>} />;
+  return <><PageHeading eyebrow="KHÔNG GIAN NGHIỆP VỤ" title={item.title} description={item.description} /><section className="panel coming-soon"><span className="coming-icon"><item.icon size={38} strokeWidth={1.2} /></span><StatusBadge tone="gold">Chưa sẵn sàng</StatusBadge><h2>Một trải nghiệm mới<br />đang được <em>chuẩn bị.</em></h2><p>Giao diện {item.title.toLocaleLowerCase('vi-VN')} sẽ được kết nối trong giai đoạn tiếp theo. Trang này chưa thực hiện thao tác nghiệp vụ hoặc hiển thị dữ liệu vận hành.</p><LinkButton to={homeForRole[user.role]} variant="secondary">Về trang tổng quan <ArrowRight size={17} /></LinkButton></section></>;
+}
