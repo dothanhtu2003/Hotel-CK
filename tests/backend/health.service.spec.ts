@@ -2,6 +2,22 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { HealthService } from '../../src/health/health.service.js';
 import type { PrismaService } from '../../src/database/prisma.service.js';
+import { databaseStartupCategory } from '../../src/database/startup-error.js';
+
+describe('database startup diagnostics', () => {
+  it.each([
+    [{ meta: { driverAdapterError: { cause: { originalCode: '28P01' } } } }, 'AUTHENTICATION'],
+    [Object.assign(new Error('credential hidden'), { code: 'SELF_SIGNED_CERT_IN_CHAIN' }), 'TLS_CERTIFICATE'],
+    [new Error('FATAL: (ENOTFOUND) tenant/user postgres.example not found'), 'POOLER_TENANT_NOT_FOUND'],
+    [{ cause: { code: '42P01' } }, 'SCHEMA_OR_TABLE_MISSING'],
+    [{ code: '42501' }, 'PERMISSION'],
+    [{ code: 'ENOTFOUND' }, 'DNS'],
+    [{ code: 'ETIMEDOUT' }, 'NETWORK'],
+    [new Error('postgresql://user:secret@private-host/db'), 'UNKNOWN'],
+  ])('classifies a wrapped failure without exposing driver text', (error, expected) => {
+    expect(databaseStartupCategory(error)).toBe(expected);
+  });
+});
 
 describe('HealthService', () => {
   it('reports backend and database up after a successful probe', async () => {

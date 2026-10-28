@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createPrismaClient } from './client.js';
+import { databaseStartupCategory } from './startup-error.js';
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
@@ -14,9 +15,11 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.client.$connect();
       await this.pingDatabase();
-    } catch {
+    } catch (error: unknown) {
+      process.stderr.write(`Database startup diagnostic: ${databaseStartupCategory(error)}\n`);
       await this.client.$disconnect().catch(() => undefined);
       // Never bubble driver errors containing connection details into startup logs.
+      // eslint-disable-next-line preserve-caught-error -- Driver causes can expose credentials through Nest logging.
       throw new Error('Database connection failed; check local database configuration');
     }
   }
