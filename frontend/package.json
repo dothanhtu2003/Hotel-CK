@@ -3,7 +3,7 @@
   "engines": { "node": ">=24.15.0" },
   "scripts": {
     "dev": "vite --host localhost --port 5173 --strictPort",
-    "typecheck": "tsc --noEmit", "lint": "eslint .", "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit", "lint": "eslint .", "build": "tsc -p tsconfig.build.json && vite build",
     "preview": "vite preview --host localhost --port 5173 --strictPort",
     "test": "vitest run", "test:e2e": "playwright test"
   },
