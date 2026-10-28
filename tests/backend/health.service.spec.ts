@@ -6,6 +6,12 @@ import { databaseStartupCategory } from '../../src/database/startup-error.js';
 
 describe('database startup diagnostics', () => {
   it.each([
+    [{ meta: { driverAdapterError: { cause: { kind: 'AuthenticationFailed', originalMessage: 'private details' } } } }, 'AUTHENTICATION'],
+    [{ meta: { cause: { originalMessage: "ENOENT: no such file or directory, open '/etc/secrets/ca.crt'" } } }, 'CERTIFICATE_FILE_MISSING'],
+    [{ code: 'EACCES' }, 'CERTIFICATE_FILE_UNREADABLE'],
+    [{ cause: { originalMessage: 'error: PEM routines: no start line' } }, 'CERTIFICATE_FILE_INVALID'],
+    [{ cause: { originalMessage: 'unsupported startup parameter: options' } }, 'POOLER_STARTUP_OPTIONS'],
+    [{ code: 'P2010', meta: { code: 'XX000' } }, 'DRIVER_CODES_P2010'],
     [{ meta: { driverAdapterError: { cause: { originalCode: '28P01' } } } }, 'AUTHENTICATION'],
     [Object.assign(new Error('credential hidden'), { code: 'SELF_SIGNED_CERT_IN_CHAIN' }), 'TLS_CERTIFICATE'],
     [new Error('FATAL: (ENOTFOUND) tenant/user postgres.example not found'), 'POOLER_TENANT_NOT_FOUND'],
