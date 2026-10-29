@@ -1,5 +1,10 @@
 import type { DeskRoom } from "./contracts";
 
+export function calculateOccupancyPct(occupied: number, total: number): number {
+  if (!total || total <= 0 || !occupied || occupied <= 0) return 0;
+  return Math.min(100, Math.round((occupied / total) * 100));
+}
+
 export function hotelToday(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -13,13 +18,15 @@ export function shiftDate(date: string, days: number) {
     .toISOString()
     .slice(0, 10);
 }
-export function roomState(room: DeskRoom) {
+export function roomState(room: DeskRoom, today = hotelToday()) {
   if (room.operationalStatus !== "ACTIVE") return "out-of-service";
   if (room.bookings.some((b) => b.status === "CHECKED_IN")) return "occupied";
   if (
-    room.bookings.some((b) =>
-      ["PENDING", "CONFIRMED", "CHECKED_OUT"].includes(b.status),
-    )
+    room.bookings.some((b) => {
+      if (!["PENDING", "CONFIRMED"].includes(b.status)) return false;
+      if (!b.checkIn || !b.checkOut) return true;
+      return b.checkIn <= today && b.checkOut > today;
+    })
   )
     return "reserved";
   if (room.housekeepingStatus === "CLEANING") return "cleaning";

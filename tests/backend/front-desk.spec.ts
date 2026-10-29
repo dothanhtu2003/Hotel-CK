@@ -2,9 +2,11 @@ import { describe, expect, it } from "@jest/globals";
 import {
   hotelDay,
   deskWhere,
+  readyWhere,
 } from "../../src/front-desk/front-desk.service.js";
 import {
   DeskQuery,
+  RoomQuery,
   WalkInDto,
   CustomerQuery,
 } from "../../src/front-desk/desk.dto.js";
@@ -30,6 +32,19 @@ describe("Front desk date boundaries and validation", () => {
       JSON.stringify(deskWhere({ view: "staying" } as DeskQuery)),
     ).toContain("CHECKED_IN");
   });
+  it("readyWhere requires ACTIVE, CLEAN, no open tasks, blocks CHECKED_IN/CONFIRMED/PENDING, and NEVER blocks CHECKED_OUT", () => {
+    const where = readyWhere(new Date("2026-10-29T00:00:00Z"));
+    expect(where.operationalStatus).toBe("ACTIVE");
+    expect(where.housekeepingStatus).toBe("CLEAN");
+    expect(where.tasks).toEqual({ none: { status: { not: "DONE" } } });
+
+    const str = JSON.stringify(where);
+    expect(str).toContain("CHECKED_IN");
+    expect(str).toContain("CONFIRMED");
+    expect(str).toContain("PENDING");
+    // Completed historical bookings must never block room readiness
+    expect(str).not.toContain("CHECKED_OUT");
+  });
   const pipe = createValidationPipe();
   it("rejects forged price, owner and creator; enforces query limits and actual calendar dates", async () => {
     for (const input of [
@@ -42,6 +57,12 @@ describe("Front desk date boundaries and validation", () => {
       await expect(
         pipe.transform(input, { type: "query", metatype: DeskQuery }),
       ).rejects.toThrow();
+    await expect(
+      pipe.transform({ q: "x".repeat(51) }, { type: "query", metatype: RoomQuery }),
+    ).rejects.toThrow();
+    const validRoomQuery = await pipe.transform({ q: "101", pageSize: 5 }, { type: "query", metatype: RoomQuery });
+    expect(validRoomQuery.q).toBe("101");
+    expect(validRoomQuery.pageSize).toBe(5);
     await expect(
       pipe.transform({ q: "  " }, { type: "query", metatype: CustomerQuery }),
     ).rejects.toThrow();

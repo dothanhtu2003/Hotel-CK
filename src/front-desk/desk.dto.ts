@@ -41,6 +41,11 @@ export class DeskQuery extends BookingQueryDto {
   view?: string;
 }
 export class RoomQuery extends PaginationQueryDto {
+  @ApiPropertyOptional({ maxLength: 50, description: "Search by room number" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  q?: string;
   @ApiPropertyOptional({ format: "date", description: "Tape chart inclusive start; requires end" })
   @IsOptional()
   @IsStayDate()

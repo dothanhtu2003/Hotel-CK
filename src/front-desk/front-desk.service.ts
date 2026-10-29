@@ -79,7 +79,7 @@ export function deskWhere(
     ],
   };
 }
-const readyWhere = (date: Date): Prisma.RoomWhereInput => ({
+export const readyWhere = (date: Date): Prisma.RoomWhereInput => ({
   operationalStatus: "ACTIVE",
   housekeepingStatus: "CLEAN",
   tasks: { none: { status: { not: "DONE" } } },
@@ -88,7 +88,7 @@ const readyWhere = (date: Date): Prisma.RoomWhereInput => ({
       OR: [
         { status: "CHECKED_IN" },
         {
-          status: { in: ["PENDING", "CONFIRMED", "CHECKED_OUT"] },
+          status: { in: ["PENDING", "CONFIRMED"] },
           checkInDate: { lte: date },
           checkOutDate: { gt: date },
         },
@@ -251,6 +251,9 @@ export class FrontDeskService {
       throw new BadRequestException("Tape chart range must be 1 to 31 nights");
     }
     const where: Prisma.RoomWhereInput = {
+      ...(q.q?.trim()
+        ? { roomNumber: { contains: q.q.trim(), mode: "insensitive" } }
+        : {}),
       ...(q.floor !== undefined ? { floor: q.floor } : {}),
       ...(q.roomTypeId ? { roomTypeId: q.roomTypeId } : {}),
       ...(q.state === "ready"
@@ -277,7 +280,7 @@ export class FrontDeskService {
                 OR: [
                   { status: "CHECKED_IN" },
                   {
-                    status: { in: ["PENDING", "CONFIRMED", "CHECKED_OUT"] },
+                    status: { in: ["PENDING", "CONFIRMED"] },
                     checkInDate: { lte: date },
                     checkOutDate: { gt: date },
                   },

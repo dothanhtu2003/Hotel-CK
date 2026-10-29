@@ -10,7 +10,6 @@ import {
   PieChart,
   RefreshCw,
   Users,
-  Wallet,
 } from "lucide-react";
 import {
   Avatar,
@@ -23,19 +22,12 @@ import {
 } from "../../components/kamra-ui";
 import { ErrorState } from "../../components/ui";
 import { Skeleton } from "../guest/components";
-import { money, type Page } from "../guest/contracts";
+import type { Page } from "../guest/contracts";
 import type { Dashboard, DeskBooking, DeskRoom } from "./contracts";
 import { useDeskBase, useDeskGet, useRefreshDesk } from "./queries";
 import { CheckInWizard } from "./check-in";
 import { useAuth } from "../auth/auth-context";
-
-// Illustrative micro-trend matching Kamra's Today KPI sparklines
-const mkTrend = (n: number, up = true) =>
-  Array.from({ length: 8 }, (_, i) => {
-    const b = Math.max(1, Math.abs(n));
-    const t = i / 7;
-    return b * (0.78 + (up ? t : 1 - t) * 0.3 + Math.sin(i * 1.6) * 0.05);
-  });
+import { calculateOccupancyPct } from "./room-state";
 
 function PaymentBadge() {
   return <Badge tone="zinc">Chưa thanh toán</Badge>;
@@ -50,10 +42,19 @@ export function ReceptionDashboard() {
   const [floor, setFloor] = useState<string>("All");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
 
-  // Get full room list for the Room Board
-  const roomsQuery = useDeskGet<Page<DeskRoom>>(
-    `/front-desk/rooms?pageSize=100`,
-  );
+  // Facets for complete floor list
+  const facets = useDeskGet<{
+    types: { id: string; name: string }[];
+    floors: number[];
+  }>("/front-desk/room-filters");
+
+  // Get room list for Room Board, filtered by floor on the server if selected
+  const roomsPath =
+    floor === "All"
+      ? `/front-desk/rooms?pageSize=100`
+      : `/front-desk/rooms?pageSize=100&floor=${floor}`;
+  const roomsQuery = useDeskGet<Page<DeskRoom>>(roomsPath);
+
   // Get active in-house guests for the In-House table
   const stayingQuery = useDeskGet<Page<DeskBooking>>(
     "/front-desk/bookings?view=staying&pageSize=8",
@@ -62,10 +63,13 @@ export function ReceptionDashboard() {
   const d = query.data;
   const allRooms = roomsQuery.data?.data || [];
 
-  // Determine floors available
-  const floorList = Array.from(
-    new Set(allRooms.map((r) => r.floor || 1)),
-  ).sort((a, b) => Number(a) - Number(b));
+  // Determine floors available from facets or loaded rooms
+  const floorList =
+    facets.data?.floors && facets.data.floors.length > 0
+      ? [...facets.data.floors].sort((a, b) => Number(a) - Number(b))
+      : Array.from(new Set(allRooms.map((r) => r.floor || 1))).sort(
+          (a, b) => Number(a) - Number(b),
+        );
 
   const shownRooms =
     floor === "All"
@@ -76,15 +80,9 @@ export function ReceptionDashboard() {
   const shownFloors =
     floor === "All" ? floorList : [Number(floor)];
 
-  const occupancyPct =
-    d?.totalRooms && d.totalRooms > 0
-      ? Math.round((d.occupiedRooms / d.totalRooms) * 100)
-      : 0;
-
-  // Approximate room revenue from arrivals and staying
-  const estimatedRevenue = (d?.arrivals || []).reduce(
-    (sum, a) => sum + Number(a.totalRoomAmount || 0),
-    0,
+  const occupancyPct = calculateOccupancyPct(
+    d?.occupiedRooms ?? 0,
+    d?.totalRooms ?? 0,
   );
 
   const hh = new Date().getHours();
@@ -142,13 +140,12 @@ export function ReceptionDashboard() {
       ) : (
         d && (
           <>
-            {/* Top 6 KPI StatCards matching Kamra */}
+            {/* Top 6 KPI StatCards - truthful verified metrics matching real APIs */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
               <StatCard
                 icon={<LogIn className="size-4" />}
                 label="Khách đến (Arrivals)"
                 value={d.counts.arrivals}
-                spark={mkTrend(d.counts.arrivals)}
                 to={`${base}/bookings?view=arrivals`}
                 sub={`${d.bookingCounts?.arrivals ?? d.arrivals.length} booking hôm nay`}
               />
@@ -156,8 +153,6 @@ export function ReceptionDashboard() {
                 icon={<LogOut className="size-4" />}
                 label="Khách đi (Departures)"
                 value={d.counts.departures}
-                spark={mkTrend(d.counts.departures, false)}
-                sparkColor="var(--color-amber-600)"
                 to={`${base}/bookings?view=departures`}
                 sub={`${d.bookingCounts?.departures ?? d.departures.length} booking trả phòng`}
               />
@@ -165,7 +160,6 @@ export function ReceptionDashboard() {
                 icon={<Users className="size-4" />}
                 label="Đang ở (In-house)"
                 value={d.counts.staying}
-                spark={mkTrend(d.counts.staying)}
                 to={`${base}/bookings?view=staying`}
                 sub={`${d.bookingCounts?.staying ?? d.counts.staying} khách đang lưu trú`}
               />
@@ -178,12 +172,11 @@ export function ReceptionDashboard() {
                 to={`${base}/rooms`}
               />
               <StatCard
-                icon={<Wallet className="size-4" />}
-                label="Tiền phòng dự kiến"
-                value={money(String(estimatedRevenue))}
-                spark={mkTrend(estimatedRevenue || 1)}
-                sub="Booking đến hôm nay"
-                to={`${base}/billing`}
+                icon={<BedDouble className="size-4" />}
+                label="Phòng sẵn sàng"
+                value={d.counts.ready}
+                sub={`${d.counts.dirty} phòng chưa dọn`}
+                to={`${base}/rooms?state=ready`}
               />
               <StatCard
                 icon={<ListChecks className="size-4" />}
@@ -594,6 +587,15 @@ export function ReceptionDashboard() {
                         );
                       })}
                     </div>
+
+                    {roomsQuery.data?.meta && roomsQuery.data.meta.total > roomsQuery.data.meta.pageSize && (
+                      <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-xs text-zinc-600 flex items-center justify-between">
+                        <span>Đang hiển thị {roomsQuery.data.meta.pageSize} / {roomsQuery.data.meta.total} phòng.</span>
+                        <Link to={`${base}/rooms`} className="font-semibold text-brand-700 hover:underline">
+                          Xem toàn bộ trên Bảng phòng →
+                        </Link>
+                      </div>
+                    )}
 
                     {/* Room Board Legend */}
                     <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
