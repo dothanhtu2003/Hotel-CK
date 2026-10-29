@@ -44,7 +44,7 @@ export function deskWhere(
   q: DeskQuery,
   today = hotelDay(),
 ): Prisma.BookingWhereInput {
-  const date = new Date(today + "T00:00:00Z");
+  const date = new Date((q.date ?? today) + "T00:00:00Z");
   return {
     AND: [
       q.status ? { status: q.status } : {},
@@ -55,7 +55,7 @@ export function deskWhere(
         : q.view === "departures"
           ? { checkOutDate: date, status: "CHECKED_IN" }
           : q.view === "staying"
-            ? { status: "CHECKED_IN" }
+            ? { status: "CHECKED_IN", ...(q.date ? { checkInDate: { lte: date }, checkOutDate: { gt: date } } : {}) }
             : {},
       q.q?.trim()
         ? {
@@ -159,6 +159,9 @@ export class FrontDeskService {
           pending,
           arrivalRows,
           departureRows,
+          totalRooms,
+          occupiedRooms,
+          openTasks,
         ] = await Promise.all([
           tx.booking.aggregate({
             where: deskWhere({ view: "arrivals" } as DeskQuery, today),
@@ -193,11 +196,17 @@ export class FrontDeskService {
             take: 5,
             orderBy: [{ checkOutDate: "asc" }, { id: "asc" }],
           }),
+          tx.room.count(),
+          tx.room.count({ where: { bookings: { some: { status: "CHECKED_IN" } } } }),
+          tx.housekeepingTask.count({ where: { status: { not: "DONE" } } }),
         ]);
         const view = (rows: typeof arrivalRows) =>
           rows.map(({ user, ...b }) => ({ ...bookingView(b), customer: user }));
         return {
           today,
+          totalRooms,
+          occupiedRooms,
+          openTasks,
           bookingCounts: {
             arrivals: arrivals._count,
             departures: departures._count,
@@ -235,6 +244,12 @@ export class FrontDeskService {
   }
   async rooms(q: RoomQuery) {
     const date = new Date(hotelDay() + "T00:00:00Z");
+    if (!!q.start !== !!q.end) throw new BadRequestException("Both start and end are required");
+    const start = q.start ? new Date(q.start + "T00:00:00Z") : null;
+    const end = q.end ? new Date(q.end + "T00:00:00Z") : null;
+    if (start && end && (end <= start || end.getTime() - start.getTime() > 31 * 86400000)) {
+      throw new BadRequestException("Tape chart range must be 1 to 31 nights");
+    }
     const where: Prisma.RoomWhereInput = {
       ...(q.floor !== undefined ? { floor: q.floor } : {}),
       ...(q.roomTypeId ? { roomTypeId: q.roomTypeId } : {}),
@@ -254,7 +269,11 @@ export class FrontDeskService {
             ...roomSelect,
             tasks: { where: { status: { not: "DONE" } }, select: { id: true } },
             bookings: {
-              where: {
+              where: start && end ? {
+                status: { not: "CANCELLED" },
+                checkInDate: { lt: end },
+                checkOutDate: { gt: start },
+              } : {
                 OR: [
                   { status: "CHECKED_IN" },
                   {

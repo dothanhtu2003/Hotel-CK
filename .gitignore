@@ -26,3 +26,9 @@ docs/
 # Publish only the root project README among Markdown files.
 *.[mM][dD]
 !/README.md
+
+# Front-desk migration handoff is part of this implementation.
+!docs/
+docs/*
+!docs/kamra-migration.md
+!docs/kamra-verification.md

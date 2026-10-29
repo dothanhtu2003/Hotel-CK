@@ -5,7 +5,7 @@ import { ApiError } from '../../lib/api-client';
 export type Customer = { id: string; fullName: string; email: string; phone: string | null };
 export type DeskBooking = Booking & { userId: string; createdAt: string; updatedAt: string; customer?: Customer; room?: import('../guest/contracts').Room; openTaskCount?: number };
 export type DeskRoom = import('../guest/contracts').Room & { bookings: DeskBooking[]; openTaskCount: number };
-export type Dashboard = { today: string; bookingCounts?: Record<'arrivals'|'departures'|'staying',number>; counts: Record<'arrivals'|'departures'|'staying'|'ready'|'dirty'|'orders'|'pending',number>; arrivals: DeskBooking[]; departures: DeskBooking[] };
+export type Dashboard = { today: string; totalRooms: number; occupiedRooms: number; openTasks: number; bookingCounts?: Record<'arrivals'|'departures'|'staying',number>; counts: Record<'arrivals'|'departures'|'staying'|'ready'|'dirty'|'orders'|'pending',number>; arrivals: DeskBooking[]; departures: DeskBooking[] };
 export type Checkout = { booking: Booking; invoice: Invoice; room: { id: string; housekeepingStatus: string; operationalStatus: string }; housekeepingTask: { id: string; status: string; assignedStaffId: string | null } | null };
 export type PaymentResult = { payment: Invoice['payments'][number]; invoice: Invoice; replayed: boolean };
 export const paymentSchema = z.object({

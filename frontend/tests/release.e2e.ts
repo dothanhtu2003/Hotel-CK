@@ -9,6 +9,9 @@ async function go(page: Page, path: string) {
 }
 async function action(page: Page, label: string, path: string, method = 'PATCH') {
   await page.getByRole('button', { name: label, exact: true }).click();
+  if (label === 'Nhận phòng') { await expect(page.getByRole('dialog').getByRole('button', { name: 'Tiếp tục' })).toBeVisible(); await page.screenshot({ path: '../.local/kamra-checkin-desktop.png', fullPage: true }); }
+  if (label === 'Trả phòng') { await expect(page.getByRole('dialog').getByText('Còn phải thu')).toBeVisible(); await page.screenshot({ path: '../.local/kamra-checkout-desktop.png', fullPage: true }); }
+  if (label === 'Nhận phòng') for (let i=0;i<2;i++) await page.getByRole('dialog').getByRole('button', { name: 'Tiếp tục' }).click();
   const wait = page.waitForResponse(r => r.url() === api + path && r.request().method() === method);
   await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận ' + label.toLocaleLowerCase('vi-VN'), exact: true }).click();
   const response = await wait; expect(response.status()).toBe(method === 'POST' ? 201 : 200); return response.json();
@@ -35,9 +38,10 @@ test('Phase 9 continuous 18-step UI workflow with real REST/PostgreSQL and store
     expect(await guest.evaluate(() => Reflect.get(window, '__phase9Xss'))).toBeUndefined(); await expect(guest.locator('img[src="x"]')).toHaveCount(0);
     await go(guest, '/'); await guest.getByLabel('NGÀY NHẬN PHÒNG').fill(today); await guest.getByLabel('NGÀY TRẢ PHÒNG').fill(out); await guest.getByRole('button', { name: 'Tìm phòng', exact: true }).click();
     await guest.getByLabel('Loại phòng').selectOption(f.releaseType.id); await guest.getByRole('button', { name: 'Tìm phòng', exact: true }).click(); await expect(guest.locator('.guest-room')).toHaveCount(1); steps.push('03 availability');
-    await guest.getByRole('link', { name: 'Xem phòng ' + f.releaseRoom.roomNumber, exact: true }).click(); await expect(guest.getByRole('button', { name: 'Đặt phòng này', exact: true })).toBeVisible(); steps.push('04 room detail');
-    await guest.getByRole('button', { name: 'Đặt phòng này', exact: true }).click(); const created = guest.waitForResponse(r => r.url() === api + '/bookings' && r.request().method() === 'POST'); await guest.getByRole('button', { name: 'Xác nhận đặt phòng', exact: true }).click(); const bResponse = await created; expect(bResponse.status()).toBe(201); const b = await bResponse.json(); expect(b.totalRoomAmount).toBe('1950000.75'); steps.push('05 multi-night booking');
+    await guest.getByRole('link', { name: 'Chọn hạng phòng này', exact: true }).click(); await expect(guest.getByRole('button', { name: 'Đặt phòng này ngay', exact: true })).toBeVisible(); steps.push('04 room detail');
+    await guest.getByRole('button', { name: 'Đặt phòng này ngay', exact: true }).click(); const created = guest.waitForResponse(r => r.url() === api + '/bookings' && r.request().method() === 'POST'); await guest.getByRole('button', { name: 'Xác nhận đặt phòng', exact: true }).click(); const bResponse = await created; expect(bResponse.status()).toBe(201); const b = await bResponse.json(); expect(b.totalRoomAmount).toBe('1950000.75'); steps.push('05 multi-night booking');
     await login(staff, 'reception'); await go(staff, '/reception/bookings/' + b.id); await expect(staff.locator(`.desk-page[data-booking-id="${b.id}"]`)).toBeVisible();
+    await staff.screenshot({ path: '../.local/kamra-reservation-desktop.png', fullPage: true });
     await action(staff, 'Xác nhận booking', `/bookings/${b.id}/confirm`); steps.push('06 confirm'); await expect(staff.getByRole('button', { name: 'Nhận phòng', exact: true })).toBeVisible();
     await action(staff, 'Nhận phòng', `/bookings/${b.id}/check-in`); steps.push('07 check-in');
     await go(guest, '/guest/services?bookingId=' + b.id); await guest.getByLabel('Số lượng ' + f.services[0].name, { exact: true }).fill('2'); await guest.getByRole('button', { name: 'Xem lại đơn dịch vụ', exact: true }).click();

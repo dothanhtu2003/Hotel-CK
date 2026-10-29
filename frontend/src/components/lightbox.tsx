@@ -21,9 +21,11 @@ export function Lightbox({
 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-  useEffect(() => {
+  const [previousInitial, setPreviousInitial] = useState(initialIndex);
+  if (previousInitial !== initialIndex) {
+    setPreviousInitial(initialIndex);
     setCurrentIndex(initialIndex);
-  }, [initialIndex]);
+  }
 
   useEffect(() => {
     if (!open) return;

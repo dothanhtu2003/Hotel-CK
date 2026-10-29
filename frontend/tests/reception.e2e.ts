@@ -7,7 +7,7 @@ async function headers(request: APIRequestContext, name = 'reception') { const f
 async function go(page: Page, path: string) {
   await page.evaluate(p => new Promise<void>(resolve => { history.pushState({}, '', p); window.dispatchEvent(new PopStateEvent('popstate')); requestAnimationFrame(() => requestAnimationFrame(() => resolve())); }), path);
   const pathname = path.split('?')[0], id = pathname.split('/').at(-1)!;
-  let ready = page.getByRole('heading', { name: 'Một ngày đón khách chu đáo.', exact: true });
+  let ready = page.getByRole('heading', { name: 'Tổng quan lễ tân', exact: true });
   if (/\/bookings\/[^/]+\/billing$/.test(pathname)) ready = page.getByRole('heading', { name: 'Chi phí & phát hành hóa đơn', exact: true });
   else if (/\/bookings\/[^/]+$/.test(pathname)) ready = page.locator(`.desk-page[data-booking-id="${id}"]`);
   else if (pathname.endsWith('/bookings')) ready = page.getByRole('heading', { name: 'Quản lý booking', exact: true });
@@ -21,7 +21,7 @@ function plus(date: string, days: number) { return new Date(Date.parse(date + 'T
 async function createBooking(request: APIRequestContext, room: number, checkIn = today()) { const response = await request.post(api + '/bookings', { headers: await headers(request, 'guest'), data: { roomId: fixtures().deskRooms[room].id, checkIn, checkOut: plus(checkIn, 2), guests: 2 } }); expect(response.status()).toBe(201); return response.json(); }
 async function checkedIn(request: APIRequestContext, room: number) { const b = await createBooking(request, room), staff = await headers(request); for (const action of ['confirm', 'check-in']) expect((await request.patch(`${api}/bookings/${b.id}/${action}`, { headers: staff })).ok()).toBe(true); return b; }
 async function invoiceFixture(request: APIRequestContext, room: number) { const b = await checkedIn(request, room); const r = await request.post(`${api}/bookings/${b.id}/invoice`, { headers: await headers(request) }); expect(r.status()).toBe(201); return r.json(); }
-async function dialogAction(page: Page, name: string) { await page.getByRole('button', { name, exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận ' + name.toLocaleLowerCase('vi-VN'), exact: true }).click(); }
+async function dialogAction(page: Page, name: string) { await page.getByRole('button', { name, exact: true }).click(); if (name === 'Nhận phòng') { for (let i=0;i<2;i++) await page.getByRole('dialog').getByRole('button', { name: 'Tiếp tục', exact: true }).click(); } await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận ' + name.toLocaleLowerCase('vi-VN'), exact: true }).click(); }
 async function paymentReview(page: Page, amount: string, method: 'CASH' | 'BANK_TRANSFER' = 'CASH') { await page.getByLabel('Số tiền (VND)', { exact: true }).fill(amount); await page.getByLabel('Phương thức', { exact: true }).selectOption(method); await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Xem lại khoản thu' }).click(); await expect(page.getByRole('dialog', { name: 'Xác nhận ghi nhận thanh toán', exact: true })).toBeVisible(); }
 
 test('desk OpenAPI contract includes idempotency header and real payment schema', async ({ request }) => {
@@ -34,7 +34,7 @@ test('desk OpenAPI contract includes idempotency header and real payment schema'
 test('reception dashboard totals, booking filters, pagination, detail, double-click confirm and cancel', async ({ page, request }) => {
   const b = await createBooking(request, 0, '2042-01-01'); await login(page, 'reception'); const staff = await headers(request);
   const snapshot = await (await request.get(`${api}/front-desk/dashboard`, { headers: staff })).json();
-  for (const key of ['arrivals','departures','staying','ready','dirty','orders','pending']) await expect(page.locator(`.desk-stats .metric-${key} strong`)).toHaveText(snapshot.counts[key].toLocaleString('vi-VN'));
+  for (const key of ['arrivals','departures','staying']) await expect(page.locator(`.desk-stats .metric-${key} strong`)).toHaveText(snapshot.counts[key].toLocaleString('vi-VN'));
   await page.locator('.workspace-sidebar').getByRole('link', { name: 'Quản lý booking', exact: true }).click(); await page.getByRole('combobox', { name: 'Trạng thái booking', exact: true }).selectOption('PENDING');
   await expect(page.getByRole('table', { name: 'Danh sách booking', exact: true })).toBeVisible(); await expect(page.locator('tbody tr')).toHaveCount(10);
   await page.getByRole('button', { name: 'Trang sau', exact: true }).click(); await expect(page).toHaveURL(/page=2/); await page.getByRole('button', { name: 'Trang trước', exact: true }).click();
@@ -48,7 +48,7 @@ test('reception dashboard totals, booking filters, pagination, detail, double-cl
 test('invalid check-in is a real PostgreSQL 409 with actionable room/date conditions', async ({ page, request }) => {
   const b = await createBooking(request, 0, '2043-01-01'), staff = await headers(request); expect((await request.patch(`${api}/bookings/${b.id}/confirm`, { headers: staff })).status()).toBe(200);
   await login(page, 'reception'); await go(page, '/reception/bookings/' + b.id); await expect(page.getByRole('heading', { name: 'Điều kiện nhận phòng' })).toBeVisible();
-  await dialogAction(page, 'Nhận phòng'); await expect(page.getByRole('dialog').getByRole('alert')).toContainText('CLEAN'); await expect(page.getByRole('dialog').getByRole('alert')).toContainText('ngày lưu trú');
+  await page.getByRole('button', { name: 'Nhận phòng', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'Tiếp tục' }).click(); await expect(page.getByRole('dialog').getByRole('button', { name: 'Tiếp tục' })).toBeDisabled(); expect((await request.patch(`${api}/bookings/${b.id}/check-in`, { headers: staff })).status()).toBe(409); await expect(page.getByRole('dialog').getByRole('alert')).toContainText('CLEAN'); await expect(page.getByRole('dialog').getByRole('alert')).toContainText('ngày lưu trú');
 });
 
 test('full front desk stay: confirm, check-in, services, invoice, CASH + BANK_TRANSFER, paid check-out triggers', async ({ page, request }) => {
@@ -102,7 +102,7 @@ for (const role of ['guest', 'housekeeping']) test(`${role} cannot enter Front D
 });
 
 test('admin has the same supported desk actions, 404 and responsive dashboard', async ({ page, request }) => {
-  await login(page, 'admin'); await expect(page.getByRole('heading', { level: 1 })).toContainText('Một ngày đón khách'); await go(page, '/reception'); await expect(page.getByText('403 · QUYỀN TRUY CẬP')).toHaveCount(0);
+  await login(page, 'admin'); await expect(page.getByRole('heading', { level: 1 })).toContainText('Tổng quan lễ tân'); await go(page, '/reception'); await expect(page.getByText('403 · QUYỀN TRUY CẬP')).toHaveCount(0);
   const b = await createBooking(request, 4, '2044-01-01'); await go(page, '/reception/bookings/' + b.id); await dialogAction(page, 'Xác nhận booking'); await expect(page.getByRole('button', { name: 'Nhận phòng', exact: true })).toBeVisible();
   await go(page, '/reception/bookings/' + randomUUID()); await expect(page.locator('.state-panel[role="alert"]')).toContainText('Không tìm thấy'); await go(page, '/reception');
   for (const width of [1440, 768, 390, 320]) { await page.setViewportSize({ width, height: 950 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); } await page.screenshot({ path: '../.local/phase8c-dashboard-mobile.png', fullPage: true });

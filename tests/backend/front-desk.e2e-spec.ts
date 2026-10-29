@@ -83,6 +83,21 @@ describe("Front desk API — isolated local hotel_test", () => {
         .expect(201)
     ).body;
   }
+  it("reads future tape ranges with half-open boundaries and operational dates", async () => {
+    const r = await room();
+    const booking = await c.prisma.client.booking.create({ data: { roomId: r.id, userId: actors.guest.id, checkInDate: new Date('2048-06-01'), checkOutDate: new Date('2048-06-04'), guestCount: 2 } });
+    const range = await api().get(`/api/front-desk/rooms?roomTypeId=${typeId}&start=2048-06-02&end=2048-06-05&pageSize=100`).set(auth()).expect(200);
+    expect(range.body.data.find((v: { id: string }) => v.id === r.id).bookings.map((v: { id: string }) => v.id)).toContain(booking.id);
+    const after = await api().get(`/api/front-desk/rooms?roomTypeId=${typeId}&start=2048-06-04&end=2048-06-05&pageSize=100`).set(auth()).expect(200);
+    expect(after.body.data.find((v: { id: string }) => v.id === r.id).bookings).toHaveLength(0);
+    const arrivals = await api().get('/api/front-desk/bookings?view=arrivals&date=2048-06-01&pageSize=100').set(auth()).expect(200);
+    expect(arrivals.body.data.map((v: { id: string }) => v.id)).toContain(booking.id);
+    for (const range of ['start=2048-06-01', 'start=2048-06-01&end=2048-06-01', 'start=2048-06-01&end=2048-08-01', 'start=2048-02-30&end=2048-03-04']) await api().get('/api/front-desk/rooms?' + range).set(auth()).expect(400);
+    const metrics = await api().get('/api/front-desk/dashboard').set(auth()).expect(200);
+    expect(metrics.body.totalRooms).toBe(await c.prisma.client.room.count());
+    expect(metrics.body.occupiedRooms).toBe(await c.prisma.client.room.count({ where: { bookings: { some: { status: 'CHECKED_IN' } } } }));
+    expect(metrics.body.openTasks).toBe(await c.prisma.client.housekeepingTask.count({ where: { status: { not: 'DONE' } } }));
+  });
   it("protects every endpoint and private customer information", async () => {
     for (const route of [
       "dashboard",

@@ -74,11 +74,12 @@ test("walk-in links an existing guest, shows quote, creates once, confirms and c
   const b = await confirm(page);
   expect(b.userId).toBe(fixtures().users.guest.id);
   expect(writes).toBe(1);
-  await expect(page.locator(".guest-facts")).toContainText(
+  await expect(page.locator(".guest-facts").first()).toContainText(
     fixtures().users.guest.email,
   );
   for (const label of ["Xác nhận booking", "Nhận phòng"]) {
     await page.getByRole("button", { name: label, exact: true }).click();
+    if (label === "Nhận phòng") for (let i=0;i<2;i++) await page.getByRole("dialog").getByRole("button", { name: "Tiếp tục" }).click();
     await page
       .getByRole("dialog")
       .getByRole("button", {
@@ -131,9 +132,9 @@ test("walk-in links an existing guest, shows quote, creates once, confirms and c
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page
     .locator(".workspace-sidebar")
-    .getByRole("link", { name: "Tổng quan", exact: true })
+    .getByRole("link", { name: "Hôm nay", exact: true })
     .click();
-  await expect(page.locator(".desk-operation-stats>a")).toHaveCount(7);
+  await expect(page.locator(".today-metrics>a")).toHaveCount(6);
   await page.screenshot({
     path: "../.local/front-desk-dashboard.png",
     fullPage: true,
@@ -151,14 +152,20 @@ test("walk-in creates a real customer profile and server search finds its bookin
   const name = "Khách tại quầy " + randomUUID().slice(0, 8),
     email = randomUUID() + "@frontend-test.invalid";
   await page.getByLabel("Họ và tên", { exact: true }).fill(name);
+  await page.getByLabel("Email", { exact: true }).fill("");
+  await page.getByLabel("Số điện thoại", { exact: true }).fill("0901234567");
+  await page.getByRole("button", { name: "Xem lại booking", exact: true }).click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  expect(await page.getByLabel("Email", { exact: true }).evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBe(true);
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page
     .getByLabel("Số điện thoại", { exact: true })
     .fill("09" + Date.now().toString().slice(-8));
+  await page.screenshot({ path: "../.local/kamra-walkin-desktop.png", fullPage: true });
   const b = await confirm(page);
   expect(b.customer.fullName).toBe(name);
   expect(b).not.toHaveProperty("accessToken");
-  await expect(page.locator(".guest-facts")).toContainText(email);
+  await expect(page.locator(".guest-facts").first()).toContainText(email);
   await page
     .locator(".workspace-sidebar")
     .getByRole("link", { name: "Quản lý booking", exact: true })
@@ -275,16 +282,9 @@ test("walk-in reports an existing profile and dirty-room check-in is rejected wi
     page.getByText(/Phòng: Đang hoạt động.*Chưa sạch/),
   ).toBeVisible();
   await page.getByRole("button", { name: "Nhận phòng", exact: true }).click();
-  const checkIn = page.waitForResponse(
-    (r) =>
-      r.url() === api + `/bookings/${b.id}/check-in` &&
-      r.request().method() === "PATCH",
-  );
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Xác nhận nhận phòng", exact: true })
-    .click();
-  expect((await checkIn).status()).toBe(409);
+  await page.getByRole('dialog').getByRole('button', { name: 'Tiếp tục' }).click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Tiếp tục' })).toBeDisabled();
+  expect((await request.patch(api + `/bookings/${b.id}/check-in`, { headers })).status()).toBe(409);
   await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
     "CLEAN",
   );

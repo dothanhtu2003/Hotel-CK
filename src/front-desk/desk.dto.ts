@@ -18,6 +18,10 @@ import { CreateBookingDto } from "../bookings/dto/create-booking.dto.js";
 import { ServiceOrderQueryDto } from "../service-orders/dto/service-order-query.dto.js";
 import { IsStayDate } from "../common/validation/stay-dates.js";
 export class DeskQuery extends BookingQueryDto {
+  @ApiPropertyOptional({ format: "date" })
+  @IsOptional()
+  @IsStayDate()
+  date?: string;
   @ApiPropertyOptional({ maxLength: 120 })
   @IsOptional()
   @IsString()
@@ -37,6 +41,14 @@ export class DeskQuery extends BookingQueryDto {
   view?: string;
 }
 export class RoomQuery extends PaginationQueryDto {
+  @ApiPropertyOptional({ format: "date", description: "Tape chart inclusive start; requires end" })
+  @IsOptional()
+  @IsStayDate()
+  start?: string;
+  @ApiPropertyOptional({ format: "date", description: "Tape chart exclusive end; maximum 31 nights" })
+  @IsOptional()
+  @IsStayDate()
+  end?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)

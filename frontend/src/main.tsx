@@ -15,3 +15,5 @@ import './features/reception/operations.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, networkMode: 'always', refetchOnWindowFocus: true }, mutations: { retry: false, networkMode: 'always' } } });
 createRoot(document.getElementById('root')!).render(<StrictMode><QueryClientProvider client={queryClient}><ToastProvider><AuthProvider><App /></AuthProvider></ToastProvider></QueryClientProvider></StrictMode>);
+
+import './features/reception/kamra.css';

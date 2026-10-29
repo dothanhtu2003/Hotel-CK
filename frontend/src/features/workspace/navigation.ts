@@ -1,4 +1,4 @@
-import { BedDouble, Brush, ConciergeBell, ReceiptText, type LucideIcon } from 'lucide-react';
+import { CalendarDays, BedDouble, Brush, ConciergeBell, ReceiptText, type LucideIcon } from 'lucide-react';
 import type { Role } from '../auth/contracts';
 export interface WorkspaceFeature { slug: string; title: string; description: string; icon: LucideIcon }
 const booking = { slug: 'bookings', title: 'Đặt phòng', description: 'Tìm phòng và quản lý hành trình lưu trú.', icon: BedDouble };
@@ -11,6 +11,7 @@ const deskBooking = { ...booking, title: 'Quản lý booking', description: 'Xá
 const deskService = { ...service, slug: 'service-orders', title: 'Đơn dịch vụ', description: 'Theo dõi và xử lý dịch vụ khách đã đặt.' };
 const deskWalkIn = { ...booking, slug: 'walk-in', title: 'Đặt phòng tại quầy', description: 'Đón khách mới và liên kết hồ sơ khách.' };
 const deskRooms = { ...booking, slug: 'rooms', title: 'Bảng trạng thái phòng', description: 'Lịch phòng và tình trạng lưu trú.' };
+const tapeChart = { ...deskRooms, slug: 'tape-chart', title: 'Tape Chart', icon: CalendarDays };
 export const featuresForRole: Record<Role, WorkspaceFeature[]> = {
-  GUEST: [booking, service, billing], RECEPTIONIST: [deskBooking, deskWalkIn, deskRooms, deskService, deskHousekeeping, billing], HOUSEKEEPING: [housekeeping, tasks], ADMIN: [deskBooking, deskWalkIn, deskRooms, deskService, deskHousekeeping, billing],
+  GUEST: [booking, service, billing], RECEPTIONIST: [deskBooking, deskWalkIn, deskRooms, tapeChart, deskService, deskHousekeeping, billing], HOUSEKEEPING: [housekeeping, tasks], ADMIN: [deskBooking, deskWalkIn, deskRooms, tapeChart, deskService, deskHousekeeping, billing],
 };

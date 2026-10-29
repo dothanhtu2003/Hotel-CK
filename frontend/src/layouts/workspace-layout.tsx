@@ -1,6 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { ArrowUpRight, ChevronDown, LayoutDashboard, LogOut, Menu, Search, ShieldCheck, UserRound } from 'lucide-react';
+import {
+  ArrowUpRight,
+  BedDouble,
+  Brush,
+  CalendarDays,
+  ChevronDown,
+  ConciergeBell,
+  LayoutDashboard,
+  LayoutGrid,
+  LogOut,
+  Menu,
+  Moon,
+  Plus,
+  ReceiptText,
+  Search,
+  ShieldCheck,
+  Sun,
+  UserRound,
+  Users,
+} from 'lucide-react';
 import { Brand } from './public-layout';
 import { useAuth } from '../features/auth/auth-context';
 import { homeForRole, roleLabel } from '../features/auth/contracts';
@@ -8,12 +27,33 @@ import { featuresForRole } from '../features/workspace/navigation';
 import { Button, Dialog, StatusBadge } from '../components/ui';
 import { readAttempt } from '../features/reception/payment-attempt';
 import { useToast } from '../components/toast-context';
+import { CommandPalette } from '../components/command-palette';
 
 export function WorkspaceLayout() {
-  const { user, logout } = useAuth(), navigate = useNavigate(), toast = useToast(), location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false), [logoutOpen, setLogoutOpen] = useState(false);
+  const { user, logout } = useAuth(),
+    navigate = useNavigate(),
+    toast = useToast(),
+    location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false),
+    [logoutOpen, setLogoutOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [dark, setDark] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isMac = typeof navigator !== "undefined" && /Mac|iP(hone|ad|od)/.test(navigator.platform);
+
+  // Global Ctrl+K / Cmd+K listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!userDropdownOpen) return;
@@ -38,51 +78,142 @@ export function WorkspaceLayout() {
   }, [userDropdownOpen]);
 
   if (!user) return null;
-  const home = user.role === 'ADMIN' && location.pathname.startsWith('/reception') ? '/reception' : homeForRole[user.role];
+  const home =
+    user.role === 'ADMIN' && location.pathname.startsWith('/reception')
+      ? '/reception'
+      : homeForRole[user.role];
   const features = featuresForRole[user.role];
   const title = location.pathname.includes('/profile')
     ? 'Hồ sơ cá nhân'
     : location.pathname.includes('/invoices/') || location.pathname.endsWith('/billing')
     ? 'Hóa đơn & thanh toán'
-    : features.find(f => location.pathname.includes('/' + f.slug))?.title ?? 'Tổng quan';
+    : features.find((f) => location.pathname.includes('/' + f.slug))?.title ?? 'Tổng quan';
 
-  const isReception = user.role === 'RECEPTIONIST';
-  const primaryReceptionSlugs = ['bookings', 'walk-in', 'rooms'];
-  const visibleNavFeatures = isReception
-    ? features.filter(f => primaryReceptionSlugs.includes(f.slug))
-    : features;
-  const dropdownFeatures = isReception
-    ? features.filter(f => !primaryReceptionSlugs.includes(f.slug))
-    : [];
+  const isReception = user.role === 'RECEPTIONIST' || user.role === 'ADMIN';
 
-  const navigation = (
-    <>
-      <p className="nav-label">{user.role === 'GUEST' ? 'KHÔNG GIAN CỦA BẠN' : 'KHÔNG GIAN LÀM VIỆC'}</p>
-      <nav className="workspace-nav" aria-label="Điều hướng tài khoản" onClick={() => setMobileOpen(false)}>
-        <NavLink to={home} end>
-          <LayoutDashboard size={19} />
-          Tổng quan
-        </NavLink>
-        {visibleNavFeatures.map(({ slug, title, icon: Icon }) => (
-          <NavLink key={slug} to={`${home}/${slug}`}>
-            <Icon size={19} />
-            <span>{title}</span>
+  // Kamra-style grouped navigation for reception
+  const receptionNavigation = (
+    <nav className="flex-1 space-y-4 px-1" aria-label="Điều hướng lễ tân" onClick={() => setMobileOpen(false)}>
+      <div>
+        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+          VẬN HÀNH (FRONT DESK)
+        </div>
+        <div className="space-y-0.5">
+          <NavLink
+            to={home}
+            end
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-brand-50 text-brand-700 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`
+            }
+          >
+            <LayoutDashboard className="size-4 shrink-0" />
+            <span>Hôm nay (Today)</span>
           </NavLink>
-        ))}
-        {!isReception && (
-          <>
-            <span className="nav-divider" />
-            <NavLink to={`${home}/profile`}>
-              <UserRound size={19} />
-              Hồ sơ cá nhân
-            </NavLink>
-          </>
-        )}
-      </nav>
-    </>
+          <NavLink
+            to={`${home}/bookings`}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-brand-50 text-brand-700 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`
+            }
+          >
+            <Users className="size-4 shrink-0" />
+            <span>Khách & Booking</span>
+          </NavLink>
+          <NavLink
+            to={`${home}/rooms`}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-brand-50 text-brand-700 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`
+            }
+          >
+            <BedDouble className="size-4 shrink-0" />
+            <span>Bảng phòng (Room Board)</span>
+          </NavLink>
+          <NavLink
+            to={`${home}/tape-chart`}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-brand-50 text-brand-700 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`
+            }
+          >
+            <CalendarDays className="size-4 shrink-0" />
+            <span>Lịch Tape Chart</span>
+          </NavLink>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+          DỊCH VỤ & BUỒNG PHÒNG
+        </div>
+        <div className="space-y-0.5">
+          <NavLink
+            to={`${home}/service-orders`}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-brand-50 text-brand-700 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`
+            }
+          >
+            <ConciergeBell className="size-4 shrink-0" />
+            <span>Đơn dịch vụ phòng</span>
+          </NavLink>
+          <NavLink
+            to={`${home}/housekeeping`}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-brand-50 text-brand-700 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`
+            }
+          >
+            <Brush className="size-4 shrink-0" />
+            <span>Buồng phòng</span>
+          </NavLink>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+          TÀI CHÍNH & THU NGÂN
+        </div>
+        <div className="space-y-0.5">
+          <NavLink
+            to={`${home}/billing`}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-brand-50 text-brand-700 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`
+            }
+          >
+            <ReceiptText className="size-4 shrink-0" />
+            <span>Hóa đơn & thanh toán</span>
+          </NavLink>
+        </div>
+      </div>
+    </nav>
   );
 
-  const mobileNavigation = (
+  // Standard non-reception navigation (Guest, Housekeeping)
+  const defaultNavigation = (
     <>
       <p className="nav-label">{user.role === 'GUEST' ? 'KHÔNG GIAN CỦA BẠN' : 'KHÔNG GIAN LÀM VIỆC'}</p>
       <nav className="workspace-nav" aria-label="Điều hướng tài khoản" onClick={() => setMobileOpen(false)}>
@@ -90,10 +221,10 @@ export function WorkspaceLayout() {
           <LayoutDashboard size={19} />
           Tổng quan
         </NavLink>
-        {features.map(({ slug, title, icon: Icon }) => (
+        {features.map(({ slug, title: fTitle, icon: Icon }) => (
           <NavLink key={slug} to={`${home}/${slug}`}>
             <Icon size={19} />
-            <span>{title}</span>
+            <span>{fTitle}</span>
           </NavLink>
         ))}
         <span className="nav-divider" />
@@ -106,171 +237,308 @@ export function WorkspaceLayout() {
   );
 
   return (
-    <div className={`workspace ${user.role === 'GUEST' ? 'guest-workspace' : 'staff-workspace'}`}>
-      <a className="skip-link" href="#main-content">Đến nội dung chính</a>
+    <div
+      className={`workspace ${
+        user.role === 'GUEST'
+          ? 'guest-workspace'
+          : isReception
+          ? 'staff-workspace kamra-workspace'
+          : 'staff-workspace'
+      }`}
+    >
+      <a className="skip-link" href="#main-content">
+        Đến nội dung chính
+      </a>
+
+      {/* Sidebar */}
       <aside className="workspace-sidebar">
-        <Brand light />
-        <div className="sidebar-role">
-          {roleLabel[user.role]}
-          <span>AN NHIÊN HOTEL & SUITES</span>
-        </div>
-        {navigation}
-        {(user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
-          <form
-            className="desk-quick-search-hidden"
-            role="search"
-            onSubmit={e => {
-              e.preventDefault();
-              const q = String(new FormData(e.currentTarget).get('q') ?? '').trim();
-              if (q) navigate(`${home}/bookings?q=${encodeURIComponent(q)}`);
-            }}
-          >
-            <input aria-label="Tìm nhanh booking" name="q" maxLength={120} placeholder="Tìm khách, booking, số phòng…" required />
-            <button aria-label="Tìm booking"><Search size={17} /></button>
-          </form>
-        )}
         {isReception ? (
-          <div className="sidebar-bottom">
-            <div className="sidebar-user-container" ref={dropdownRef}>
-              <button
-                type="button"
-                className={`sidebar-user-trigger ${userDropdownOpen ? 'active' : ''}`}
-                onClick={() => setUserDropdownOpen(prev => !prev)}
-                aria-expanded={userDropdownOpen}
-                aria-haspopup="true"
-                title="Tùy chọn tài khoản & nghiệp vụ bổ sung"
-              >
-                <span className="sidebar-user-avatar">{user.fullName.slice(0, 1).toUpperCase()}</span>
-                <div className="sidebar-user-info">
-                  <strong className="sidebar-user-name">{user.fullName}</strong>
-                  <small className="sidebar-user-role">{roleLabel[user.role]}</small>
-                </div>
-                <ChevronDown size={14} className={`sidebar-user-chevron ${userDropdownOpen ? 'open' : ''}`} />
-              </button>
+          <>
+            <NavLink
+              to={home}
+              end
+              className="mb-4 flex items-center gap-2 rounded-lg px-2 outline-none"
+              aria-label="Trang chủ lễ tân"
+            >
+              <div className="flex size-7 items-center justify-center rounded-lg bg-brand-600 text-white font-bold text-sm shadow-sm">
+                A
+              </div>
+              <span className="text-lg font-semibold tracking-tight text-zinc-900">
+                an nhiên
+                <span className="ml-1 align-middle text-[10px] font-semibold tracking-[0.2em] text-brand-600">
+                  PMS
+                </span>
+              </span>
+            </NavLink>
 
-              {userDropdownOpen && (
-                <div className="sidebar-user-dropdown" role="menu">
-                  <div className="sidebar-dropdown-header">
-                    <div className="sidebar-dropdown-user">
-                      <span className="sidebar-dropdown-avatar">{user.fullName.slice(0, 1).toUpperCase()}</span>
-                      <div>
-                        <p className="sidebar-dropdown-name">{user.fullName}</p>
-                        <p className="sidebar-dropdown-email">{user.email}</p>
-                      </div>
-                    </div>
-                    <span className="sidebar-dropdown-badge">{roleLabel[user.role]}</span>
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-brand-50 px-2.5 py-1.5 text-brand-800">
+              <span className="flex size-5 items-center justify-center rounded bg-brand-600 text-white">
+                <LayoutDashboard className="size-3" />
+              </span>
+              <span className="text-xs font-semibold">Front Desk</span>
+            </div>
+
+            {receptionNavigation}
+
+            <div className="mt-auto pt-4 border-t border-zinc-200">
+              <div className="sidebar-user-container relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  className={`sidebar-user-trigger flex w-full items-center gap-2.5 rounded-lg border border-zinc-200 bg-white p-2 text-start transition-colors hover:bg-zinc-50 ${
+                    userDropdownOpen ? 'border-brand-600' : ''
+                  }`}
+                  onClick={() => setUserDropdownOpen((prev) => !prev)}
+                  aria-expanded={userDropdownOpen}
+                  aria-haspopup="true"
+                >
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
+                    {user.fullName.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <strong className="block truncate text-xs font-semibold text-zinc-900">
+                      {user.fullName}
+                    </strong>
+                    <small className="block truncate text-[10px] text-zinc-400">
+                      {roleLabel[user.role]}
+                    </small>
                   </div>
+                  <ChevronDown
+                    size={14}
+                    className={`text-zinc-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
 
-                  <div className="sidebar-dropdown-section">
-                    <span className="sidebar-dropdown-label">TÙY CHỌN NGHIỆP VỤ</span>
+                {userDropdownOpen && (
+                  <div
+                    className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-lg border border-zinc-200 bg-white p-1.5 shadow-xl"
+                    role="menu"
+                  >
+                    <div className="border-b border-zinc-100 px-2 py-1.5 mb-1">
+                      <p className="truncate text-xs font-medium text-zinc-900">{user.fullName}</p>
+                      <p className="truncate text-[10px] text-zinc-400">{user.email}</p>
+                    </div>
                     <NavLink
                       to={`${home}/profile`}
-                      className="sidebar-dropdown-item"
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100"
                       onClick={() => setUserDropdownOpen(false)}
                     >
-                      <UserRound size={16} />
+                      <UserRound size={14} />
                       <span>Hồ sơ cá nhân</span>
                     </NavLink>
-                    {dropdownFeatures.map(({ slug, title, icon: Icon }) => (
-                      <NavLink
-                        key={slug}
-                        to={`${home}/${slug}`}
-                        className="sidebar-dropdown-item"
-                        onClick={() => setUserDropdownOpen(false)}
-                      >
-                        <Icon size={16} />
-                        <span>{title}</span>
-                      </NavLink>
-                    ))}
-                  </div>
-
-                  <div className="sidebar-dropdown-divider" />
-
-                  <div className="sidebar-dropdown-section">
-                    <span className="sidebar-dropdown-label">HỆ THỐNG</span>
                     <Link
                       to="/"
-                      className="sidebar-dropdown-item"
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100"
                       onClick={() => setUserDropdownOpen(false)}
                     >
-                      <ArrowUpRight size={16} />
+                      <ArrowUpRight size={14} />
                       <span>Ghé thăm website</span>
                     </Link>
+                    <div className="my-1 border-t border-zinc-100" />
                     <button
                       type="button"
-                      className="sidebar-dropdown-item sidebar-dropdown-logout"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-rose-600 hover:bg-rose-50 cursor-pointer"
                       onClick={() => {
                         setUserDropdownOpen(false);
                         setLogoutOpen(true);
                       }}
                     >
-                      <LogOut size={16} />
+                      <LogOut size={14} />
                       <span>Đăng xuất tài khoản</span>
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+              <p className="mt-2.5 px-2 text-[10px] text-zinc-400">
+                Kamra PMS v2.4 · An Nhiên Hotel
+              </p>
             </div>
-          </div>
+          </>
         ) : (
-          <div className="sidebar-bottom">
-            <Link to="/"><ArrowUpRight size={17} />Ghé thăm website</Link>
-            <button onClick={() => setLogoutOpen(true)}><LogOut size={17} />Đăng xuất</button>
-            <div className="sidebar-user">
-              <span>{user.fullName.slice(0, 1).toUpperCase()}</span>
-              <div>
-                <strong>{user.fullName}</strong>
-                <small>{roleLabel[user.role]}</small>
+          <>
+            <Brand light={true} />
+            <div className="sidebar-role">
+              {roleLabel[user.role]}
+              <span>AN NHIÊN HOTEL & SUITES</span>
+            </div>
+            {defaultNavigation}
+            <div className="sidebar-bottom">
+              <Link to="/">
+                <ArrowUpRight size={17} />
+                Ghé thăm website
+              </Link>
+              <button onClick={() => setLogoutOpen(true)}>
+                <LogOut size={17} />
+                Đăng xuất
+              </button>
+              <div className="sidebar-user">
+                <span>{user.fullName.slice(0, 1).toUpperCase()}</span>
+                <div>
+                  <strong>{user.fullName}</strong>
+                  <small>{roleLabel[user.role]}</small>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </aside>
 
+      {/* Main Workspace Frame */}
       <div className="workspace-main">
         <header className="workspace-topbar">
-          <div>
-            <button className="mobile-menu icon-button" aria-label="Mở menu tài khoản" onClick={() => setMobileOpen(true)}>
-              <Menu />
+          <div className="flex items-center gap-2.5">
+            <button
+              className="mobile-menu icon-button"
+              aria-label="Mở menu tài khoản"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu size={18} />
             </button>
-            <span>An Nhiên <span className="breadcrumb-slash">/</span><strong>{title}</strong></span>
+            {isReception ? (
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800">
+                  <LayoutGrid className="size-4" />
+                </span>
+                <span className="font-semibold text-sm text-zinc-900">An Nhiên Hotel & Suites</span>
+              </div>
+            ) : (
+              <span>
+                An Nhiên <span className="breadcrumb-slash">/</span>
+                <strong>{title}</strong>
+              </span>
+            )}
           </div>
-          <div>
-            <StatusBadge tone="success">Đã xác thực</StatusBadge>
-            <Link to={`${home}/profile`} className="topbar-avatar" aria-label="Xem hồ sơ cá nhân">
-              {user.fullName.slice(0, 1).toUpperCase()}
-            </Link>
-            <button className="icon-button topbar-logout" aria-label="Đăng xuất" onClick={() => setLogoutOpen(true)}>
-              <LogOut size={18} />
-            </button>
+
+          {/* Centered Kamra-style Search shortcut */}
+          {isReception && (
+            <div className="flex flex-1 justify-center px-4 max-w-md">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                title={`Tìm khách hoặc booking, hoặc nhảy nhanh đến mục khác (${isMac ? '⌘K' : 'Ctrl+K'})`}
+                className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-1.5 text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors cursor-pointer"
+              >
+                <Search className="size-3.5 shrink-0" />
+                <span className="truncate whitespace-nowrap">
+                  Tìm khách, booking, số phòng…
+                </span>
+                <kbd className="ml-auto hidden rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500 md:inline">
+                  {isMac ? '⌘K' : 'Ctrl+K'}
+                </kbd>
+              </button>
+            </div>
+          )}
+
+          {/* Right Header Actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {isReception && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setDark((d) => !d)}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 cursor-pointer"
+                  title="Chế độ giao diện"
+                  aria-label="Chế độ giao diện"
+                >
+                  {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+                </button>
+                <span className="hidden text-xs text-zinc-500 xl:inline">{user.fullName}</span>
+                <Link
+                  to={`${home}/walk-in`}
+                  className="hidden md:inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 shadow-xs transition-colors"
+                >
+                  Đặt phòng tại quầy
+                </Link>
+                <Link
+                  to={`${home}/walk-in`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 shadow-xs transition-colors"
+                >
+                  <Plus className="size-3.5" />
+                  <span className="hidden sm:inline">Đón khách</span>
+                </Link>
+                <button
+                  onClick={() => setLogoutOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-zinc-700 cursor-pointer p-1"
+                  title="Đăng xuất"
+                  aria-label="Đăng xuất"
+                >
+                  <LogOut className="size-4" />
+                </button>
+              </>
+            )}
+
+            {!isReception && (
+              <>
+                <StatusBadge tone="success">Đã xác thực</StatusBadge>
+                <Link to={`${home}/profile`} className="topbar-avatar" aria-label="Xem hồ sơ cá nhân">
+                  {user.fullName.slice(0, 1).toUpperCase()}
+                </Link>
+                <button
+                  className="icon-button topbar-logout"
+                  aria-label="Đăng xuất"
+                  onClick={() => setLogoutOpen(true)}
+                >
+                  <LogOut size={18} />
+                </button>
+              </>
+            )}
           </div>
         </header>
 
         <main id="main-content" className="workspace-content">
-          <PendingReceiptNotice userId={user.id} home={home} enabled={user.role === 'ADMIN' || user.role === 'RECEPTIONIST'} />
+          <PendingReceiptNotice
+            userId={user.id}
+            home={home}
+            enabled={user.role === 'ADMIN' || user.role === 'RECEPTIONIST'}
+          />
           <Outlet />
         </main>
 
         <footer className="workspace-footer">
           <span>© {new Date().getFullYear()} An Nhiên Hotel & Suites</span>
-          <span>Chăm chút từng trải nghiệm.</span>
+          <span>Chăm chút từng trải nghiệm. Vận hành bởi Kamra PMS.</span>
         </footer>
       </div>
 
-      <Dialog open={mobileOpen} onClose={() => setMobileOpen(false)} title="Không gian của bạn" className="workspace-mobile-dialog">
-        {mobileNavigation}
-        <Button variant="secondary" onClick={() => { setMobileOpen(false); setLogoutOpen(true); }}>
+      {/* Global Command Palette */}
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} home={home} />
+
+      {/* Mobile Drawer */}
+      <Dialog
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        title="Menu lễ tân"
+        className="workspace-mobile-dialog"
+      >
+        {isReception ? receptionNavigation : defaultNavigation}
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setMobileOpen(false);
+            setLogoutOpen(true);
+          }}
+        >
           <LogOut size={17} />
           Đăng xuất
         </Button>
       </Dialog>
 
+      {/* Logout Confirmation */}
       <Dialog open={logoutOpen} onClose={() => setLogoutOpen(false)} title="Đăng xuất tài khoản?">
-        <div className="dialog-icon"><ShieldCheck size={29} /></div>
-        <p>Bạn sẽ đăng xuất khỏi tab này. Lần truy cập tiếp theo cần đăng nhập lại.</p>
+        <div className="dialog-icon">
+          <ShieldCheck size={29} />
+        </div>
+        <p>Bạn sẽ đăng xuất khỏi phiên làm việc này. Lần truy cập tiếp theo cần đăng nhập lại.</p>
         <div className="dialog-actions">
-          <Button variant="secondary" onClick={() => setLogoutOpen(false)}>Ở lại</Button>
-          <Button onClick={() => { logout(); toast('Đã đăng xuất trên thiết bị này.'); navigate('/login', { replace: true }); }}>
+          <Button variant="secondary" onClick={() => setLogoutOpen(false)}>
+            Ở lại
+          </Button>
+          <Button
+            onClick={() => {
+              logout();
+              toast('Đã đăng xuất trên thiết bị này.');
+              navigate('/login', { replace: true });
+            }}
+          >
             Xác nhận đăng xuất
           </Button>
         </div>
@@ -279,7 +547,15 @@ export function WorkspaceLayout() {
   );
 }
 
-function PendingReceiptNotice({ userId, home, enabled }: { userId: string; home: string; enabled: boolean }) {
+function PendingReceiptNotice({
+  userId,
+  home,
+  enabled,
+}: {
+  userId: string;
+  home: string;
+  enabled: boolean;
+}) {
   if (!enabled) return null;
   let attempt;
   let failed = false;
@@ -288,10 +564,16 @@ function PendingReceiptNotice({ userId, home, enabled }: { userId: string; home:
   } catch {
     failed = true;
   }
-  if (failed) return <p className="form-error" role="alert">Không đọc được thông tin khoản thu chờ kiểm tra trong phiên trình duyệt.</p>;
+  if (failed)
+    return (
+      <p className="form-error" role="alert">
+        Không đọc được thông tin khoản thu chờ kiểm tra trong phiên trình duyệt.
+      </p>
+    );
   return attempt ? (
     <p className="notice">
-      Có khoản thu cần đối chiếu. <Link to={`${home}/invoices/${attempt.invoiceId}`}>Mở hóa đơn cần kiểm tra</Link>
+      Có khoản thu cần đối chiếu.{' '}
+      <Link to={`${home}/invoices/${attempt.invoiceId}`}>Mở hóa đơn cần kiểm tra</Link>
     </p>
   ) : null;
 }

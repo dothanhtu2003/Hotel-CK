@@ -22,23 +22,20 @@ export function PublicHeader() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    if (!isHome) {
-      setScrolled(false);
-      return;
-    }
+    if (!isHome) return;
     const handleScroll = () => {
       setScrolled(window.scrollY > 30);
     };
-    handleScroll();
+    const frame = requestAnimationFrame(handleScroll);
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', handleScroll); };
   }, [isHome]);
 
   const isLight = isHome;
   const headerClass = [
     'public-header',
     isHome ? 'public-header-hero' : '',
-    scrolled ? 'is-scrolled' : '',
+    isHome && scrolled ? 'is-scrolled' : '',
   ].filter(Boolean).join(' ');
 
   return (

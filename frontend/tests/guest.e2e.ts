@@ -14,15 +14,15 @@ test('homepage search → room → registration/login return → booking → can
   await page.getByLabel('NGÀY NHẬN PHÒNG').fill('2035-11-10'); await page.getByLabel('NGÀY TRẢ PHÒNG').fill('2035-11-13');
   await page.getByRole('button', { name: 'Tìm phòng', exact: true }).click(); await expect(page).toHaveURL(/checkIn=2035-11-10/);
   await page.getByLabel('Loại phòng').selectOption(f.roomType.id); await page.getByRole('button', { name: 'Tìm phòng', exact: true }).click();
-  await expect(page.locator('.guest-room')).toHaveCount(2);
-  await page.getByRole('link', { name: 'Xem phòng ' + f.room.roomNumber, exact: true }).click();
+  await expect(page.locator('.guest-room')).toHaveCount(1);
+  await page.getByRole('link', { name: 'Chọn hạng phòng này', exact: true }).click();
   await page.getByRole('button', { name: 'Đăng nhập để đặt phòng' }).click();
   await page.getByRole('link', { name: 'Tạo tài khoản', exact: true }).click();
   const email = `${randomUUID()}@frontend-test.invalid`;
   await page.getByLabel('Họ và tên', { exact: true }).fill('Guest Phase 8B'); await page.getByLabel('Địa chỉ email', { exact: true }).fill(email); await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password); await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill(f.password); await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/); await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password); await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(new RegExp('/rooms/' + f.room.id + '\\?'));
-  await page.getByRole('button', { name: 'Đặt phòng này', exact: true }).click(); await expect(page.getByRole('dialog')).toContainText('1.950.000,75');
+  await page.getByRole('button', { name: 'Đặt phòng này ngay', exact: true }).click(); await expect(page.getByRole('dialog')).toContainText('1.950.000,75');
   const response = page.waitForResponse(r => r.url() === base + '/bookings' && r.request().method() === 'POST'); await page.getByRole('button', { name: 'Xác nhận đặt phòng', exact: true }).click();
   const created = await response; expect(created.status()).toBe(201); const b = await created.json(); expect(Object.keys(created.request().postDataJSON()).sort()).toEqual(['checkIn', 'checkOut', 'guests', 'roomId']);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(b.reference); await expect(page.getByText('3 đêm · 2 khách', { exact: true })).toBeVisible();
@@ -81,11 +81,11 @@ test('cancel handles a real state conflict and booking ownership stays hidden in
 });
 
 test('availability loading, offline recovery, empty results and responsive pages', async ({ page, context }) => {
-  await page.goto('/rooms?checkIn=2039-01-01&checkOut=2039-01-03&guests=2147483647'); await expect(page.getByRole('heading', { name: 'Chưa có phòng phù hợp' })).toBeVisible();
+  await page.goto('/rooms?checkIn=2039-01-01&checkOut=2039-01-03&guests=2147483647'); await expect(page.getByRole('heading', { name: 'Chưa có hạng phòng phù hợp' })).toBeVisible();
   const session = await context.newCDPSession(page); await session.send('Network.enable'); await session.send('Network.emulateNetworkConditions', { offline: false, latency: 900, downloadThroughput: -1, uploadThroughput: -1 });
   await page.goto('/rooms?checkIn=2039-02-01&checkOut=2039-02-03&guests=2'); await expect(page.locator('.guest-skeleton')).toBeVisible(); await expect(page.locator('.guest-room').first()).toBeVisible(); await session.detach();
   await context.setOffline(true); await navigate(page, '/rooms?checkIn=2039-03-01&checkOut=2039-03-03&guests=2'); await expect(page.getByRole('alert')).toContainText('Chưa thể kết nối'); await context.setOffline(false); await page.getByRole('button', { name: 'Thử lại', exact: true }).click(); await expect(page.locator('.guest-room').first()).toBeVisible();
   for (const width of [1440, 768, 390, 320]) { await page.setViewportSize({ width, height: 900 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); }
-  await page.locator('.guest-room').first().getByRole('link', { name: /Xem phòng/ }).click(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('.guest-room').first().getByRole('link', { name: 'Chọn hạng phòng này', exact: true }).click(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: '../.local/phase8b-room-mobile.png', fullPage: true });
 });
