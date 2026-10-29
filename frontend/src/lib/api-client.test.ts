@@ -46,4 +46,12 @@ describe('Central API boundary (isolated transport unit tests, no business API m
   });
   it.each(['https://evil.example/path', '//evil.example/path'])('rejects absolute API path %s', async path => { const client = createApiClient('http://localhost/api'); await expect(client.request(path)).rejects.toThrow('relative'); });
   it.each(['javascript:alert(1)', 'http://user:password@localhost/api'])('rejects unsafe base URLs', base => expect(() => createApiClient(base)).toThrow());
+  it('keeps only declared walk-in error codes and never echoes unknown server messages', async () => {
+    const client = createApiClient('http://localhost/api', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ code: 'WALK_IN_CUSTOMER_EXISTS', message: 'private SQL' }), { status: 409 })));
+    await expect(client.request('/front-desk/walk-in')).rejects.toMatchObject({ status: 409, code: 'WALK_IN_CUSTOMER_EXISTS' });
+    const unknown = createApiClient('http://localhost/api', vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({ code: 'private SQL', message: 'password' }), { status: 409 })));
+    await expect(unknown.request('/front-desk/walk-in')).rejects.toMatchObject({ code: undefined });
+    await expect(unknown.request('/front-desk/walk-in')).rejects.not.toThrow(/SQL|password/);
+  });
+
 });

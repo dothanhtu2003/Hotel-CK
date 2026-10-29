@@ -11,6 +11,7 @@ import { AuthProvider } from './features/auth/auth-provider';
 import { ToastProvider } from './components/toast-provider';
 import { App } from './app';
 import './styles.css';
+import './features/reception/operations.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, networkMode: 'always', refetchOnWindowFocus: true }, mutations: { retry: false, networkMode: 'always' } } });
 createRoot(document.getElementById('root')!).render(<StrictMode><QueryClientProvider client={queryClient}><ToastProvider><AuthProvider><App /></AuthProvider></ToastProvider></QueryClientProvider></StrictMode>);

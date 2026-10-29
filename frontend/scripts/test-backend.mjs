@@ -29,7 +29,7 @@ const services = [];
 for (const [index, price] of ['45000.25', '80000.50'].entries()) services.push(await context.prisma.client.service.create({ data: { name: `Frontend ${suffix} ${index}`, description: 'Dịch vụ kiểm thử', currentPrice: price } }));
 const deskType = await context.prisma.client.roomType.create({ data: { name: `Front Desk ${suffix}`, description: 'Phòng kiểm thử lễ tân', nightlyPrice: '650000.25', maxGuests: 4 } });
 const deskRooms = [];
-for (let i = 0; i < 7; i++) deskRooms.push(await context.prisma.client.room.create({ data: { roomNumber: `FD${i}${suffix}`, floor: 2, roomTypeId: deskType.id } }));
+for (let i = 0; i < 10; i++) deskRooms.push(await context.prisma.client.room.create({ data: { roomNumber: `FD${i}${suffix}`, floor: 2, roomTypeId: deskType.id } }));
 // Non-overlapping, additive pending bookings ensure the desk pagination is exercised.
 for (let i = 0; i < 12; i++) {
   const checkInDate = new Date(Date.UTC(2041, 0, 1 + i * 3)), checkOutDate = new Date(Date.UTC(2041, 0, 3 + i * 3));

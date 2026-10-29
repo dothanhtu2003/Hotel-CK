@@ -94,8 +94,8 @@ test('a real delayed profile request shows a loading state before rendering', as
   await session.detach();
 });
 
-test('desktop staff portal renders its role-specific navigation and status table', async ({ page }) => {
-  await login(page, 'reception'); await expect(page.getByRole('table', { name: 'Danh sách booking', exact: true })).toBeVisible(); await expect(page.locator('.desk-stats>a')).toHaveCount(4);
+test('desktop staff portal renders operational cards and role-specific navigation', async ({ page }) => {
+  await login(page, 'reception'); await expect(page.locator('.desk-stats>a')).toHaveCount(7); await expect(page.getByRole('heading', { name: 'Khách sắp nhận phòng', exact: true })).toBeVisible(); await expect(page.getByRole('heading', { name: 'Khách sắp trả phòng', exact: true })).toBeVisible(); await expect(page.locator('.workspace-sidebar').getByRole('link', { name: 'Đặt phòng tại quầy', exact: true })).toBeVisible();
   await page.screenshot({ path: fileURLToPath(new URL('../../.local/frontend-portal-desktop.png', import.meta.url)), fullPage: true });
 });
 

@@ -9,7 +9,7 @@ async function go(page: Page, path: string) {
   const pathname = path.split('?')[0], id = pathname.split('/').at(-1)!;
   let ready = page.getByRole('heading', { name: 'Một ngày đón khách chu đáo.', exact: true });
   if (/\/bookings\/[^/]+\/billing$/.test(pathname)) ready = page.getByRole('heading', { name: 'Chi phí & phát hành hóa đơn', exact: true });
-  else if (/\/bookings\/[^/]+$/.test(pathname)) ready = page.locator('.desk-page dd').filter({ hasText: id });
+  else if (/\/bookings\/[^/]+$/.test(pathname)) ready = page.locator(`.desk-page[data-booking-id="${id}"]`);
   else if (pathname.endsWith('/bookings')) ready = page.getByRole('heading', { name: 'Quản lý booking', exact: true });
   else if (/\/invoices\//.test(pathname)) ready = page.getByText('Mã hóa đơn: ' + id, { exact: true });
   else if (/\/service-orders\/[^/]+$/.test(pathname)) ready = page.getByText('Mã đơn: ' + id, { exact: true });
@@ -33,7 +33,8 @@ test('desk OpenAPI contract includes idempotency header and real payment schema'
 
 test('reception dashboard totals, booking filters, pagination, detail, double-click confirm and cancel', async ({ page, request }) => {
   const b = await createBooking(request, 0, '2042-01-01'); await login(page, 'reception'); const staff = await headers(request);
-  for (const status of ['PENDING', 'CONFIRMED', 'CHECKED_IN']) { const result = await (await request.get(`${api}/bookings?status=${status}&pageSize=1&page=1`, { headers: staff })).json(); await expect(page.locator(`.desk-stats>a[href="/reception/bookings?status=${status}"] strong`)).toHaveText(result.meta.total.toLocaleString('vi-VN')); }
+  const snapshot = await (await request.get(`${api}/front-desk/dashboard`, { headers: staff })).json();
+  for (const key of ['arrivals','departures','staying','ready','dirty','orders','pending']) await expect(page.locator(`.desk-stats .metric-${key} strong`)).toHaveText(snapshot.counts[key].toLocaleString('vi-VN'));
   await page.locator('.workspace-sidebar').getByRole('link', { name: 'Quản lý booking', exact: true }).click(); await page.getByRole('combobox', { name: 'Trạng thái booking', exact: true }).selectOption('PENDING');
   await expect(page.getByRole('table', { name: 'Danh sách booking', exact: true })).toBeVisible(); await expect(page.locator('tbody tr')).toHaveCount(10);
   await page.getByRole('button', { name: 'Trang sau', exact: true }).click(); await expect(page).toHaveURL(/page=2/); await page.getByRole('button', { name: 'Trang trước', exact: true }).click();
@@ -56,8 +57,8 @@ test('full front desk stay: confirm, check-in, services, invoice, CASH + BANK_TR
   const orderIds: string[] = [];
   for (let i = 0; i < 2; i++) { const r = await request.post(api + '/service-orders', { headers: guest, data: { bookingId: b.id, items: [{ serviceId: f.services[i].id, quantity: 2 }] } }); expect(r.status()).toBe(201); orderIds.push((await r.json()).id); }
   await go(page, `/reception/bookings/${b.id}/billing`); await expect(page.getByRole('button', { name: 'Phát hành hóa đơn', exact: true })).toHaveCount(0); expect((await request.post(`${api}/bookings/${b.id}/invoice`, { headers: staff })).status()).toBe(409);
-  await go(page, '/reception/service-orders?status=PENDING'); await expect(page.getByRole('link', { name: orderIds[0], exact: true })).toBeVisible();
-  await page.getByRole('link', { name: orderIds[0], exact: true }).click(); await expect(page.getByRole('table', { name: 'Chi tiết dịch vụ và giá snapshot', exact: true })).toBeVisible(); await dialogAction(page, 'Hoàn thành dịch vụ'); await expect(page.locator('.desk-page .status-badge').filter({ hasText: 'Hoàn thành' })).toBeVisible(); await expect(page.getByRole('button', { name: 'Hoàn thành dịch vụ', exact: true })).toHaveCount(0);
+  await go(page, '/reception/service-orders?status=PENDING'); await expect(page.getByRole('link', { name: orderIds[0].slice(0, 8), exact: true })).toBeVisible();
+  await page.getByRole('link', { name: orderIds[0].slice(0, 8), exact: true }).click(); await expect(page.getByRole('table', { name: 'Chi tiết dịch vụ và giá snapshot', exact: true })).toBeVisible(); await dialogAction(page, 'Hoàn thành dịch vụ'); await expect(page.locator('.desk-page .status-badge').filter({ hasText: 'Hoàn thành' })).toBeVisible(); await expect(page.getByRole('button', { name: 'Hoàn thành dịch vụ', exact: true })).toHaveCount(0);
   await go(page, '/reception/service-orders/' + orderIds[1]); await dialogAction(page, 'Hủy đơn dịch vụ'); await expect(page.locator('.desk-page .status-badge').filter({ hasText: 'Đã hủy' })).toBeVisible();
   await go(page, `/reception/bookings/${b.id}/billing`); await expect(page.getByText('90.000,50 ₫', { exact: true }).first()).toBeVisible();
   const issued = page.waitForResponse(r => r.url() === `${api}/bookings/${b.id}/invoice` && r.request().method() === 'POST'); await dialogAction(page, 'Phát hành hóa đơn'); const issuedResponse = await issued; expect(issuedResponse.status()).toBe(201); expect(issuedResponse.request().postData()).toBeNull(); const i = await issuedResponse.json(); await expect(page).toHaveURL('/reception/invoices/' + i.id);

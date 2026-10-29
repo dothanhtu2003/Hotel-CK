@@ -1,0 +1,1094 @@
+/* Front desk operations — shared An Nhien forest, ivory and brass palette. */
+.desk-quick {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.desk-quick a {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 20px;
+  border: 1px solid #d9dfd9;
+  background: #fff;
+  border-radius: 8px;
+  color: #294d42;
+  font-weight: 500;
+}
+.desk-operation-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+.desk-metric {
+  position: relative;
+  min-height: 110px;
+  padding: 18px 20px !important;
+  border-top: 3px solid #b79b64 !important;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.desk-metric:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(36, 75, 61, 0.08);
+}
+.desk-metric > svg {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  color: #527568;
+}
+.desk-metric strong {
+  font-size: 28px !important;
+  margin: 4px 0 !important;
+}
+.desk-metric span {
+  padding-right: 24px;
+  font-size: 13px;
+  color: #556c5e;
+}
+.metric-ready {
+  border-top-color: #54866c !important;
+}
+.metric-dirty,
+.metric-orders {
+  border-top-color: #cd9861 !important;
+}
+.desk-task-strip {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.desk-task-strip h2 {
+  margin: 6px 0;
+}
+.desk-task-strip > a {
+  padding: 14px 0;
+  color: #345e4d;
+  font-size: 13px;
+}
+.desk-search {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  padding: 22px;
+}
+.desk-search label {
+  flex: 1;
+  display: grid;
+  gap: 9px;
+  font-size: 13px;
+}
+.desk-filters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 8px 0 20px;
+}
+.desk-filters > label {
+  display: grid;
+  gap: 9px;
+  font-size: 12px;
+  flex: 1;
+  min-width: 150px;
+}
+.desk-filters .filter-label {
+  margin: 0;
+  max-width: none;
+}
+.desk-room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+.desk-floor-group {
+  margin-bottom: 24px;
+  background: #ffffff;
+  border: 1px solid #dce2dc;
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+.desk-floor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #edf1ed;
+}
+.desk-floor-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #294b3f;
+  margin: 0;
+}
+.desk-floor-count {
+  font-size: 13px;
+  color: #63776b;
+}
+
+.desk-room {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  padding: 14px;
+  border: 1px solid #dce2dc;
+  border-radius: 8px;
+  min-width: 0;
+  cursor: pointer;
+  color: #294b3f;
+  background: #ffffff;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.desk-room:hover {
+  box-shadow: 0 6px 16px #244b3d18;
+  transform: translateY(-2px);
+}
+.desk-room-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.desk-room strong {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+}
+.desk-room-type {
+  font-size: 12px;
+  color: #617367;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.desk-room-guest {
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+  font-weight: 500;
+  color: #1f3b31;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 5 trạng thái phòng chuẩn ngành Khách sạn */
+.room-ready-clean {
+  border-top: 4px solid #2e7d32;
+  background: #fbfdfb;
+}
+.room-occupied {
+  border-top: 4px solid #c62828;
+  background: #fffafa;
+}
+.room-dirty {
+  border-top: 4px solid #e65100;
+  background: #fffdf9;
+}
+.room-cleaning {
+  border-top: 4px solid #f9a825;
+  background: #fffef7;
+}
+.room-out-of-service {
+  border-top: 4px solid #546e7a;
+  background: #f8f9fa;
+  opacity: 0.85;
+}
+
+.room-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  width: fit-content;
+}
+.badge-ready-clean {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+.badge-occupied {
+  background: #ffebee;
+  color: #b71c1c;
+}
+.badge-dirty {
+  background: #fff3e0;
+  color: #e65100;
+}
+.badge-cleaning {
+  background: #fffde7;
+  color: #f57f17;
+}
+.badge-out-of-service {
+  background: #eceff1;
+  color: #37474f;
+}
+
+.room-selected {
+  outline: 2px solid #2e7d32;
+  box-shadow: 0 0 0 3px #a5d6a780;
+}
+
+/* Legend trạng thái */
+.desk-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 20px;
+  padding: 12px 18px;
+  background: #f8faf7;
+  border: 1px solid #dce2dc;
+  border-radius: 8px;
+}
+.desk-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #385346;
+  font-weight: 500;
+}
+.desk-legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+/* Tabs thanh nghiệp vụ */
+.desk-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #dce2dc;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+.desk-tab {
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #556c5e;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.desk-tab:hover {
+  color: #294b3f;
+}
+.desk-tab.active {
+  color: #2e7d32;
+  border-bottom-color: #2e7d32;
+  font-weight: 600;
+}
+.desk-tab-count {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #edf1ed;
+  margin-left: 6px;
+  color: #294b3f;
+}
+.desk-tab.active .desk-tab-count {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+/* Quick Search Bar */
+.desk-express-search {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dce2dc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+.desk-express-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #294b3f;
+}
+.desk-express-search input::placeholder {
+  color: #8fa095;
+}
+.desk-steps {
+  display: flex;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  flex-wrap: wrap;
+}
+.desk-steps li {
+  flex: 1;
+  padding: 16px 20px;
+  background: #eaf0e9;
+  color: #345442;
+  border-radius: 6px;
+  font-size: 12px;
+  min-width: 180px;
+}
+.desk-customers {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.desk-customers > button {
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  border: 1px solid #d8ded8;
+  background: white;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.desk-customers span {
+  font-size: 12px;
+}
+.desk-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 0;
+  flex-wrap: wrap;
+}
+.desk-total strong {
+  font-size: 24px;
+  color: #345a48;
+}
+.desk-page .page-heading h1 {
+  overflow-wrap: anywhere;
+}
+.desk-page dd,
+.desk-reference {
+  overflow-wrap: anywhere;
+}
+.desk-search input {
+  min-width: 0;
+}
+@media (min-width: 1600px) {
+  .desk-operation-stats {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 1100px) {
+  .desk-room-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .desk-operation-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 600px) {
+  .desk-operation-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .desk-room-grid {
+    grid-template-columns: 1fr;
+  }
+  .desk-search {
+    padding: 16px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .desk-metric {
+    padding: 16px !important;
+  }
+  .desk-metric > svg {
+    display: none;
+  }
+  .desk-metric span {
+    padding: 0;
+  }
+  .desk-quick a {
+    flex: 1;
+    min-width: 130px;
+    font-size: 12px;
+    padding: 12px;
+  }
+  .desk-task-strip {
+    gap: 10px;
+  }
+  .desk-task-strip > a {
+    width: 100%;
+  }
+  .desk-steps li {
+    min-width: 100%;
+    padding: 12px;
+  }
+  .desk-room strong {
+    font-size: 20px;
+  }
+}
+
+/* Stable columns keep prices and stay dates legible; long legacy references stay accessible in the title. */
+.desk-page .desk-panel th,
+.desk-page .desk-panel td {
+  padding: 16px;
+}
+.desk-page .desk-panel table {
+  min-width: 980px;
+}
+.desk-page .desk-reference > a {
+  display: block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.desk-money {
+  white-space: nowrap;
+}
+.desk-stay-dates {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.desk-topbar-search {
+  display: flex;
+  align-items: center;
+  width: min(310px, 30vw);
+  border: 1px solid #dce3d6;
+  border-radius: 6px;
+  background: #f8faf5;
+  padding: 0 10px;
+}
+.desk-topbar-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 10px 4px;
+  font-size: 12px;
+  color: #294b3f;
+}
+.desk-topbar-search button {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  color: #41644c;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  .desk-topbar-search {
+    display: none;
+  }
+}
+
+/* ========================================================
+   FRONT DESK UI ENHANCEMENTS: TAPE CHART, LIVE SYNC & TOOLS
+   ======================================================== */
+
+.desk-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.live-sync-indicator,
+.live-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #edf4ed;
+  border: 1px solid #c9dec9;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #27563d;
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2e7d32;
+  box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7);
+  animation: pulse-ring 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 7px rgba(46, 125, 50, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(46, 125, 50, 0);
+  }
+}
+
+/* Board Mode Switcher */
+.desk-board-mode-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #dce2dc;
+}
+
+.view-mode-toggle {
+  display: inline-flex;
+  background: #edf1ed;
+  padding: 4px;
+  border-radius: 8px;
+  gap: 4px;
+}
+
+.view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b6354;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.view-mode-btn:hover {
+  color: #1f3b2f;
+}
+
+.view-mode-btn.active {
+  background: #ffffff;
+  color: #1f3b2f;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Board Stats Pills */
+.desk-board-stats-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f4f6f4;
+  border: 1px solid #dbe2db;
+  color: #385346;
+}
+
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot-ready { background: #2e7d32; }
+.dot-occupied { background: #c62828; }
+.dot-dirty { background: #e65100; }
+.dot-cleaning { background: #f9a825; }
+.dot-out { background: #546e7a; }
+
+/* Tape Chart Styles */
+.tape-chart-container {
+  background: #ffffff;
+  border: 1px solid #dce2dc;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 25px;
+}
+
+.tape-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #fcfdfc;
+  border-bottom: 1px solid #edf1ed;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tape-chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.tape-chart-nav-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.tape-chart-range-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #3f5e4f;
+}
+
+.tape-chart-quick-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.tape-search-input {
+  min-width: 180px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.tape-chart-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.tape-chart-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.tape-th-room {
+  width: 190px;
+  min-width: 190px;
+  text-align: left;
+  padding: 14px 16px;
+  background: #f7f9f7;
+  font-size: 12px;
+  color: #3b5a4a;
+  border-bottom: 2px solid #e1e7e1;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.tape-th-day {
+  padding: 12px 10px;
+  text-align: center;
+  background: #fbfdfb;
+  border-bottom: 2px solid #e1e7e1;
+  border-left: 1px solid #edf1ed;
+  min-width: 100px;
+}
+
+.tape-day-name {
+  display: block;
+  font-size: 11px;
+  color: #63776b;
+  text-transform: uppercase;
+}
+
+.tape-day-date {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #244637;
+  margin-top: 2px;
+}
+
+.tape-day-today {
+  background: #f0f7f1;
+}
+
+.tape-today-pill {
+  display: inline-block;
+  font-size: 9px;
+  background: #2e7d32;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.tape-row:hover td {
+  background-color: #fcfdfc;
+}
+
+.tape-td-room {
+  padding: 12px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #edf1ed;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  cursor: pointer;
+  box-shadow: 2px 0 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.tape-room-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+}
+
+.tape-room-num {
+  font-size: 15px;
+  color: #1f3b2f;
+}
+
+.tape-room-type {
+  font-size: 11px;
+  color: #63776b;
+}
+
+.tape-room-status-dot {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.tape-room-status-dot.status-clean { background: #2e7d32; }
+.tape-room-status-dot.status-dirty { background: #e65100; }
+.tape-room-status-dot.status-cleaning { background: #f9a825; }
+
+.tape-td-cell {
+  height: 54px;
+  padding: 6px;
+  border-bottom: 1px solid #edf1ed;
+  border-left: 1px solid #edf1ed;
+  text-align: center;
+  vertical-align: middle;
+  position: relative;
+}
+
+.tape-td-booked {
+  cursor: pointer;
+  padding: 4px;
+  transition: opacity 0.15s;
+}
+
+.tape-td-booked:hover {
+  opacity: 0.9;
+}
+
+.tape-booking-pill {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tape-booking-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tape-booking-ref {
+  font-size: 9px;
+  opacity: 0.85;
+}
+
+.tape-cell-occupied .tape-booking-pill,
+.tape-legend-box.tape-cell-occupied {
+  background: #c62828;
+}
+
+.tape-cell-confirmed .tape-booking-pill,
+.tape-legend-box.tape-cell-confirmed {
+  background: #1b5e20;
+}
+
+.tape-cell-pending .tape-booking-pill,
+.tape-legend-box.tape-cell-pending {
+  background: #e65100;
+}
+
+.tape-td-free {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.tape-td-free:hover {
+  background: #f1f8f3;
+}
+
+.tape-free-slot {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #a4b5aa;
+  transition: all 0.15s;
+}
+
+.tape-td-free:hover .tape-free-slot {
+  background: #2e7d32;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.tape-cell-free,
+.tape-legend-box.tape-cell-free {
+  background: #edf4ed;
+  border: 1px dashed #7ea38b;
+}
+
+.tape-empty-row {
+  text-align: center;
+  padding: 30px;
+  color: #7b8e83;
+}
+
+.tape-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: #fbfdfb;
+  border-top: 1px solid #edf1ed;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #4b6354;
+}
+
+.tape-legend-title {
+  font-weight: 600;
+}
+
+.tape-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tape-legend-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+
+/* ========================================================
+   FRONT DESK QUICK ACTION DRAWER (SLIDE-OVER PANEL)
+   ======================================================== */
+.desk-room-action-drawer {
+  width: min(540px, 95vw);
+  max-width: 540px;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.desk-room-action-drawer .dialog-heading {
+  padding: 18px 24px;
+  background: #f7f9f7;
+  border-bottom: 1px solid #edf1ed;
+  margin: 0;
+}
+
+.drawer-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(85vh - 70px);
+  overflow-y: auto;
+}
+
+.drawer-room-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #edf4ed;
+  border: 1px solid #cce0cd;
+  border-radius: 8px;
+}
+
+.drawer-room-number {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: #1a382d;
+  display: block;
+}
+
+.drawer-room-type {
+  font-size: 13px;
+  color: #4b6354;
+  margin: 2px 0 0;
+}
+
+.drawer-task-alert {
+  padding: 12px 16px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-left: 4px solid #f57f17;
+  border-radius: 6px;
+}
+
+.drawer-task-alert strong {
+  display: block;
+  font-size: 13px;
+  color: #b75e00;
+}
+
+.drawer-task-alert p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #614900;
+}
+
+.drawer-section-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: #556c5e;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.drawer-guest-card {
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #dce2dc;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.drawer-guest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.drawer-guest-name {
+  font-size: 18px;
+  color: #1f3b2f;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.drawer-guest-dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.drawer-guest-dl > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e8eee8;
+}
+
+.drawer-guest-dl dt {
+  color: #64776b;
+}
+
+.drawer-guest-dl dd {
+  margin: 0;
+  color: #1f3b2f;
+  text-align: right;
+}
+
+.drawer-actions-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-action-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.drawer-btn-checkout {
+  background: #b71c1c !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.drawer-btn-checkout:hover {
+  background: #961212 !important;
+}
+
+.drawer-btn-primary {
+  font-weight: 600;
+}
+
+.drawer-bookings-section {
+  border-top: 1px solid #edf1ed;
+  padding-top: 16px;
+}
+
+.drawer-bookings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawer-booking-item {
+  padding: 14px 16px;
+  margin: 0;
+  background: #fbfdfb;
+  border: 1px solid #e1e7e1;
+  border-radius: 8px;
+}
+
+.drawer-booking-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drawer-booking-meta {
+  font-size: 12px;
+  color: #556c5e;
+  margin: 6px 0 10px !important;
+}
+
+.drawer-item-actions {
+  display: flex;
+  gap: 8px;
+}

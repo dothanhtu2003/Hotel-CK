@@ -97,7 +97,8 @@ model User {
   status        AccountStatus      @default(ACTIVE)
   createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  bookings      Booking[]
+  bookings      Booking[] @relation("BookingOwner")
+  createdBookings Booking[] @relation("BookingCreator")
   assignedTasks HousekeepingTask[]
 
   @@map("users")
@@ -152,6 +153,7 @@ model RoomImage {
 }
 
 model Booking {
+  createdById     String?        @map("created_by_id") @db.Uuid
   id              String         @id @default(uuid()) @db.Uuid
   reference       String         @unique @default(uuid()) @db.VarChar(40)
   userId          String         @map("user_id") @db.Uuid
@@ -164,11 +166,13 @@ model Booking {
   totalRoomAmount Decimal        @default(0) @map("total_room_amount") @db.Decimal(14, 2)
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user            User           @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy       User?          @relation("BookingCreator", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  user            User           @relation("BookingOwner", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   room            Room           @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   serviceOrders   ServiceOrder[]
   invoice         Invoice?
 
+  @@index([createdById], map: "bookings_created_by_idx")
   @@index([userId, createdAt])
   @@index([roomId, checkInDate, checkOutDate])
   @@index([status, checkInDate])

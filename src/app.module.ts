@@ -1,3 +1,4 @@
+import { FrontDeskModule } from './front-desk/front-desk.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnvironment } from './config/environment.js';
@@ -17,6 +18,7 @@ import { BillingModule } from './billing/billing.module.js';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', validate: validateEnvironment }),
     HealthModule,
+    FrontDeskModule,
     AuthModule,
     RoomsModule,
     BookingsModule,

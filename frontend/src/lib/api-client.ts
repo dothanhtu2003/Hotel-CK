@@ -1,5 +1,5 @@
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) { super(message); this.name = 'ApiError'; }
+  constructor(public readonly status: number, message: string, public readonly code?: string) { super(message); this.name = 'ApiError'; }
 }
 
 export function apiMessage(status: number) {
@@ -38,7 +38,12 @@ export function createApiClient(baseUrl: string, transport: typeof fetch = fetch
       if (!response.ok) {
         // An old in-flight request must not expire a newer login. A 403 never logs out.
         if (response.status === 401 && usedToken && token === usedToken) { token = null; unauthorized?.(); }
-        throw new ApiError(response.status, apiMessage(response.status));
+        let code: string | undefined;
+        if (path === '/front-desk/walk-in' && response.status === 409) {
+          const body: unknown = await response.json().catch(() => null);
+          if (body && typeof body === 'object' && 'code' in body && typeof body.code === 'string' && ['WALK_IN_CUSTOMER_EXISTS', 'WALK_IN_ROOM_NOT_READY', 'WALK_IN_ROOM_OCCUPIED'].includes(body.code)) code = body.code;
+        }
+        throw new ApiError(response.status, apiMessage(response.status), code);
       }
       return response.json() as Promise<T>;
     },
