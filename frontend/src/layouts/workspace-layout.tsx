@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
   ArrowUpRight,
-  BedDouble,
   Brush,
   CalendarDays,
   ChevronDown,
@@ -125,19 +124,6 @@ export function WorkspaceLayout() {
           >
             <Users className="size-4 shrink-0" />
             <span>Quản lý booking</span>
-          </NavLink>
-          <NavLink
-            to={`${home}/rooms`}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-brand-50 text-brand-700 font-semibold'
-                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
-              }`
-            }
-          >
-            <BedDouble className="size-4 shrink-0" />
-            <span>Bảng trạng thái phòng</span>
           </NavLink>
           <NavLink
             to={`${home}/tape-chart`}
@@ -489,7 +475,7 @@ export function WorkspaceLayout() {
                 </button>
                 <span className="hidden text-xs text-zinc-500 xl:inline">{user.fullName}</span>
                 <Link
-                  to={`${home}/rooms?mode=booking`}
+                  to={`${home}?mode=booking`}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 shadow-xs transition-colors"
                   aria-label="Đặt phòng mới"
                 >

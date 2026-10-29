@@ -41,6 +41,14 @@ export class DeskQuery extends BookingQueryDto {
   view?: string;
 }
 export class RoomQuery extends PaginationQueryDto {
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 250 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(250)
+  override pageSize = 20;
+
   @ApiPropertyOptional({ maxLength: 50, description: "Search by room number" })
   @IsOptional()
   @IsString()

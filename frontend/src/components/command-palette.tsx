@@ -65,13 +65,13 @@ function CommandPaletteModal({
         items.push({
           id: `room-${r.id}`,
           type: "room",
-          onSelect: () => go(`${home}/rooms`),
+          onSelect: () => go(`${home}?roomId=${r.id}`),
         });
       });
       return items;
     }
     return [
-      { id: "new-booking", type: "shortcut", onSelect: () => go(`${home}/rooms?mode=booking`) },
+      { id: "new-booking", type: "shortcut", onSelect: () => go(`${home}?mode=booking`) },
       { id: "bookings", type: "shortcut", onSelect: () => go(`${home}/bookings`) },
       { id: "tape-chart", type: "shortcut", onSelect: () => go(`${home}/tape-chart`) },
     ];
@@ -318,7 +318,7 @@ function CommandPaletteModal({
                           id={`room-${r.id}`}
                           role="option"
                           aria-selected={isHighlighted}
-                          onClick={() => go(`${home}/rooms`)}
+                          onClick={() => go(`${home}?roomId=${r.id}`)}
                           onMouseEnter={() => setRawSelectedIndex(itemIdx)}
                           className={`flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-start text-sm cursor-pointer transition-colors ${
                             isHighlighted ? "bg-brand-50" : "hover:bg-zinc-50"
@@ -368,7 +368,7 @@ function CommandPaletteModal({
                     id: "new-booking",
                     icon: <Plus className="size-4 text-brand-600" />,
                     title: "Đặt phòng mới",
-                    to: `${home}/rooms?mode=booking`,
+                    to: `${home}?mode=booking`,
                   },
                   {
                     id: "bookings",

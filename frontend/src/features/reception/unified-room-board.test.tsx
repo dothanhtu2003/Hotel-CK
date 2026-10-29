@@ -10,10 +10,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { ToastContext } from "../../components/toast-context";
 import { api } from "../../lib/api";
-import { ReceptionRoomBoard, ReceptionWalkIn } from "../../pages/front-desk-pages";
+import {
+  ReceptionDashboard,
+  ReceptionRoomBoard,
+  ReceptionWalkIn,
+} from "../../pages/front-desk-pages";
 import { WorkspaceLayout } from "../../layouts/workspace-layout";
 import { AuthContext } from "../auth/auth-context";
-import { hotelToday, shiftDate } from "./room-state";
+import { formatStayDateDisplay, hotelToday, shiftDate } from "./room-state";
 import { UnifiedBookingModal } from "./unified-booking-modal";
 
 afterEach(() => {
@@ -42,7 +46,18 @@ function setupDialog() {
 }
 
 describe("Unified Room Board & Booking Flow", () => {
-  it("Header has 'Đặt phòng mới' button leading to Room Board and removes 'Đặt phòng tại quầy' from sidebar", () => {
+  it("formatStayDateDisplay formats dates correctly for same year, cross year, and edge cases", () => {
+    expect(formatStayDateDisplay("2026-10-27", "2026-10-29")).toBe("27/10");
+    expect(formatStayDateDisplay("2026-10-30", "2026-10-29")).toBe("30/10");
+    // Cross-year boundary should include 2-digit year
+    expect(formatStayDateDisplay("2027-01-02", "2026-10-29")).toBe("02/01/27");
+    // Edge cases
+    expect(formatStayDateDisplay(null)).toBe("");
+    expect(formatStayDateDisplay(undefined)).toBe("");
+    expect(formatStayDateDisplay("")).toBe("");
+  });
+
+  it("Header has 'Đặt phòng mới' button leading to Room Board and removes 'Bảng trạng thái phòng' and 'Đặt phòng tại quầy' from sidebar", () => {
     render(
       <MemoryRouter initialEntries={["/reception"]}>
         <ToastContext.Provider value={() => {}}>
@@ -64,22 +79,24 @@ describe("Unified Room Board & Booking Flow", () => {
     // 1. Header has "Đặt phòng mới"
     const headerBtn = screen.getByRole("link", { name: "Đặt phòng mới" });
     expect(headerBtn).toBeTruthy();
-    expect(headerBtn.getAttribute("href")).toBe("/reception/rooms?mode=booking");
+    expect(headerBtn.getAttribute("href")).toBe("/reception?mode=booking");
 
-    // 2. Sidebar no longer has "Đặt phòng tại quầy"
+    // 2. Sidebar no longer has "Bảng trạng thái phòng" or "Đặt phòng tại quầy"
+    expect(screen.queryByText("Bảng trạng thái phòng")).toBeNull();
     expect(screen.queryByText("Đặt phòng tại quầy")).toBeNull();
   });
 
-  it("Route ReceptionWalkIn safely redirects to rooms preserving query params and sets mode=booking", () => {
+  it("Route ReceptionWalkIn and ReceptionRoomBoard safely redirect to /reception preserving query params", () => {
     function LocationWatcher() {
       return (
         <Routes>
           <Route path="/reception/walk-in" element={<ReceptionWalkIn />} />
+          <Route path="/reception/rooms" element={<ReceptionRoomBoard />} />
           <Route
-            path="/reception/rooms"
+            path="/reception"
             element={
-              <div data-testid="rooms-page">
-                Room Board Content
+              <div data-testid="reception-page">
+                Reception Dashboard
               </div>
             }
           />
@@ -87,7 +104,7 @@ describe("Unified Room Board & Booking Flow", () => {
       );
     }
 
-    render(
+    const { unmount } = render(
       <MemoryRouter
         initialEntries={[
           "/reception/walk-in?roomId=room-101&checkIn=2026-11-01&checkOut=2026-11-03&guests=2",
@@ -97,17 +114,52 @@ describe("Unified Room Board & Booking Flow", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId("rooms-page")).toBeTruthy();
+    expect(screen.getByTestId("reception-page")).toBeTruthy();
+    unmount();
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          "/reception/rooms?floor=2&state=ready",
+        ]}
+      >
+        <LocationWatcher />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("reception-page")).toBeTruthy();
   });
 
-  it("Room Board renders operational status and booking availability distinctly", async () => {
+  it("Room Board on Dashboard renders operational status, stay dates (IN/OUT), and action drawer", async () => {
     setupDialog();
     const today = hotelToday();
     const tomorrow = shiftDate(today, 1);
 
     vi.spyOn(api, "request").mockImplementation(async (path: string) => {
+      if (path.includes("/front-desk/dashboard")) {
+        return {
+          today,
+          totalRooms: 2,
+          occupiedRooms: 1,
+          openTasks: 0,
+          counts: {
+            arrivals: 0,
+            departures: 1,
+            staying: 1,
+            ready: 1,
+            dirty: 0,
+            orders: 0,
+            pending: 0,
+          },
+          arrivals: [],
+          departures: [],
+        };
+      }
       if (path.includes("/front-desk/room-filters")) {
         return { types: [{ id: "type-1", name: "Deluxe King" }], floors: [1] };
+      }
+      if (path.includes("/front-desk/bookings")) {
+        return { data: [], meta: { page: 1, pageSize: 8, total: 0, totalPages: 1 } };
       }
       if (path.includes("/front-desk/rooms")) {
         return {
@@ -159,74 +211,58 @@ describe("Unified Room Board & Booking Flow", () => {
               ],
             },
           ],
-          meta: { page: 1, pageSize: 50, total: 2, totalPages: 1 },
-        };
-      }
-      if (path.includes("/front-desk/available")) {
-        // Room 101 is available; Room 102 is currently checked in for same day
-        return {
-          checkIn: today,
-          checkOut: tomorrow,
-          guests: 2,
-          nights: 1,
-          data: [
-            {
-              id: "r1",
-              roomNumber: "101",
-              floor: 1,
-              operationalStatus: "ACTIVE",
-              housekeepingStatus: "CLEAN",
-              roomType: {
-                id: "type-1",
-                name: "Deluxe King",
-                nightlyPrice: "1200000.00",
-                maxGuests: 2,
-              },
-              estimatedTotalAmount: "1200000.00",
-            },
-          ],
+          meta: { page: 1, pageSize: 200, total: 2, totalPages: 1 },
         };
       }
       return {};
     });
 
     render(
-      <MemoryRouter initialEntries={["/reception/rooms"]}>
+      <MemoryRouter initialEntries={["/reception"]}>
         <QueryClientProvider
           client={
             new QueryClient({ defaultOptions: { queries: { retry: false } } })
           }
         >
           <ToastContext.Provider value={() => {}}>
-            <ReceptionRoomBoard />
+            <AuthContext.Provider
+              value={{
+                user: mockStaffUser,
+                notice: null,
+                login: async () => mockStaffUser,
+                logout: () => {},
+                updateUser: () => true,
+              }}
+            >
+              <ReceptionDashboard />
+            </AuthContext.Provider>
           </ToastContext.Provider>
         </QueryClientProvider>
       </MemoryRouter>,
     );
 
-    // Wait for rooms to render
+    // Wait for rooms to render on the dashboard Room Board
     await waitFor(() => {
       expect(screen.getByText("101")).toBeTruthy();
       expect(screen.getByText("102")).toBeTruthy();
     });
 
-    // Check legend displays both operational and availability sections
-    expect(screen.getByText("Trạng thái vận hành:")).toBeTruthy();
-    expect(screen.getByText("Khả dụng (" + today + " → " + tomorrow + "):")).toBeTruthy();
+    // Check operational status labels
+    expect(screen.getByText("TRỐNG SẠCH")).toBeTruthy();
+    expect(screen.getByText("ĐANG Ở")).toBeTruthy();
 
-    // Room 101 has "Có thể đặt"
-    const availPill = screen.getByTitle("Phòng có thể nhận đặt cho khoảng ngày đã chọn");
-    expect(availPill).toBeTruthy();
+    // Check IN and OUT stay date labels for occupied room 102
+    expect(screen.getByText("IN")).toBeTruthy();
+    expect(screen.getByText("OUT")).toBeTruthy();
+    expect(screen.getByText("1 đêm · 2 khách")).toBeTruthy();
 
-    // Room 102 has operational "Đang ở" but availability "Không thể đặt"
-    expect(screen.getByText("Khách: Trần Thị Khách")).toBeTruthy();
-    expect(screen.getByText("Phòng đang có khách lưu trú hôm nay")).toBeTruthy();
-
-    // Click room 102 opens drawer with operational actions
+    // Click room 102 opens drawer with in-house guest info and operational actions
     fireEvent.click(screen.getByText("102"));
     expect(screen.getByText("THÔNG TIN KHÁCH ĐANG Ở")).toBeTruthy();
-    expect(screen.getByText("Làm thủ tục trả phòng")).toBeTruthy();
+    expect(screen.getAllByText("Trần Thị Khách").length).toBeGreaterThan(0);
+    expect(screen.getByText("Trả phòng & Hóa đơn")).toBeTruthy();
     expect(screen.getAllByText("Chi tiết booking").length).toBeGreaterThan(0);
+    expect(screen.getByText("Đặt phòng cho ngày tương lai")).toBeTruthy();
   });
 
   it("Unified Booking Modal enforces valid guest info, forbids invalid emails, and starts in PENDING", async () => {

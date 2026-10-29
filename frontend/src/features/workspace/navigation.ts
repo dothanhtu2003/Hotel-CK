@@ -13,7 +13,7 @@ const deskRooms = { ...booking, slug: 'rooms', title: 'Bảng trạng thái phò
 const tapeChart = { ...deskRooms, slug: 'tape-chart', title: 'Tape Chart', icon: CalendarDays };
 export const featuresForRole: Record<Role, WorkspaceFeature[]> = {
   GUEST: [booking, service, billing],
-  RECEPTIONIST: [deskBooking, deskRooms, tapeChart, deskService, deskHousekeeping, billing],
+  RECEPTIONIST: [deskBooking, tapeChart, deskService, deskHousekeeping, billing],
   HOUSEKEEPING: [housekeeping, tasks],
-  ADMIN: [deskBooking, deskRooms, tapeChart, deskService, deskHousekeeping, billing],
+  ADMIN: [deskBooking, tapeChart, deskService, deskHousekeeping, billing],
 };

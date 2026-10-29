@@ -65,3 +65,21 @@ export function staySpan(
   );
   return { left, width: right - left };
 }
+
+export function formatStayDateDisplay(
+  dateStr?: string | null,
+  referenceDateStr?: string | null,
+): string {
+  if (!dateStr || typeof dateStr !== "string") return "";
+  const parts = dateStr.trim().split("-");
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  const refYear = referenceDateStr
+    ? referenceDateStr.split("-")[0]
+    : String(new Date().getFullYear());
+  if (y === refYear) {
+    return `${d}/${m}`;
+  }
+  return `${d}/${m}/${y.slice(-2)}`;
+}
+
