@@ -80,7 +80,7 @@ export function ReceptionOrdersPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-              Quản lý đơn dịch vụ phòng
+              Quản lý đơn dịch vụ
             </h1>
             <p className="text-xs text-zinc-500 mt-0.5">
               Theo dõi, hoàn thành hoặc hủy đơn dịch vụ của khách. Giá tiền được lưu theo snapshot lúc khách đặt.
@@ -193,7 +193,7 @@ export function ReceptionOrdersPage() {
                           to={`${base}/service-orders/${o.id}`}
                           className="font-mono text-xs font-semibold text-brand-700 hover:underline block"
                         >
-                          #{o.id.slice(0, 8)}
+                          {o.id.slice(0, 8)}
                         </Link>
                         <span className="text-[11px] text-zinc-400 flex items-center gap-1">
                           <Clock className="size-3" />
@@ -341,7 +341,7 @@ export function ReceptionOrderDetailPage() {
     invoice.data === null;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="desk-page space-y-6 max-w-4xl mx-auto pb-12">
       {/* Top Breadcrumb */}
       <div className="flex items-center justify-between">
         <Link
@@ -352,7 +352,7 @@ export function ReceptionOrderDetailPage() {
           Quay lại danh sách đơn dịch vụ
         </Link>
         <span className="text-xs text-zinc-400 font-mono">
-          ID: {o.id.slice(0, 8)}
+          Mã đơn: {o.id}
         </span>
       </div>
 
@@ -372,6 +372,7 @@ export function ReceptionOrderDetailPage() {
           </p>
         </div>
         <Badge
+          className="status-badge"
           tone={
             o.status === "COMPLETED"
               ? "green"
@@ -472,7 +473,7 @@ export function ReceptionOrderDetailPage() {
                 <DeskAction
                   path={`/service-orders/${id}/complete`}
                   action="complete"
-                  label="Xác nhận hoàn thành dịch vụ"
+                  label="Hoàn thành dịch vụ"
                   description="Xác nhận đã cung cấp toàn bộ dịch vụ trong đơn? Giá snapshot sẽ được tính vào billing khi hoàn thành."
                 />
                 <DeskAction

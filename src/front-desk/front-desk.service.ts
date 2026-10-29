@@ -389,27 +389,32 @@ export class FrontDeskService {
           },
         });
         if (!room) throw new NotFoundException("Room not found");
-        if (
-          room.operationalStatus !== "ACTIVE" ||
-          room.housekeepingStatus !== "CLEAN" ||
-          room.tasks.length
-        )
+        if (room.operationalStatus !== "ACTIVE")
           throw new ConflictException({
             code: "WALK_IN_ROOM_NOT_READY",
-            message:
-              "Phòng cần hoạt động, sạch và không còn công việc buồng phòng.",
+            message: "Phòng ngưng phục vụ.",
           });
+        const today = new Date(`${hotelDay()}T00:00:00.000Z`);
+        const isToday = start.getTime() <= today.getTime();
+        if (isToday) {
+          if (room.housekeepingStatus !== "CLEAN" || room.tasks.length)
+            throw new ConflictException({
+              code: "WALK_IN_ROOM_NOT_READY",
+              message:
+                "Phòng cần hoạt động, sạch và không còn công việc buồng phòng.",
+            });
+          if (
+            await tx.booking.count({
+              where: { roomId: dto.roomId, status: "CHECKED_IN" },
+            })
+          )
+            throw new ConflictException({
+              code: "WALK_IN_ROOM_OCCUPIED",
+              message: "Phòng đang có khách lưu trú.",
+            });
+        }
         if (dto.guests > room.roomType.maxGuests)
           throw new BadRequestException("Guest count exceeds room capacity");
-        if (
-          await tx.booking.count({
-            where: { roomId: dto.roomId, status: "CHECKED_IN" },
-          })
-        )
-          throw new ConflictException({
-            code: "WALK_IN_ROOM_OCCUPIED",
-            message: "Phòng đang có khách lưu trú.",
-          });
         let customer;
         if (dto.customerId)
           customer = await tx.user.findFirst({

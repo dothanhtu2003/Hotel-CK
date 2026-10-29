@@ -71,7 +71,7 @@ function CommandPaletteModal({
       return items;
     }
     return [
-      { id: "walk-in", type: "shortcut", onSelect: () => go(`${home}/walk-in`) },
+      { id: "new-booking", type: "shortcut", onSelect: () => go(`${home}/rooms?mode=booking`) },
       { id: "bookings", type: "shortcut", onSelect: () => go(`${home}/bookings`) },
       { id: "tape-chart", type: "shortcut", onSelect: () => go(`${home}/tape-chart`) },
     ];
@@ -365,10 +365,10 @@ function CommandPaletteModal({
               <div className="space-y-0.5">
                 {[
                   {
-                    id: "walk-in",
+                    id: "new-booking",
                     icon: <Plus className="size-4 text-brand-600" />,
-                    title: "Đặt phòng tại quầy (Walk-in)",
-                    to: `${home}/walk-in`,
+                    title: "Đặt phòng mới",
+                    to: `${home}/rooms?mode=booking`,
                   },
                   {
                     id: "bookings",

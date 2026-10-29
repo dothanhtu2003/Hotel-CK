@@ -7,6 +7,15 @@ export function isCalendarDate(value: unknown): value is string {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+export function hotelDay(now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
 export function IsStayDate(options?: ValidationOptions) {
   return (target: object, propertyName: string) => registerDecorator({
     name: 'isStayDate', target: target.constructor, propertyName, options,

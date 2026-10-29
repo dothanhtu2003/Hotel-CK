@@ -109,7 +109,7 @@ export function ReceptionDashboard() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
-            Tổng quan lễ tân (Front Desk Today)
+            Tổng quan lễ tân
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500">
             {greeting}, <strong className="font-medium text-zinc-800">{user?.fullName}</strong>. Dưới đây là tình hình vận hành hôm nay: {todayPretty}.
@@ -141,22 +141,25 @@ export function ReceptionDashboard() {
         d && (
           <>
             {/* Top 6 KPI StatCards - truthful verified metrics matching real APIs */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6 desk-stats today-metrics">
               <StatCard
+                className="today-metric metric-arrivals"
                 icon={<LogIn className="size-4" />}
-                label="Khách đến (Arrivals)"
+                label="Khách đến"
                 value={d.counts.arrivals}
                 to={`${base}/bookings?view=arrivals`}
                 sub={`${d.bookingCounts?.arrivals ?? d.arrivals.length} booking hôm nay`}
               />
               <StatCard
+                className="today-metric metric-departures"
                 icon={<LogOut className="size-4" />}
-                label="Khách đi (Departures)"
+                label="Khách đi"
                 value={d.counts.departures}
                 to={`${base}/bookings?view=departures`}
                 sub={`${d.bookingCounts?.departures ?? d.departures.length} booking trả phòng`}
               />
               <StatCard
+                className="today-metric metric-staying"
                 icon={<Users className="size-4" />}
                 label="Đang ở (In-house)"
                 value={d.counts.staying}
@@ -164,6 +167,7 @@ export function ReceptionDashboard() {
                 sub={`${d.bookingCounts?.staying ?? d.counts.staying} khách đang lưu trú`}
               />
               <StatCard
+                className="today-metric"
                 icon={<PieChart className="size-4" />}
                 label="Công suất phòng"
                 value={`${occupancyPct}%`}
@@ -172,6 +176,7 @@ export function ReceptionDashboard() {
                 to={`${base}/rooms`}
               />
               <StatCard
+                className="today-metric"
                 icon={<BedDouble className="size-4" />}
                 label="Phòng sẵn sàng"
                 value={d.counts.ready}
@@ -179,6 +184,7 @@ export function ReceptionDashboard() {
                 to={`${base}/rooms?state=ready`}
               />
               <StatCard
+                className="today-metric"
                 icon={<ListChecks className="size-4" />}
                 label="Việc buồng phòng"
                 value={d.openTasks}
@@ -221,7 +227,7 @@ export function ReceptionDashboard() {
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <LogIn className="size-4 text-brand-700" />
-                      <CardTitle>Khách đến hôm nay (Arrivals)</CardTitle>
+                      <CardTitle>Khách đến</CardTitle>
                       <Badge tone="sky">{d.arrivals.length}</Badge>
                     </div>
                     <Link
@@ -285,7 +291,7 @@ export function ReceptionDashboard() {
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <LogOut className="size-4 text-amber-700" />
-                      <CardTitle>Khách đi hôm nay (Departures)</CardTitle>
+                      <CardTitle>Khách đi</CardTitle>
                       <Badge tone="amber">{d.departures.length}</Badge>
                     </div>
                     <Link
@@ -498,18 +504,18 @@ export function ReceptionDashboard() {
                                           cur === room.id ? null : room.id,
                                         )
                                       }
-                                      className={`w-full rounded-lg border px-2 pb-1.5 pt-2 text-start transition-all cursor-pointer hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-brand-600 ${statusToneClass}`}
+                                      className={`today-room w-full rounded-lg border px-2 pb-1.5 pt-2 text-start transition-all cursor-pointer hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-brand-600 ${statusToneClass}`}
                                     >
                                       <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold tabular-nums">
+                                        <strong className="text-xs font-bold tabular-nums">
                                           {room.roomNumber}
-                                        </span>
+                                        </strong>
                                         {occupied && (
                                           <BedDouble className="size-3" />
                                         )}
                                         {arriving && <LogIn className="size-3" />}
                                       </div>
-                                      <div className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-wide opacity-90">
+                                      <small className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-wide opacity-90 block">
                                         {occupied
                                           ? "Đang ở"
                                           : arriving
@@ -521,7 +527,7 @@ export function ReceptionDashboard() {
                                           : isOoo
                                           ? "Bảo trì"
                                           : "Trống sạch"}
-                                      </div>
+                                      </small>
                                       <div className="truncate text-[8px] opacity-75">
                                         {room.roomType.name}
                                       </div>
@@ -563,12 +569,12 @@ export function ReceptionDashboard() {
                                           <button
                                             onClick={() =>
                                               navigate(
-                                                `${base}/walk-in?roomId=${room.id}`,
+                                                `${base}/rooms?roomId=&mode=booking${room.id}`,
                                               )
                                             }
                                             className="w-full text-start px-2 py-1.5 rounded hover:bg-zinc-100 font-medium text-brand-700 cursor-pointer"
                                           >
-                                            Đặt tại quầy phòng này
+                                            Đặt phòng này
                                           </button>
                                         )}
                                         <button

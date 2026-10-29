@@ -21,6 +21,13 @@ if (!(Test-Path (Join-Path $dataDir 'PG_VERSION'))) {
   & "$binDir\initdb.exe" -D $dataDir -U hotel_local --pwfile=$passwordPath --auth=scram-sha-256 --encoding=UTF8 --locale=C
   if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
 }
+if (Test-Path (Join-Path $dataDir 'postmaster.pid')) {
+  try {
+    $pidContent = (Get-Content (Join-Path $dataDir 'postmaster.pid') -ErrorAction SilentlyContinue)[0].Trim()
+    $proc = Get-Process -Id ([int]$pidContent) -ErrorAction SilentlyContinue
+    if (!$proc) { Remove-Item (Join-Path $dataDir 'postmaster.pid') -Force -ErrorAction SilentlyContinue }
+  } catch {}
+}
 if (!(Test-Path (Join-Path $dataDir 'postmaster.pid'))) {
   & "$binDir\pg_ctl.exe" -D $dataDir -l (Join-Path $localDir 'postgres.log') -o "-p $port -h 127.0.0.1" -w start
   if ($LASTEXITCODE -ne 0) { throw 'pg_ctl failed' }

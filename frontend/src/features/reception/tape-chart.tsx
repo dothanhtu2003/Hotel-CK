@@ -42,7 +42,7 @@ export function TapeChart({
             <div className="flex items-center gap-2">
               <Calendar className="size-5 text-brand-700" />
               <h2 className="text-lg font-bold text-zinc-900 tracking-tight">
-                Tape Chart (Sơ đồ Timeline)
+                Tape Chart
               </h2>
             </div>
             <p className="text-xs text-zinc-400 mt-0.5">
@@ -251,7 +251,7 @@ export function TapeChart({
                                   ? onSelectBooking(b)
                                   : navigate(`${base}/bookings/${b.id}`)
                               }
-                              className={`absolute h-7 rounded-md px-2 text-start text-xs font-medium shadow-xs transition-transform hover:scale-[1.01] hover:z-20 cursor-pointer overflow-hidden flex items-center gap-1.5 ${barColor}`}
+                              className={`tape-bar absolute h-7 rounded-md px-2 text-start text-xs font-medium shadow-xs transition-transform hover:scale-[1.01] hover:z-20 cursor-pointer overflow-hidden flex items-center gap-1.5 ${barColor}`}
                               style={{
                                 left: `${(span.left / 14) * 100}%`,
                                 width: `calc(${(span.width / 14) * 100}% - 2px)`,

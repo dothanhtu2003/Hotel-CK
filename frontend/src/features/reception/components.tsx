@@ -139,10 +139,10 @@ export function BookingTable({
                     to={`${base}/bookings/${b.id}`}
                     className="font-medium text-zinc-900 hover:text-brand-700 block truncate"
                   >
-                    {guestName}
+                    {b.reference}
                   </Link>
                   <small className="text-zinc-400 block text-xs">
-                    {b.reference} · {b.customer?.phone ?? b.customer?.email ?? "Tại quầy"}
+                    {guestName} · {b.customer?.phone ?? b.customer?.email ?? "Tại quầy"}
                   </small>
                 </div>
               </div>
@@ -183,7 +183,7 @@ export function BookingTable({
         {
           title: "TRẠNG THÁI",
           render: (b) => (
-            <Badge tone={STATUS_TONES[b.status] || "zinc"}>
+            <Badge tone={STATUS_TONES[b.status] || "zinc"} className="status-badge">
               {statusLabels[b.status] ?? b.status}
             </Badge>
           ),

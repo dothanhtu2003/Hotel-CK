@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { paginationMeta, type PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
-import { parseStay } from '../common/validation/stay-dates.js';
+import { hotelDay, parseStay } from '../common/validation/stay-dates.js';
 import { roomSelect, roomView } from './room-view.js';
 import type { AvailabilityQueryDto } from './dto/availability-query.dto.js';
 
@@ -26,13 +26,15 @@ export class RoomsService {
 
   async available(query: AvailabilityQueryDto, frontDesk = false) {
     const { start, end, nights } = parseStay(query.checkIn, query.checkOut);
+    const today = new Date(`${hotelDay()}T00:00:00.000Z`);
+    const isToday = start.getTime() <= today.getTime();
     const rooms = await this.prisma.client.room.findMany({
       where: {
         operationalStatus: 'ACTIVE',
-        ...(frontDesk ? { housekeepingStatus: 'CLEAN' as const, tasks: { none: { status: { not: 'DONE' as const } } } } : {}),
+        ...(frontDesk && isToday ? { housekeepingStatus: 'CLEAN' as const, tasks: { none: { status: { not: 'DONE' as const } } } } : {}),
         ...(query.roomTypeId ? { roomTypeId: query.roomTypeId } : {}),
         roomType: { maxGuests: { gte: query.guests } },
-        bookings: { none: { OR: [ ...(frontDesk ? [{ status: 'CHECKED_IN' as const }] : []), {
+        bookings: { none: { OR: [ ...(frontDesk && isToday ? [{ status: 'CHECKED_IN' as const }] : []), {
           status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'] },
           checkInDate: { lt: end }, checkOutDate: { gt: start },
         }] } },

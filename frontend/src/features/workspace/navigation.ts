@@ -9,9 +9,11 @@ const deskHousekeeping = { ...housekeeping, slug: 'housekeeping', description: '
 const billing = { slug: 'billing', title: 'Hóa đơn & thanh toán', description: 'Tra cứu chi phí lưu trú và thông tin thanh toán.', icon: ReceiptText };
 const deskBooking = { ...booking, title: 'Quản lý booking', description: 'Xác nhận, nhận phòng và theo dõi kỳ nghỉ.' };
 const deskService = { ...service, slug: 'service-orders', title: 'Đơn dịch vụ', description: 'Theo dõi và xử lý dịch vụ khách đã đặt.' };
-const deskWalkIn = { ...booking, slug: 'walk-in', title: 'Đặt phòng tại quầy', description: 'Đón khách mới và liên kết hồ sơ khách.' };
 const deskRooms = { ...booking, slug: 'rooms', title: 'Bảng trạng thái phòng', description: 'Lịch phòng và tình trạng lưu trú.' };
 const tapeChart = { ...deskRooms, slug: 'tape-chart', title: 'Tape Chart', icon: CalendarDays };
 export const featuresForRole: Record<Role, WorkspaceFeature[]> = {
-  GUEST: [booking, service, billing], RECEPTIONIST: [deskBooking, deskWalkIn, deskRooms, tapeChart, deskService, deskHousekeeping, billing], HOUSEKEEPING: [housekeeping, tasks], ADMIN: [deskBooking, deskWalkIn, deskRooms, tapeChart, deskService, deskHousekeeping, billing],
+  GUEST: [booking, service, billing],
+  RECEPTIONIST: [deskBooking, deskRooms, tapeChart, deskService, deskHousekeeping, billing],
+  HOUSEKEEPING: [housekeeping, tasks],
+  ADMIN: [deskBooking, deskRooms, tapeChart, deskService, deskHousekeeping, billing],
 };

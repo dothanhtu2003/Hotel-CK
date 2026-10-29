@@ -18,7 +18,7 @@ describe("CommandPalette global search component", () => {
     expect(
       screen.getByPlaceholderText("Tìm khách, mã booking, số phòng, số điện thoại…"),
     ).toBeTruthy();
-    expect(screen.getByText("Đặt phòng tại quầy (Walk-in)")).toBeTruthy();
+    expect(screen.getByText("Đặt phòng mới")).toBeTruthy();
     expect(screen.getByText("Sơ đồ timeline Tape Chart")).toBeTruthy();
 
     fireEvent.keyDown(window, { key: "Escape" });

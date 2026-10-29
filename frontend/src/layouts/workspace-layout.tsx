@@ -111,7 +111,7 @@ export function WorkspaceLayout() {
             }
           >
             <LayoutDashboard className="size-4 shrink-0" />
-            <span>Hôm nay (Today)</span>
+            <span>Hôm nay</span>
           </NavLink>
           <NavLink
             to={`${home}/bookings`}
@@ -124,7 +124,7 @@ export function WorkspaceLayout() {
             }
           >
             <Users className="size-4 shrink-0" />
-            <span>Khách & Booking</span>
+            <span>Quản lý booking</span>
           </NavLink>
           <NavLink
             to={`${home}/rooms`}
@@ -137,7 +137,7 @@ export function WorkspaceLayout() {
             }
           >
             <BedDouble className="size-4 shrink-0" />
-            <span>Bảng phòng (Room Board)</span>
+            <span>Bảng trạng thái phòng</span>
           </NavLink>
           <NavLink
             to={`${home}/tape-chart`}
@@ -150,7 +150,7 @@ export function WorkspaceLayout() {
             }
           >
             <CalendarDays className="size-4 shrink-0" />
-            <span>Lịch Tape Chart</span>
+            <span>Tape Chart</span>
           </NavLink>
         </div>
       </div>
@@ -208,6 +208,22 @@ export function WorkspaceLayout() {
             <span>Hóa đơn & thanh toán</span>
           </NavLink>
         </div>
+      </div>
+
+      <div className="pt-2 border-t border-zinc-200">
+        <NavLink
+          to={`${home}/profile`}
+          className={({ isActive }) =>
+            `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+              isActive
+                ? 'bg-brand-50 text-brand-700 font-semibold'
+                : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+            }`
+          }
+        >
+          <UserRound className="size-4 shrink-0" />
+          <span>Hồ sơ cá nhân</span>
+        </NavLink>
       </div>
     </nav>
   );
@@ -271,14 +287,44 @@ export function WorkspaceLayout() {
               </span>
             </NavLink>
 
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-brand-50 px-2.5 py-1.5 text-brand-800">
+            <div className="sidebar-role mb-4 flex items-center gap-2 rounded-lg bg-brand-50 px-2.5 py-1.5 text-brand-800">
               <span className="flex size-5 items-center justify-center rounded bg-brand-600 text-white">
                 <LayoutDashboard className="size-3" />
               </span>
-              <span className="text-xs font-semibold">Front Desk</span>
+              <strong className="text-xs font-semibold text-brand-900">{roleLabel[user.role]}</strong>
             </div>
 
             {receptionNavigation}
+
+            {(user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
+              <form
+                className="desk-quick-search-hidden px-1 pt-2"
+                role="search"
+                onSubmit={e => {
+                  e.preventDefault();
+                  const input = e.currentTarget.elements.namedItem('q') as HTMLInputElement | null;
+                  const q = input?.value.trim() ?? '';
+                  if (q) navigate(`${home}/bookings?q=${encodeURIComponent(q)}`);
+                }}
+              >
+                <div className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white p-1 shadow-2xs">
+                  <input
+                    aria-label="Tìm nhanh booking"
+                    name="q"
+                    maxLength={120}
+                    placeholder="Tìm nhanh booking…"
+                    className="w-full bg-transparent px-1.5 py-0.5 text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none"
+                  />
+                  <button
+                    aria-label="Tìm booking"
+                    type="submit"
+                    className="flex size-6 shrink-0 items-center justify-center rounded bg-brand-50 text-brand-700 hover:bg-brand-100 cursor-pointer"
+                  >
+                    <Search size={13} />
+                  </button>
+                </div>
+              </form>
+            )}
 
             <div className="mt-auto pt-4 border-t border-zinc-200">
               <div className="sidebar-user-container relative" ref={dropdownRef}>
@@ -443,17 +489,12 @@ export function WorkspaceLayout() {
                 </button>
                 <span className="hidden text-xs text-zinc-500 xl:inline">{user.fullName}</span>
                 <Link
-                  to={`${home}/walk-in`}
-                  className="hidden md:inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 shadow-xs transition-colors"
-                >
-                  Đặt phòng tại quầy
-                </Link>
-                <Link
-                  to={`${home}/walk-in`}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 shadow-xs transition-colors"
+                  to={`${home}/rooms?mode=booking`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 shadow-xs transition-colors"
+                  aria-label="Đặt phòng mới"
                 >
                   <Plus className="size-3.5" />
-                  <span className="hidden sm:inline">Đón khách</span>
+                  <span>Đặt phòng mới</span>
                 </Link>
                 <button
                   onClick={() => setLogoutOpen(true)}

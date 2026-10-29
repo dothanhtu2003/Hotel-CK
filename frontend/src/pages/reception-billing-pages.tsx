@@ -59,7 +59,7 @@ export function ReceptionBillingPage() {
   const invoice = useDeskInvoice(id);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="desk-page space-y-6 max-w-5xl mx-auto pb-12">
       {/* Top Breadcrumb & Navigation */}
       <div className="flex items-center justify-between">
         <Link
@@ -83,7 +83,7 @@ export function ReceptionBillingPage() {
               Lễ tân · Thu ngân & Hóa đơn
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mt-1">
-              Chi phí & Phát hành hóa đơn
+              Chi phí & phát hành hóa đơn
             </h1>
           </div>
           {preview.data && (
@@ -329,7 +329,7 @@ export function ReceptionBillingPage() {
                 <DeskAction
                   path={`/bookings/${id}/invoice`}
                   action="invoice"
-                  label="Xác nhận phát hành hóa đơn"
+                  label="Phát hành hóa đơn"
                   description={`Phát hành hóa đơn cho booking ${preview.data.booking.reference} theo giá dự toán ${money(preview.data.totalAmount)}?`}
                   onDone={(data) => navigate(`${base}/invoices/${(data as Invoice).id}`)}
                 />
@@ -379,7 +379,7 @@ export function ReceptionInvoicePage() {
   const isPaid = i.status === "PAID" || Number(i.balance) <= 0;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="desk-page space-y-6 max-w-5xl mx-auto pb-12">
       {/* Top Breadcrumb & Link */}
       <div className="flex items-center justify-between">
         <Link
@@ -390,7 +390,7 @@ export function ReceptionInvoicePage() {
           Quay lại chi phí booking
         </Link>
         <span className="text-xs text-zinc-400 font-mono">
-          Hóa đơn #{i.id.slice(0, 8)}
+          Mã hóa đơn: {i.id}
         </span>
       </div>
 
@@ -410,8 +410,8 @@ export function ReceptionInvoicePage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge tone={isPaid ? "green" : "amber"}>
-              {isPaid ? "ĐÃ THANH TOÁN ĐỦ" : "CÒN DƯ NỢ"}
+            <Badge className="status-badge" tone={isPaid ? "green" : "amber"}>
+              {isPaid ? "Đã thanh toán" : "Chưa thanh toán"}
             </Badge>
             <Badge
               tone={
@@ -561,7 +561,7 @@ export function ReceptionInvoicePage() {
           <CardHeader className="pb-3 border-b border-zinc-100">
             <CardTitle className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
               <CreditCard className="size-4 text-brand-600" />
-              Ghi nhận thanh toán tại quầy
+              Thu ngân & Thanh toán
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-3">
@@ -579,7 +579,7 @@ export function ReceptionInvoicePage() {
         </CardHeader>
         <CardContent className="pt-2">
           <Table
-            caption="Danh sách biên nhận"
+            caption="Danh sách payment"
             rows={i.payments}
             rowKey={(p) => p.id}
             columns={[
@@ -678,7 +678,7 @@ export function ReceptionInvoicePage() {
                     <DeskAction
                       path={`/bookings/${i.bookingId}/check-out`}
                       action="check-out"
-                      label="Xác nhận trả phòng (Check-out)"
+                      label="Trả phòng"
                       description={`Hoàn tất trả phòng cho booking ${i.booking.reference}? Phòng ${i.booking.roomNumber} sẽ chuyển sang DIRTY.`}
                       onDone={(data) => setCheckoutResult(data as Checkout)}
                     />
@@ -724,7 +724,7 @@ export function ReceptionInvoicePage() {
             >
               <div className="flex items-center gap-2 font-bold text-sm text-emerald-950">
                 <CheckCircle2 className="size-4 text-emerald-600" />
-                Đã hoàn tất trả phòng thành công!
+                <h2 className="text-sm font-bold text-emerald-950">Đã hoàn tất trả phòng</h2>
               </div>
               <p>
                 Trạng thái buồng phòng:{" "}

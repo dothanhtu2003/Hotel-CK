@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
+import { UnifiedBookingModal } from "../features/reception/unified-booking-modal";
 import {
   Calendar,
   ChevronLeft,
@@ -32,20 +32,14 @@ import {
 } from "../features/guest/contracts";
 import { BookingTable } from "../features/reception/components";
 import {
-  deskError,
   pageNumber,
-  type Customer,
   type DeskBooking,
   type DeskRoom,
 } from "../features/reception/contracts";
 import {
   useDeskBase,
   useDeskGet,
-  useRefreshDesk,
 } from "../features/reception/queries";
-import { ApiError } from "../lib/api-client";
-import { api } from "../lib/api";
-import { useToast } from "../components/toast-context";
 import { TapeChart } from "../features/reception/tape-chart";
 import { hotelToday, shiftDate, roomState, roomStateLabels, cleaningLabels } from "../features/reception/room-state";
 
@@ -98,7 +92,7 @@ export function ReceptionBookingsPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
-            {billing ? "Tra cứu chi phí & hóa đơn" : "In House (Khách & Booking)"}
+            {billing ? "Tra cứu chi phí & hóa đơn" : "Quản lý booking"}
           </h1>
           <p className="text-xs text-zinc-500 mt-0.5">
             {billing
@@ -249,6 +243,7 @@ export function ReceptionBookingsPage({
               <input
                 className="w-full rounded-lg border border-zinc-200 bg-zinc-50/70 py-1.5 pl-8 pr-3 text-xs text-zinc-800 placeholder-zinc-400 focus:bg-white focus:outline-brand-600"
                 name="q"
+                aria-label="Tìm booking hoặc khách"
                 key={params.get("q") ?? ""}
                 defaultValue={params.get("q") ?? ""}
                 placeholder="Tìm mã booking, tên khách, số phòng, SĐT…"
@@ -258,7 +253,7 @@ export function ReceptionBookingsPage({
               type="submit"
               className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 cursor-pointer shrink-0"
             >
-              Tìm
+              Tìm kiếm
             </button>
           </form>
         </div>
@@ -350,31 +345,113 @@ export function ReceptionRoomBoard() {
   const base = useDeskBase(),
     navigate = useNavigate(),
     [params, setParams] = useSearchParams(),
-    [selected, setSelected] = useState<DeskRoom | null>(null),
-    [viewMode, setViewMode] = useState<"floors" | "tape">(params.get("view") === "tape" ? "tape" : "floors"),
+    [selectedRoom, setSelectedRoom] = useState<DeskRoom | null | undefined>(undefined),
+    [bookingRoomTarget, setBookingRoomTarget] = useState<DeskRoom | null | undefined>(undefined),
+    [viewMode, setViewMode] = useState<"floors" | "tape">(
+      params.get("view") === "tape" ? "tape" : "floors",
+    ),
     [quickSearch, setQuickSearch] = useState("");
+
+  const defaultCheckIn = hotelToday();
+  const defaultCheckOut = shiftDate(defaultCheckIn, 1);
+
+  const checkIn = params.get("checkIn") || defaultCheckIn;
+  const checkOut = params.get("checkOut") || defaultCheckOut;
+  const guests = Number(params.get("guests") || 2);
+  const availabilityParam = params.get("availability") || "";
+  const modeParam = params.get("mode") || "";
+  const stateParam = params.get("state") || "";
+  const floorParam = params.get("floor") || "";
+  const typeParam = params.get("roomTypeId") || "";
+
+  const isDateRangeValid = Boolean(checkIn && checkOut && checkOut > checkIn);
 
   const queryParams = new URLSearchParams();
   for (const [key, val] of params.entries()) {
-    if (val && ["page", "floor", "roomTypeId", "state"].includes(key)) queryParams.set(key, val);
+    if (val && ["page", "floor", "roomTypeId", "state"].includes(key)) {
+      queryParams.set(key, val);
+    }
   }
   if (!queryParams.has("page")) queryParams.set("page", "1");
   queryParams.set("pageSize", "50");
 
   const query = useDeskGet<Page<DeskRoom>>(
     "/front-desk/rooms?" + queryParams.toString(),
-  ),
-    [lastSync, setLastSync] = useState(() =>
-      new Date().toLocaleTimeString("vi-VN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-    ),
-    facets = useDeskGet<{
-      types: { id: string; name: string }[];
-      floors: number[];
-    }>("/front-desk/room-filters");
+  );
+
+  const [lastSync, setLastSync] = useState(() =>
+    new Date().toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }),
+  );
+
+  const facets = useDeskGet<{
+    types: { id: string; name: string }[];
+    floors: number[];
+  }>("/front-desk/room-filters");
+
+  const availabilityQuery = useDeskGet<Availability>(
+    "/front-desk/available?checkIn=" +
+      encodeURIComponent(checkIn) +
+      "&checkOut=" +
+      encodeURIComponent(checkOut) +
+      "&guests=" +
+      guests,
+    isDateRangeValid,
+  );
+
+  const availableRoomsMap = new Map<string, { id: string; estimatedTotalAmount?: string }>();
+  if (availabilityQuery.data?.data) {
+    for (const ar of availabilityQuery.data.data) {
+      availableRoomsMap.set(ar.id, ar);
+    }
+  }
+
+  const nights = isDateRangeValid
+    ? availabilityQuery.data?.nights ??
+      Math.max(
+        1,
+        Math.round(
+          (Date.parse(checkOut + "T00:00:00Z") -
+            Date.parse(checkIn + "T00:00:00Z")) /
+            86400000,
+        ),
+      )
+    : 1;
+
+  const todayStr = hotelToday();
+  const isSameDayCheckIn = checkIn === todayStr;
+
+  const getRoomAvailability = (r: DeskRoom) => {
+    if (!isDateRangeValid) {
+      return {
+        available: false,
+        reason: "Khoảng ngày không hợp lệ",
+        estimatedTotal: "0.00",
+      };
+    }
+    const availItem = availableRoomsMap.get(r.id);
+    if (availItem) {
+      const estimatedTotal =
+        availItem.estimatedTotalAmount ??
+        (Number(r.roomType.nightlyPrice) * nights).toFixed(2);
+      return { available: true, reason: null, estimatedTotal };
+    }
+    let reason = "Đã có lịch đặt trong khoảng ngày này";
+    if (r.operationalStatus !== "ACTIVE") {
+      reason = "Phòng ngưng phục vụ / bảo trì";
+    } else if (r.roomType.maxGuests < guests) {
+      reason = "Sức chứa tối đa " + r.roomType.maxGuests + " khách (yêu cầu " + guests + ")";
+    } else if (isSameDayCheckIn && (r.housekeepingStatus !== "CLEAN" || r.openTaskCount > 0)) {
+      reason = "Phòng chưa hoàn tất dọn dẹp để nhận hôm nay";
+    } else if (isSameDayCheckIn && r.bookings.some((b) => b.status === "CHECKED_IN")) {
+      reason = "Phòng đang có khách lưu trú hôm nay";
+    }
+    const estimatedTotal = (Number(r.roomType.nightlyPrice) * nights).toFixed(2);
+    return { available: false, reason, estimatedTotal };
+  };
 
   // Live sync every 30s
   useEffect(() => {
@@ -388,9 +465,12 @@ export function ReceptionRoomBoard() {
           }),
         );
       });
+      if (isDateRangeValid) {
+        void availabilityQuery.refetch();
+      }
     }, 30000);
     return () => clearInterval(timer);
-  }, [query]);
+  }, [query, availabilityQuery, isDateRangeValid]);
 
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -402,15 +482,38 @@ export function ReceptionRoomBoard() {
 
   const getRoomState = (r: DeskRoom) => {
     const key = roomState(r);
-    return { key, label: roomStateLabels[key], className: key === 'ready' ? 'room-ready-clean' : 'room-' + key, badgeClass: 'badge-' + key };
+    return {
+      key,
+      label: roomStateLabels[key],
+      className: key === "ready" ? "room-ready-clean" : "room-" + key,
+      badgeClass: "badge-" + key,
+    };
   };
+
   const allRooms = query.data?.data ?? [];
 
-  // Counts are scoped to the current server page and filters.
-  const readyCount = allRooms.filter(
-    (r) =>
-      roomState(r) === "ready",
-  ).length;
+  const urlRoomId = params.get("roomId");
+  const isBookingMode = params.get("mode") === "booking";
+
+  const selected =
+    selectedRoom !== undefined
+      ? selectedRoom
+      : urlRoomId && !isBookingMode
+        ? allRooms.find((r) => r.id === urlRoomId) ?? null
+        : null;
+
+  const bookingRoom =
+    bookingRoomTarget !== undefined
+      ? bookingRoomTarget
+      : urlRoomId && isBookingMode
+        ? allRooms.find((r) => r.id === urlRoomId) ?? null
+        : null;
+
+  const setSelected = (room: DeskRoom | null) => setSelectedRoom(room);
+  const setBookingRoom = (room: DeskRoom | null) => setBookingRoomTarget(room);
+
+  // Operational Counts
+  const readyCount = allRooms.filter((r) => roomState(r) === "ready").length;
   const occupiedCount = allRooms.filter(
     (r) =>
       r.operationalStatus === "ACTIVE" &&
@@ -428,23 +531,30 @@ export function ReceptionRoomBoard() {
     (r) => r.operationalStatus !== "ACTIVE",
   ).length;
 
-  // Lọc phòng theo các tiêu chí (Trạng thái, Tầng, Loại phòng, Tìm kiếm nhanh)
-  const stateParam = params.get("state") ?? "";
-  const floorParam = params.get("floor") ?? "";
-  const typeParam = params.get("roomTypeId") ?? "";
-
   const filteredRooms = allRooms.filter((r) => {
     if (floorParam && r.floor !== Number(floorParam)) return false;
     if (typeParam && r.roomType.id !== typeParam) return false;
     if (stateParam) {
       const isOccupied = r.bookings.some((b) => b.status === "CHECKED_IN");
       if (stateParam === "ready") {
-        if (!(roomState(r) === "ready")) return false;
+        if (roomState(r) !== "ready") return false;
       } else if (stateParam === "occupied") {
         if (!(r.operationalStatus === "ACTIVE" && isOccupied)) return false;
       } else if (stateParam === "dirty") {
-        if (!(r.operationalStatus === "ACTIVE" && (r.housekeepingStatus === "DIRTY" || r.housekeepingStatus === "CLEANING"))) return false;
+        if (
+          !(
+            r.operationalStatus === "ACTIVE" &&
+            (r.housekeepingStatus === "DIRTY" ||
+              r.housekeepingStatus === "CLEANING")
+          )
+        )
+          return false;
       }
+    }
+    if (availabilityParam) {
+      const avail = getRoomAvailability(r);
+      if (availabilityParam === "available" && !avail.available) return false;
+      if (availabilityParam === "unavailable" && avail.available) return false;
     }
     if (quickSearch.trim()) {
       const q = quickSearch.trim().toLowerCase();
@@ -458,7 +568,6 @@ export function ReceptionRoomBoard() {
     return true;
   });
 
-  // Gom nhóm phòng theo Tầng
   const floorsMap = new Map<number, DeskRoom[]>();
   for (const r of filteredRooms) {
     const list = floorsMap.get(r.floor) ?? [];
@@ -467,7 +576,6 @@ export function ReceptionRoomBoard() {
   }
   const sortedFloors = Array.from(floorsMap.keys()).sort((a, b) => a - b);
 
-  // Danh sách tầng và loại phòng khả dụng
   const availableFloors = Array.from(
     new Set([...(facets.data?.floors ?? []), ...allRooms.map((r) => r.floor)]),
   ).sort((a, b) => a - b);
@@ -481,6 +589,13 @@ export function ReceptionRoomBoard() {
     }
   }
 
+  const clearFilters = () => {
+    setQuickSearch("");
+    const next = new URLSearchParams();
+    if (params.get("view")) next.set("view", params.get("view")!);
+    setParams(next);
+  };
+
   return (
     <div className="desk-page">
       {/* Unified Master Control Header */}
@@ -491,7 +606,7 @@ export function ReceptionRoomBoard() {
             <div className="view-mode-toggle" role="tablist">
               <button
                 type="button"
-                className={`view-mode-btn ${viewMode === "floors" ? "active" : ""}`}
+                className={"view-mode-btn " + (viewMode === "floors" ? "active" : "")}
                 onClick={() => setViewMode("floors")}
                 role="tab"
                 aria-selected={viewMode === "floors"}
@@ -500,7 +615,7 @@ export function ReceptionRoomBoard() {
               </button>
               <button
                 type="button"
-                className={`view-mode-btn ${viewMode === "tape" ? "active" : ""}`}
+                className={"view-mode-btn " + (viewMode === "tape" ? "active" : "")}
                 onClick={() => setViewMode("tape")}
                 role="tab"
                 aria-selected={viewMode === "tape"}
@@ -511,7 +626,8 @@ export function ReceptionRoomBoard() {
           </div>
 
           <div className="desk-master-actions">
-            <div className="desk-board-stats-pills"><small>Trang hiện tại:</small>
+            <div className="desk-board-stats-pills">
+              <small>Trang hiện tại:</small>
               <span className="stat-pill pill-ready" title="Phòng trống sạch">
                 <span className="stat-dot dot-ready" /> {readyCount} Trống sạch
               </span>
@@ -540,8 +656,8 @@ export function ReceptionRoomBoard() {
             </span>
             <Button
               variant="secondary"
-              busy={query.isFetching}
-              onClick={() =>
+              busy={query.isFetching || availabilityQuery.isFetching}
+              onClick={() => {
                 void query.refetch().then(() =>
                   setLastSync(
                     new Date().toLocaleTimeString("vi-VN", {
@@ -550,46 +666,127 @@ export function ReceptionRoomBoard() {
                       second: "2-digit",
                     }),
                   ),
-                )
-              }
+                );
+                if (isDateRangeValid) {
+                  void availabilityQuery.refetch();
+                }
+              }}
               aria-label="Làm mới sơ đồ phòng"
               className="desk-refresh-btn"
             >
               <RefreshCw size={14} /> Làm mới
             </Button>
-            <LinkButton to={base + "/walk-in"}>
-              <Plus size={16} /> Đặt phòng tại quầy
-            </LinkButton>
+            <Button
+              variant={modeParam === "booking" ? "secondary" : "primary"}
+              onClick={() => {
+                const next = new URLSearchParams(params);
+                if (modeParam === "booking") {
+                  next.delete("mode");
+                } else {
+                  next.set("mode", "booking");
+                }
+                setParams(next);
+              }}
+            >
+              <Plus size={16} /> {modeParam === "booking" ? "Thoát chế độ đặt phòng" : "Đặt phòng mới"}
+            </Button>
           </div>
         </div>
 
-        {/* Master Filters (Integrated 1 Row) */}
-        {viewMode === "floors" && (
-          <div className="desk-master-filters">
-            <div className="filter-input-wrap">
-              <Search size={15} className="filter-search-icon" />
-              <input
-                type="search"
-                className="input master-search-input"
-                placeholder="Tìm nhanh số phòng hoặc loại phòng…"
-                value={quickSearch}
-                onChange={(e) => setQuickSearch(e.target.value)}
-              />
+        {/* Booking mode guidance banner */}
+        {modeParam === "booking" && (
+          <div className="desk-board-booking-mode-banner mt-3">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-brand-900">✨ Chế độ Đặt phòng mới:</span>
+              <span>Chọn ngày nhận/trả phòng & số khách bên dưới, sau đó bấm vào phòng có nhãn <strong>"✓ Có thể đặt"</strong> để bắt đầu tạo booking.</span>
             </div>
-            <select
-              className="input master-select"
-              value={params.get("state") ?? ""}
-              onChange={(e) => update("state", e.target.value)}
-              aria-label="Trạng thái"
+            <button
+              type="button"
+              className="text-xs text-brand-700 hover:underline cursor-pointer ml-3 font-semibold"
+              onClick={() => update("mode", "")}
             >
-              <option value="">Tất cả trạng thái</option>
+              Đóng hướng dẫn ✕
+            </button>
+          </div>
+        )}
+
+        {/* Date error alert */}
+        {!isDateRangeValid && (
+          <div className="desk-date-error-banner mt-3" role="alert">
+            <span>⚠️ Ngày trả phòng phải sau ngày nhận phòng. Vui lòng chọn ngày hợp lệ.</span>
+          </div>
+        )}
+
+        {/* Master Filters (Enhanced with Dates, Guests & Availability) */}
+        {viewMode === "floors" && (
+          <div className="desk-master-filters flex flex-wrap gap-2.5 pt-3 border-t border-zinc-100">
+            {/* Date and Guest Filters */}
+            <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 px-2 py-1 rounded-md">
+              <label className="flex items-center gap-1.5 text-xs text-zinc-600">
+                <span className="font-medium text-zinc-700">Nhận:</span>
+                <input
+                  type="date"
+                  className="bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-xs text-zinc-800"
+                  value={checkIn}
+                  onChange={(e) => update("checkIn", e.target.value)}
+                  aria-label="Ngày nhận phòng"
+                />
+              </label>
+              <span className="text-zinc-400">→</span>
+              <label className="flex items-center gap-1.5 text-xs text-zinc-600">
+                <span className="font-medium text-zinc-700">Trả:</span>
+                <input
+                  type="date"
+                  className="bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-xs text-zinc-800"
+                  value={checkOut}
+                  onChange={(e) => update("checkOut", e.target.value)}
+                  aria-label="Ngày trả phòng"
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-zinc-600 border-l border-zinc-200 pl-2">
+                <Users size={13} className="text-zinc-500" />
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  className="bg-white border border-zinc-200 rounded px-1 py-0.5 text-xs w-12 text-zinc-800"
+                  value={guests}
+                  onChange={(e) => update("guests", e.target.value)}
+                  aria-label="Số lượng khách"
+                />
+                <span>khách</span>
+              </label>
+            </div>
+
+            {/* Availability Filter */}
+            <select
+              className="input master-select text-xs"
+              value={availabilityParam}
+              onChange={(e) => update("availability", e.target.value)}
+              aria-label="Lọc theo khả dụng"
+            >
+              <option value="">Khả dụng: Tất cả</option>
+              <option value="available">✓ Chỉ phòng có thể đặt</option>
+              <option value="unavailable">✕ Chỉ phòng không thể đặt</option>
+            </select>
+
+            {/* Operational Status */}
+            <select
+              className="input master-select text-xs"
+              value={stateParam}
+              onChange={(e) => update("state", e.target.value)}
+              aria-label="Trạng thái vận hành"
+            >
+              <option value="">Vận hành: Tất cả trạng thái</option>
               <option value="ready">Trống sạch hôm nay</option>
               <option value="occupied">Đang có khách</option>
               <option value="dirty">Cần dọn / đang dọn</option>
             </select>
+
+            {/* Floor */}
             <select
-              className="input master-select"
-              value={params.get("floor") ?? ""}
+              className="input master-select text-xs"
+              value={floorParam}
               onChange={(e) => update("floor", e.target.value)}
               aria-label="Tầng"
             >
@@ -600,9 +797,11 @@ export function ReceptionRoomBoard() {
                 </option>
               ))}
             </select>
+
+            {/* Room Type */}
             <select
-              className="input master-select"
-              value={params.get("roomTypeId") ?? ""}
+              className="input master-select text-xs"
+              value={typeParam}
               onChange={(e) => update("roomTypeId", e.target.value)}
               aria-label="Loại phòng"
             >
@@ -613,14 +812,32 @@ export function ReceptionRoomBoard() {
                 </option>
               ))}
             </select>
-            {(quickSearch || params.get("state") || params.get("floor") || params.get("roomTypeId")) && (
+
+            {/* Quick search */}
+            <div className="filter-input-wrap flex-1 min-w-[180px]">
+              <Search size={14} className="filter-search-icon" />
+              <input
+                type="search"
+                className="input master-search-input text-xs"
+                placeholder="Tìm số phòng, loại phòng, tên khách…"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                aria-label="Tìm kiếm phòng"
+              />
+            </div>
+
+            {(quickSearch ||
+              params.get("state") ||
+              params.get("floor") ||
+              params.get("roomTypeId") ||
+              params.get("availability") ||
+              params.get("checkIn") ||
+              params.get("checkOut") ||
+              params.get("guests")) && (
               <Button
                 variant="ghost"
-                onClick={() => {
-                  setQuickSearch("");
-                  setParams({});
-                }}
-                className="master-clear-btn"
+                onClick={clearFilters}
+                className="master-clear-btn text-xs"
               >
                 Xóa bộ lọc
               </Button>
@@ -633,10 +850,27 @@ export function ReceptionRoomBoard() {
         <TapeChart
           base={base}
           onSelectRoom={setSelected}
-          onSelectBooking={(b) => navigate(`${base}/bookings/${b.id}`)}
+          onSelectBooking={(b) => navigate(base + "/bookings/" + b.id)}
         />
       ) : (
         <>
+          {/* Dual Legend: Operational Status & Booking Availability */}
+          <div className="desk-unified-legend" aria-label="Chú giải trạng thái phòng">
+            <div className="legend-row">
+              <span className="legend-label">Trạng thái vận hành:</span>
+              <span className="stat-pill pill-ready"><span className="stat-dot dot-ready" /> Trống sạch</span>
+              <span className="stat-pill pill-occupied"><span className="stat-dot dot-occupied" /> Đang ở</span>
+              <span className="stat-pill pill-dirty"><span className="stat-dot dot-dirty" /> Cần dọn</span>
+              <span className="stat-pill pill-cleaning"><span className="stat-dot dot-cleaning" /> Đang dọn</span>
+              <span className="stat-pill pill-out"><span className="stat-dot dot-out" /> Bảo trì</span>
+            </div>
+            <div className="legend-row">
+              <span className="legend-label">Khả dụng ({checkIn} → {checkOut}):</span>
+              <span className="room-avail-pill avail-yes"><span className="avail-icon">✓</span> Có thể đặt trong khoảng ngày đã chọn</span>
+              <span className="room-avail-pill avail-no"><span className="avail-icon">✕</span> Không thể đặt (trùng lịch, ngưng phục vụ hoặc vượt sức chứa)</span>
+            </div>
+          </div>
+
           {query.isPending ? (
             <Skeleton />
           ) : query.error ? (
@@ -656,16 +890,16 @@ export function ReceptionRoomBoard() {
                         {floorRooms.length} phòng ·{" "}
                         {
                           floorRooms.filter(
-                            (r) =>
-                              roomState(r) === "ready",
+                            (r) => getRoomAvailability(r).available,
                           ).length
                         }{" "}
-                        trống sạch
+                        có thể đặt ({nights} đêm)
                       </span>
                     </div>
                     <div className="desk-room-grid">
                       {floorRooms.map((r) => {
                         const state = getRoomState(r);
+                        const avail = getRoomAvailability(r);
                         const checkedInBooking = r.bookings.find(
                           (b) => b.status === "CHECKED_IN",
                         );
@@ -673,17 +907,22 @@ export function ReceptionRoomBoard() {
                           <button
                             key={r.id}
                             type="button"
-                            className={`desk-room ${state.className}`}
+                            className={
+                              "desk-room " +
+                              state.className +
+                              (modeParam === "booking" && avail.available ? " room-booking-highlight" : "")
+                            }
                             onClick={() => setSelected(r)}
                           >
                             <div className="desk-room-top">
                               <strong className="desk-room-num">{r.roomNumber}</strong>
                               <span
-                                className={`room-badge ${state.badgeClass}`}
+                                className={"room-badge " + state.badgeClass}
                               >
                                 {state.label}
                               </span>
                             </div>
+
                             <div className="desk-room-meta">
                               <span className="desk-room-type">
                                 {r.roomType.name}
@@ -692,6 +931,32 @@ export function ReceptionRoomBoard() {
                                 {money(r.roomType.nightlyPrice)}/đêm
                               </span>
                             </div>
+
+                            {/* Booking Availability Pill */}
+                            <div
+                              className={
+                                "room-avail-pill " +
+                                (avail.available ? "avail-yes" : "avail-no")
+                              }
+                              title={avail.available ? "Phòng có thể nhận đặt cho khoảng ngày đã chọn" : avail.reason || "Không thể đặt"}
+                            >
+                              <span className="avail-icon">
+                                {avail.available ? "✓" : "✕"}
+                              </span>
+                              <span>
+                                {avail.available ? "Có thể đặt" : "Không thể đặt"}
+                              </span>
+                              {avail.available ? (
+                                <strong className="avail-total">
+                                  {money(avail.estimatedTotal)}
+                                </strong>
+                              ) : (
+                                <small className="avail-reason">
+                                  {avail.reason}
+                                </small>
+                              )}
+                            </div>
+
                             <div className="desk-room-body">
                               {checkedInBooking?.customer?.fullName ? (
                                 <div className="desk-room-guest-wrap">
@@ -716,24 +981,30 @@ export function ReceptionRoomBoard() {
                                   <p className="desk-room-guest">
                                     {r.housekeepingStatus === "CLEANING"
                                       ? "Buồng phòng đang dọn"
-                                      : state.key === "reserved" ? "Phòng đã được đặt" : state.key === "out-of-service" ? "Ngưng phục vụ" : "Cần dọn phòng"}
+                                      : state.key === "reserved"
+                                        ? "Phòng đã được đặt"
+                                        : state.key === "out-of-service"
+                                          ? "Ngưng phục vụ"
+                                          : "Cần dọn phòng"}
                                   </p>
                                   <span className="desk-room-stay">
                                     {r.openTaskCount > 0
-                                      ? `Có ${r.openTaskCount} việc dọn dẹp`
+                                      ? "Có " + r.openTaskCount + " việc dọn dẹp"
                                       : "Chưa phân công ca"}
                                   </span>
                                 </div>
                               )}
                             </div>
-                            <small>Vệ sinh: {cleaningLabels[r.housekeepingStatus] ?? r.housekeepingStatus} · {r.openTaskCount} việc mở</small>
+
+                            <small>
+                              Vệ sinh: {cleaningLabels[r.housekeepingStatus] ?? r.housekeepingStatus} · {r.openTaskCount} việc mở
+                            </small>
+
                             <div className="desk-room-hint">
                               <span>
-                                {checkedInBooking
-                                  ? "Chi tiết khách & Trả phòng →"
-                                  : state.key === "ready"
-                                    ? "Đón khách (Walk-in) →"
-                                    : "Xem chi tiết →"}
+                                {avail.available
+                                  ? "Đặt phòng này →"
+                                  : "Chi tiết phòng →"}
                               </span>
                             </div>
                           </button>
@@ -744,11 +1015,18 @@ export function ReceptionRoomBoard() {
                 );
               })}
 
-              <Pagination {...query.data!.meta} onChange={p => { const next = new URLSearchParams(params); next.set("page", String(p)); setParams(next); }} />
+              <Pagination
+                {...query.data!.meta}
+                onChange={(p) => {
+                  const next = new URLSearchParams(params);
+                  next.set("page", String(p));
+                  setParams(next);
+                }}
+              />
               {!filteredRooms.length && (
                 <EmptyState
                   title="Không có phòng phù hợp"
-                  description="Thử thay đổi bộ lọc trạng thái, loại phòng hoặc tầng."
+                  description="Thử thay đổi bộ lọc ngày, trạng thái khả dụng, loại phòng hoặc tầng."
                 />
               )}
             </>
@@ -756,14 +1034,16 @@ export function ReceptionRoomBoard() {
         </>
       )}
 
+      {/* Room Detail & Action Drawer */}
       <Dialog
-        open={!!selected}
+        open={Boolean(selected)}
         onClose={() => setSelected(null)}
         title={"Thao tác phòng " + (selected?.roomNumber ?? "")}
         className="desk-room-action-drawer"
       >
         {selected && (() => {
           const state = getRoomState(selected);
+          const avail = getRoomAvailability(selected);
           const checkedInBooking = selected.bookings.find(
             (b) => b.status === "CHECKED_IN",
           );
@@ -774,18 +1054,42 @@ export function ReceptionRoomBoard() {
                 <div>
                   <span className="drawer-room-number">Phòng {selected.roomNumber}</span>
                   <p className="drawer-room-type">
-                    {selected.roomType.name} · Tầng {selected.floor}
+                    {selected.roomType.name} · Tầng {selected.floor} · {money(selected.roomType.nightlyPrice)}/đêm
                   </p>
                 </div>
-                <span className={`room-badge ${state.badgeClass}`}>
+                <span className={"room-badge " + state.badgeClass}>
                   {state.label}
                 </span>
+              </div>
+
+              {/* Stay & Availability Card */}
+              <div
+                className={
+                  "p-3.5 rounded-lg border " +
+                  (avail.available
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+                    : "bg-amber-50 border-amber-200 text-amber-950")
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs uppercase tracking-wider">
+                    {avail.available ? "✓ Khả dụng đặt phòng" : "✕ Chưa thể đặt phòng"}
+                  </span>
+                  <strong className="text-xs">
+                    {avail.available
+                      ? money(avail.estimatedTotal) + " (" + nights + " đêm)"
+                      : avail.reason}
+                  </strong>
+                </div>
+                <p className="text-xs text-zinc-600 mt-1">
+                  Khoảng ngày đã chọn: <strong>{checkIn}</strong> → <strong>{checkOut}</strong> ({nights} đêm · {guests} khách)
+                </p>
               </div>
 
               {selected.openTaskCount > 0 && (
                 <div className="drawer-task-alert">
                   <strong>⚠️ Buồng phòng chưa hoàn tất</strong>
-                  <p>Có {selected.openTaskCount} công việc dọn dẹp cần xử lý trước khi nhận khách mới.</p>
+                  <p>Có {selected.openTaskCount} công việc dọn dẹp cần xử lý.</p>
                 </div>
               )}
 
@@ -805,7 +1109,7 @@ export function ReceptionRoomBoard() {
                       <dd>{checkedInBooking.customer?.phone || "Chưa có SĐT"}</dd>
                     </div>
                     <div>
-                      <dt>Lưu trú</dt>
+                      <dt>Lưu trú hiện tại</dt>
                       <dd>
                         {checkedInBooking.checkIn} → {checkedInBooking.checkOut} ({checkedInBooking.nights} đêm)
                       </dd>
@@ -822,26 +1126,27 @@ export function ReceptionRoomBoard() {
                 </div>
               )}
 
-              {/* 1-Click Fast Actions */}
+              {/* Actions Section */}
               <div className="drawer-actions-section">
-                <span className="drawer-section-label">THAO TÁC NHANH</span>
+                <span className="drawer-section-label">THAO TÁC</span>
                 <div className="drawer-action-buttons">
-                  {state.key === "ready" && (
+                  {/* Unified Booking Action */}
+                  {avail.available && (
                     <Button
                       className="drawer-btn-primary"
                       onClick={() => {
-                        const id = selected.id;
+                        const r = selected;
                         setSelected(null);
-                        navigate(`${base}/walk-in?roomId=${id}`);
+                        setBookingRoom(r);
                       }}
                     >
-                      Đón khách vào phòng này (Walk-in)
+                      <Plus size={15} /> Đặt phòng này ({money(avail.estimatedTotal)})
                     </Button>
                   )}
 
                   {checkedInBooking && (
                     <LinkButton
-                      to={`${base}/bookings/${checkedInBooking.id}/billing`}
+                      to={base + "/bookings/" + checkedInBooking.id + "/billing"}
                       onClick={() => setSelected(null)}
                       className="drawer-btn-checkout"
                     >
@@ -852,7 +1157,7 @@ export function ReceptionRoomBoard() {
                   {checkedInBooking && (
                     <LinkButton
                       variant="secondary"
-                      to={`${base}/bookings/${checkedInBooking.id}`}
+                      to={base + "/bookings/" + checkedInBooking.id}
                       onClick={() => setSelected(null)}
                     >
                       Chi tiết booking
@@ -872,7 +1177,9 @@ export function ReceptionRoomBoard() {
               {/* Related bookings list */}
               {selected.bookings.length > 0 && (
                 <div className="drawer-bookings-section">
-                  <span className="drawer-section-label">LỊCH ĐẶT LIÊN QUAN ({selected.bookings.length})</span>
+                  <span className="drawer-section-label">
+                    LỊCH ĐẶT LIÊN QUAN ({selected.bookings.length})
+                  </span>
                   <div className="drawer-bookings-list">
                     {selected.bookings.map((b) => (
                       <div className="panel drawer-booking-item" key={b.id}>
@@ -885,7 +1192,7 @@ export function ReceptionRoomBoard() {
                         </p>
                         <div className="drawer-item-actions">
                           <LinkButton
-                            to={`${base}/bookings/${b.id}`}
+                            to={base + "/bookings/" + b.id}
                             variant="secondary"
                             onClick={() => setSelected(null)}
                           >
@@ -894,7 +1201,7 @@ export function ReceptionRoomBoard() {
                           {b.status === "CHECKED_IN" && (
                             <LinkButton
                               variant="secondary"
-                              to={`${base}/bookings/${b.id}/billing`}
+                              to={base + "/bookings/" + b.id + "/billing"}
                               onClick={() => setSelected(null)}
                             >
                               Hóa đơn / Trả phòng
@@ -910,620 +1217,28 @@ export function ReceptionRoomBoard() {
           );
         })()}
       </Dialog>
+
+      {/* Unified Booking Modal */}
+      <UnifiedBookingModal
+        open={Boolean(bookingRoom)}
+        onClose={() => setBookingRoom(null)}
+        room={bookingRoom}
+        initialCheckIn={checkIn}
+        initialCheckOut={checkOut}
+        initialGuests={guests}
+      />
     </div>
   );
 }
+
 export function ReceptionWalkIn() {
   const base = useDeskBase(),
-    navigate = useNavigate(),
-    toast = useToast(),
-    refresh = useRefreshDesk(),
-    [urlParams] = useSearchParams(),
-    lock = useRef(false);
-
-  // Mặc định ngày Check-in là hôm nay, Check-out là ngày mai (1 đêm)
-  const todayStr = hotelToday();
-  const tomorrowStr = shiftDate(todayStr, 1);
-
-  const initialStay = new URLSearchParams({
-    checkIn: todayStr,
-    checkOut: tomorrowStr,
-    guests: "2",
-  }).toString();
-
-  const [stay, setStay] = useState(initialStay),
-    [roomId, setRoomId] = useState(urlParams.get("roomId") ?? ""),
-    [search, setSearch] = useState(""),
-    [customerPage, setCustomerPage] = useState(1),
-    [customer, setCustomer] = useState<Customer | null>(null),
-    [newGuest, setNewGuest] = useState(false),
-    [review, setReview] = useState<Record<string, unknown> | null>(null),
-    [uncertain, setUncertain] = useState(false);
-  const availability = useDeskGet<Availability>(
-      "/front-desk/available?" + stay,
-      !!stay,
-    ),
-    customers = useDeskGet<Page<Customer>>(
-      "/front-desk/customers?q=" +
-        encodeURIComponent(search) +
-        "&page=" +
-        customerPage,
-      search.length >= 2,
-    ),
-    room = availability.data?.data.find((r) => r.id === roomId);
-  const mutation = useMutation({
-    retry: false,
-    mutationFn: (data: Record<string, unknown>) =>
-      api.request<DeskBooking>("/front-desk/walk-in", {
-        method: "POST",
-        body: data,
-      }),
-    onSuccess: async (b) => {
-      toast("Đã tạo booking tại quầy.");
-      await refresh();
-      navigate(`${base}/bookings/${b.id}`);
-    },
-    onError: (error) => {
-      setUncertain(
-        !(error instanceof ApiError) ||
-          error.status === 0 ||
-          error.status >= 500,
-      );
-      toast(deskError(error, "booking"), "error");
-    },
-    onSettled: () => {
-      lock.current = false;
-    },
-  });
-  return (
-    <div className="desk-page">
-      {/* Consolidated Slim Walk-In Master Bar */}
-      <div className="walk-in-master-card panel">
-        <div className="walk-in-top-row">
-          <div className="walk-in-title-wrap">
-            <h1 className="walk-in-title">Đón khách tại quầy (Walk-in)</h1>
-            <span className="walk-in-badge">
-              {room ? `Đang chọn: Phòng ${room.roomNumber}` : "Bước 1: Chọn phòng trống sạch"}
-            </span>
-          </div>
-
-          <div className="walk-in-steps-compact" aria-label="Các bước đón khách">
-            <span className={`step-chip ${!room ? "active" : "done"}`}>
-              <span className="chip-num">{room ? "✓" : "1"}</span> Kỳ nghỉ & phòng
-            </span>
-            <span className="chip-arrow">→</span>
-            <span className={`step-chip ${room && !customer && !newGuest ? "active" : room ? "done" : ""}`}>
-              <span className="chip-num">{customer || newGuest ? "✓" : "2"}</span> Hồ sơ khách
-            </span>
-            <span className="chip-arrow">→</span>
-            <span className={`step-chip ${review ? "active" : ""}`}>
-              <span className="chip-num">3</span> Xác nhận
-            </span>
-          </div>
-        </div>
-
-        <form
-          className="walk-in-inline-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            setRoomId("");
-            setStay(
-              new URLSearchParams({
-                checkIn: String(f.get("checkIn")),
-                checkOut: String(f.get("checkOut")),
-                guests: String(f.get("guests")),
-              }).toString(),
-            );
-          }}
-        >
-          <div className="walk-in-inputs">
-            <label className="walk-in-field">
-              <span className="field-caption">Ngày nhận phòng</span>
-              <input
-                className="input walk-in-input"
-                name="checkIn"
-                type="date"
-                defaultValue={todayStr}
-                required
-              />
-            </label>
-            <label className="walk-in-field">
-              <span className="field-caption">Ngày trả phòng</span>
-              <input
-                className="input walk-in-input"
-                name="checkOut"
-                type="date"
-                defaultValue={tomorrowStr}
-                required
-              />
-            </label>
-            <label className="walk-in-field field-guests">
-              <span className="field-caption">Số khách</span>
-              <input
-                className="input walk-in-input input-guests"
-                name="guests"
-                type="number"
-                min="1"
-                max="100"
-                defaultValue="2"
-                required
-              />
-            </label>
-            <Button className="walk-in-search-btn">Tìm phòng khả dụng</Button>
-          </div>
-
-          {availability.data?.data && (
-            <div className="walk-in-clean-count">
-              <span className="stat-dot dot-ready" />
-              <span>
-                {availability.data.data.filter((r) => r.housekeepingStatus === "CLEAN").length} phòng sạch sẵn sàng
-              </span>
-            </div>
-          )}
-        </form>
-      </div>
-
-      {stay && (
-        <div className="walk-in-room-section">
-          {availability.isPending ? (
-            <Skeleton />
-          ) : availability.error ? (
-            <ErrorState
-              message={availability.error.message}
-              retry={() => void availability.refetch()}
-            />
-          ) : (
-            <>
-              <div className="desk-room-grid">
-                {availability.data!.data
-                  .filter((r) => r.housekeepingStatus === "CLEAN")
-                  .map((r) => {
-                    const isSelected = roomId === r.id;
-                    return (
-                      <button
-                        key={r.id}
-                        type="button"
-                        className={
-                          "desk-room room-ready-clean " +
-                          (isSelected ? "room-selected" : "")
-                        }
-                        onClick={() => {
-                          setRoomId(r.id);
-                          setTimeout(() => {
-                            document
-                              .getElementById("walk-in-guest-section")
-                              ?.scrollIntoView({ behavior: "smooth" });
-                          }, 100);
-                        }}
-                        aria-pressed={isSelected}
-                      >
-                        <div className="desk-room-top">
-                          <strong className="desk-room-num">Phòng {r.roomNumber}</strong>
-                          <span className="room-badge badge-ready-clean">
-                            {isSelected ? "Đang chọn ✓" : "Trống sạch"}
-                          </span>
-                        </div>
-                        <div className="desk-room-meta">
-                          <span className="desk-room-type">{r.roomType.name}</span>
-                          <span className="desk-room-price">
-                            {money(r.roomType.nightlyPrice)} / đêm
-                          </span>
-                        </div>
-                        <div className="desk-room-body">
-                          <p className="desk-room-guest">
-                            Tối đa {r.roomType.maxGuests} khách
-                          </p>
-                          <span className="desk-room-stay">
-                            Tổng ({availability.data?.nights} đêm):
-                          </span>
-                          <strong className="walk-in-room-total">
-                            {money(r.estimatedTotalAmount!)}
-                          </strong>
-                        </div>
-                        
-                            <div className="desk-room-hint">
-                          <span>
-                            {isSelected ? "Đã chọn phòng này ✓" : "Chọn phòng này →"}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-              </div>
-
-              {!availability.data!.data.some(
-                (r) => r.housekeepingStatus === "CLEAN",
-              ) && (
-                <EmptyState
-                  title="Chưa có phòng sạch khả dụng"
-                  description="Thay đổi ngày hoặc phối hợp buồng phòng."
-                />
-              )}
-            </>
-          )}
-        </div>
-      )}
-      {room && (() => {
-        const dates = Object.fromEntries(new URLSearchParams(stay));
-        const stayDates = {
-          checkIn: dates.checkIn || todayStr,
-          checkOut: dates.checkOut || tomorrowStr,
-          guests: dates.guests || "2",
-        };
-
-        const handleBookingSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-          e.preventDefault();
-          const f = new FormData(e.currentTarget);
-          mutation.reset();
-          const fullName = String(f.get("fullName") ?? "").trim();
-          const phoneRaw = String(f.get("phone") ?? "").trim();
-          const enteredEmail = String(f.get("email") ?? "").trim();
-          if (newGuest && !enteredEmail) { toast("Cần email hợp lệ của khách để tạo hồ sơ.", "error"); return; }
-
-          setReview({
-            roomId,
-            checkIn: stayDates.checkIn,
-            checkOut: stayDates.checkOut,
-            guests: Number(stayDates.guests),
-            ...(newGuest
-              ? {
-                  fullName,
-                  email: enteredEmail,
-                  phone: phoneRaw,
-                }
-              : { customerId: customer!.id }),
-          });
-        };
-
-        return (
-          <section id="walk-in-guest-section" className="panel walk-in-guest-panel">
-            <div className="guest-section-header">
-              <div>
-                <span className="eyebrow">BƯỚC 2 / 3</span>
-                <h2>Hồ sơ khách hàng & Xác nhận đặt phòng</h2>
-              </div>
-              <div className="guest-header-room-pill">
-                <span className="stat-dot dot-ready" />
-                <span>Phòng {room.roomNumber} ({room.roomType.name})</span>
-              </div>
-            </div>
-
-            <form id="walk-in-booking-form" onSubmit={handleBookingSubmit}>
-              <div className="walk-in-split-grid">
-                {/* Cột trái (65%): Thao tác chọn / tạo khách */}
-                <div className="walk-in-guest-col">
-                  <div className="guest-type-toggle-bar">
-                    <Button
-                      type="button"
-                      variant={!newGuest ? "primary" : "secondary"}
-                      className={`guest-toggle-chip ${!newGuest ? "active" : ""}`}
-                      onClick={() => {
-                        setNewGuest(false);
-                        setCustomer(null);
-                      }}
-                    >
-                      <Search size={15} /> Tìm khách đã có
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={newGuest ? "primary" : "secondary"}
-                      className={`guest-toggle-chip ${newGuest ? "active" : ""}`}
-                      onClick={() => {
-                        setNewGuest(true);
-                        setCustomer(null);
-                      }}
-                    >
-                      <Plus size={15} /> Tạo hồ sơ mới
-                    </Button>
-                  </div>
-
-                  {!newGuest ? (
-                    <div className="walk-in-search-section">
-                      <label className="walk-in-search-card">
-                        <span className="search-field-title">
-                          Tìm theo tên, điện thoại hoặc email
-                        </span>
-                        <div className="walk-in-search-input-box">
-                          <Search size={16} className="search-box-icon" />
-                          <input
-                            className="input walk-in-customer-input"
-                            name="search"
-                            minLength={2}
-                            maxLength={120}
-                            defaultValue={search}
-                            placeholder="Nhập tên, số điện thoại hoặc email khách hàng…"
-                            aria-label="Tìm theo tên, điện thoại hoặc email"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const val = (e.currentTarget as HTMLInputElement).value.trim();
-                                setCustomerPage(1);
-                                setSearch(val);
-                              }
-                            }}
-                            onChange={(e) => {
-                              const val = e.target.value.trim();
-                              if (val.length >= 2) {
-                                setCustomerPage(1);
-                                setSearch(val);
-                              }
-                            }}
-                            required={!customer}
-                          />
-                          <Button
-                            type="button"
-                            className="walk-in-search-customer-btn"
-                            onClick={(e) => {
-                              const input = e.currentTarget
-                                .closest(".walk-in-search-input-box")
-                                ?.querySelector("input");
-                              if (input) {
-                                setCustomerPage(1);
-                                setSearch(input.value.trim());
-                              }
-                            }}
-                          >
-                            Tìm khách hàng
-                          </Button>
-                        </div>
-                      </label>
-
-                      {customer && (
-                        <div className="walk-in-selected-customer-card">
-                          <div className="selected-customer-avatar">
-                            {customer.fullName.slice(0, 1).toUpperCase()}
-                          </div>
-                          <div className="selected-customer-info">
-                            <div className="selected-customer-name-row">
-                              <strong>{customer.fullName}</strong>
-                              <span className="selected-badge">✓ Đã chọn hồ sơ</span>
-                            </div>
-                            <p className="selected-customer-meta">
-                              <span>📞 {customer.phone ?? "Chưa có SĐT"}</span>
-                              <span>✉️ {customer.email}</span>
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            className="change-customer-btn"
-                            onClick={() => setCustomer(null)}
-                            title="Chọn khách hàng khác"
-                          >
-                            Đổi khách khác
-                          </button>
-                        </div>
-                      )}
-
-                      {customer && (
-                        <p className="notice">
-                          Đã chọn: {customer.fullName} · {customer.email}
-                        </p>
-                      )}
-
-                      {search.length >= 2 && !customer && (
-                        <div className="walk-in-search-results">
-                          {customers.isPending ? (
-                            <Skeleton />
-                          ) : customers.error ? (
-                            <ErrorState
-                              message={customers.error.message}
-                              retry={() => void customers.refetch()}
-                            />
-                          ) : (
-                            <>
-                              <div className="desk-customers">
-                                {customers.data!.data.map((c) => (
-                                  <button
-                                    type="button"
-                                    className="panel"
-                                    key={c.id}
-                                    onClick={() => setCustomer(c)}
-                                    aria-pressed={false}
-                                  >
-                                    <div className="customer-avatar-small">
-                                      {c.fullName.slice(0, 1).toUpperCase()}
-                                    </div>
-                                    <div className="customer-info-small">
-                                      <strong>{c.fullName}</strong>
-                                      <span>
-                                        {c.phone ? `${c.phone} · ` : ""}{c.email}
-                                      </span>
-                                    </div>
-                                    <span className="select-customer-pill">
-                                      Chọn khách này →
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                              {!customers.data!.data.length && (
-                                <p className="no-customer-text">
-                                  Không tìm thấy khách với từ khóa trên. Bạn có thể chọn <strong>Tạo hồ sơ mới</strong>.
-                                </p>
-                              )}
-                              <Pagination
-                                {...customers.data!.meta}
-                                onChange={setCustomerPage}
-                              />
-                            </>
-                          )}
-                        </div>
-                      )}
-
-                      {search.length < 2 && !customer && (
-                        <div className="search-empty-hint">
-                          <span className="hint-icon">💡</span>
-                          <div>
-                            <strong>Tìm kiếm nhanh hồ sơ khách:</strong>
-                            <p>
-                              Nhập tên, số điện thoại hoặc email của khách hàng để tra cứu lịch sử lưu trú. Nếu là khách mới, chuyển sang tab <strong>Tạo hồ sơ mới</strong> bên trên.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="walk-in-new-guest-card">
-                      <div className="new-guest-header">
-                        <h3>Thông tin khách mới tại quầy</h3>
-                        <p>Hồ sơ khách sẽ được tạo và liên kết trực tiếp với booking này.</p>
-                      </div>
-                      <div className="new-guest-form-grid">
-                        <label className="new-guest-field">
-                          <span className="field-title">Họ và tên <span className="req">*</span></span>
-                          <input
-                            className="input"
-                            name="fullName"
-                            placeholder="Ví dụ: Nguyễn Văn An"
-                            required
-                            maxLength={120}
-                            aria-label="Họ và tên"
-                          />
-                        </label>
-                        <label className="new-guest-field">
-                          <span className="field-title">Số điện thoại <span className="req">*</span></span>
-                          <input
-                            className="input"
-                            name="phone"
-                            type="tel"
-                            placeholder="Ví dụ: 0901 234 567"
-                            required
-                            minLength={6}
-                            maxLength={24}
-                            aria-label="Số điện thoại"
-                          />
-                        </label>
-                        <label className="new-guest-field field-full-width">
-                          <span className="field-title">
-                            Email <span className="req">*</span>
-                          </span>
-                          <input
-                            className="input"
-                            name="email"
-                            type="email"
-                            placeholder="Email hợp lệ của khách"
-                            required
-                            maxLength={254}
-                            aria-label="Email"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Cột phải (35%): Phiếu tóm tắt kỳ nghỉ & Nút xác nhận */}
-                <div className="walk-in-summary-col">
-                  <div className="walk-in-summary-card">
-                    <div className="summary-header">
-                      <span className="summary-eyebrow">PHIẾU ĐẶT PHÒNG</span>
-                      <h3 className="summary-room-title">Phòng {room.roomNumber}</h3>
-                      <p className="summary-room-type">
-                        {room.roomType.name} · Tối đa {room.roomType.maxGuests} khách
-                      </p>
-                    </div>
-
-                    <div className="summary-details-list">
-                      <div className="summary-row">
-                        <span>Thời gian lưu trú</span>
-                        <strong>{availability.data?.nights} đêm</strong>
-                      </div>
-                      <div className="summary-row">
-                        <span>Ngày nhận phòng</span>
-                        <span>{stayDates.checkIn}</span>
-                      </div>
-                      <div className="summary-row">
-                        <span>Ngày trả phòng</span>
-                        <span>{stayDates.checkOut}</span>
-                      </div>
-                      <div className="summary-row">
-                        <span>Số lượng khách</span>
-                        <span>{stayDates.guests} người lớn</span>
-                      </div>
-                      <div className="summary-row">
-                        <span>Giá niêm yết theo đêm</span>
-                        <span>{money(room.roomType.nightlyPrice)}</span>
-                      </div>
-                    </div>
-
-                    <div className="summary-divider" />
-
-                    <div className="desk-total">
-                      <span>Tổng tiền phòng:</span>
-                      <strong className="summary-total-amount">
-                        {money(room.estimatedTotalAmount!)}
-                      </strong>
-                    </div>
-
-                    <div className="summary-action-area">
-                      <Button
-                        type="submit"
-                        className="walk-in-confirm-submit-btn"
-                        disabled={(!customer && !newGuest) || uncertain}
-                      >
-                        Xem lại booking
-                      </Button>
-                      {!customer && !newGuest && (
-                        <p className="summary-hint-warning">
-                          ⚠️ Hãy chọn hoặc điền thông tin khách để xem lại booking
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </form>
-          </section>
-        );
-      })()}
-      <Dialog
-        open={!!review}
-        onClose={() => {
-          if (!lock.current) setReview(null);
-        }}
-        title="Xác nhận đặt phòng tại quầy"
-      >
-        {review && (
-          <>
-            <p>
-              Phòng {room?.roomNumber} · {String(review.checkIn)} →{" "}
-              {String(review.checkOut)}
-            </p>
-            <p>
-              Khách: {customer?.fullName ?? String(review.fullName)} ·{" "}
-              {String(review.guests)} người
-            </p>
-            <p>
-              Tổng tiền phòng: {room && money(room.estimatedTotalAmount!)}.
-              Booking bắt đầu ở trạng thái chờ xác nhận.
-            </p>
-            {mutation.error && (
-              <p className="form-error" role="alert">
-                {deskError(mutation.error, "booking")} Hãy kiểm tra danh sách
-                booking trước khi thử lại.
-              </p>
-            )}
-            <div className="dialog-actions">
-              <LinkButton to={base + "/bookings"} variant="secondary">
-                Kiểm tra booking
-              </LinkButton>
-              <Button
-                busy={mutation.isPending}
-                disabled={uncertain || !!mutation.error}
-                onClick={() => {
-                  if (lock.current) return;
-                  lock.current = true;
-                  mutation.mutate(review);
-                }}
-              >
-                Xác nhận tạo booking
-              </Button>
-            </div>
-          </>
-        )}
-      </Dialog>
-    </div>
-  );
+    location = useLocation();
+  const search = new URLSearchParams(location.search);
+  if (!search.has("mode")) {
+    search.set("mode", "booking");
+  }
+  return <Navigate to={base + "/rooms?" + search.toString()} replace />;
 }
 
 export function ReceptionTapeChartPage() {

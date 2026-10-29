@@ -119,7 +119,7 @@ export function StatCard({
               accent ? "text-brand-700" : "text-zinc-900",
             )}
           >
-            {value}
+            <strong>{typeof value === "number" ? value.toLocaleString("vi-VN") : value}</strong>
           </div>
         </div>
         {spark ? (

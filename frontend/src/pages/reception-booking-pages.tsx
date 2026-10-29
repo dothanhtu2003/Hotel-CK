@@ -13,6 +13,7 @@ import { Skeleton } from "../features/guest/components";
 import { money, statusLabels, type Order, type Page, type Preview } from "../features/guest/contracts";
 import { CheckInWizard } from "../features/reception/check-in";
 import { DeskAction } from "../features/reception/components";
+import { ReservationPanels } from "../features/reception/reservation-panels";
 import { type DeskBooking } from "../features/reception/contracts";
 import { useDeskBase, useDeskGet, useDeskInvoice } from "../features/reception/queries";
 
@@ -52,7 +53,7 @@ export function ReceptionBookingDetailPage() {
   const guestName = b.customer?.fullName ?? b.reference;
 
   return (
-    <div className="space-y-6" data-booking-id={b.id}>
+    <div className="desk-page space-y-6" data-booking-id={b.id}>
       {/* Top Breadcrumb & Action Header */}
       <div>
         <Link
@@ -68,14 +69,14 @@ export function ReceptionBookingDetailPage() {
             <div>
               <div className="flex items-center gap-2.5">
                 <h1 className="text-xl font-bold text-zinc-900 tracking-tight">
-                  {guestName}
+                  {b.reference}
                 </h1>
-                <Badge tone={STATUS_TONES[b.status] || "zinc"}>
+                <Badge tone={STATUS_TONES[b.status] || "zinc"} className="status-badge">
                   {statusLabels[b.status] ?? b.status}
                 </Badge>
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Mã: <strong className="font-semibold text-zinc-700">{b.reference}</strong> · Phòng{" "}
+                Khách: <strong className="font-semibold text-zinc-700">{guestName}</strong> · Phòng{" "}
                 <strong className="font-semibold text-zinc-700">{b.roomNumber}</strong> · {b.checkIn} →{" "}
                 {b.checkOut} ({b.nights} đêm)
               </p>
@@ -131,21 +132,23 @@ export function ReceptionBookingDetailPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div>
-              <dt className="text-xs text-zinc-400">Họ và tên</dt>
-              <dd className="font-medium text-zinc-900 mt-0.5">{b.customer?.fullName ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-400">Số điện thoại</dt>
-              <dd className="font-medium text-zinc-800 mt-0.5">{b.customer?.phone ?? "Chưa có SĐT"}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-400">Email liên hệ</dt>
-              <dd className="font-medium text-zinc-800 mt-0.5">{b.customer?.email ?? "—"}</dd>
-            </div>
-            <div className="border-t border-zinc-100 pt-2 text-xs text-zinc-400">
-              Tạo hồ sơ lúc: {new Date(b.createdAt).toLocaleString("vi-VN")}
-            </div>
+            <dl className="guest-facts space-y-3">
+              <div>
+                <dt className="text-xs text-zinc-400">Họ và tên</dt>
+                <dd className="font-medium text-zinc-900 mt-0.5">{b.customer?.fullName ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-zinc-400">Số điện thoại</dt>
+                <dd className="font-medium text-zinc-800 mt-0.5">{b.customer?.phone ?? "Chưa có SĐT"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-zinc-400">Email liên hệ</dt>
+                <dd className="font-medium text-zinc-800 mt-0.5">{b.customer?.email ?? "—"}</dd>
+              </div>
+              <div className="border-t border-zinc-100 pt-2 text-xs text-zinc-400">
+                Tạo hồ sơ lúc: {new Date(b.createdAt).toLocaleString("vi-VN")}
+              </div>
+            </dl>
           </CardContent>
         </Card>
 
@@ -346,6 +349,24 @@ export function ReceptionBookingDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ReservationPanels bookingId={b.id} />
+
+      {b.status === "CONFIRMED" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Điều kiện nhận phòng</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs text-zinc-600">
+            <p>
+              Ngày hiện tại phải thuộc khoảng nhận phòng đến trước ngày trả phòng; khách phải đang hoạt động. Phòng cần ACTIVE và CLEAN, không có công việc buồng phòng còn mở. Hệ thống kiểm tra toàn bộ điều kiện khi gửi.
+            </p>
+            <p>
+              Phòng: {b.room?.operationalStatus === "ACTIVE" ? "Đang hoạt động" : "Ngưng hoạt động"} · {b.room?.housekeepingStatus === "CLEAN" ? "Đã dọn sạch" : "Chưa sạch"} · {b.openTaskCount ?? 0} công việc còn mở.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

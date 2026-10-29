@@ -333,6 +333,74 @@ describe("Front desk API — isolated local hotel_test", () => {
       .expect(409);
     expect(await c.prisma.client.user.count({ where: { email } })).toBe(0);
   });
+  it("allows booking an occupied room for future non-overlapping dates and blocks overlapping dates", async () => {
+    const r = await room();
+    const current = await create(r.id);
+    await api()
+      .patch("/api/bookings/" + current.id + "/confirm")
+      .set(auth())
+      .send({})
+      .expect(200);
+    await api()
+      .patch("/api/bookings/" + current.id + "/check-in")
+      .set(auth())
+      .send({})
+      .expect(200);
+
+    expect(
+      await c.prisma.client.booking.count({
+        where: { roomId: r.id, status: "CHECKED_IN" },
+      }),
+    ).toBe(1);
+
+    await api()
+      .post("/api/front-desk/walk-in")
+      .set(auth())
+      .send(body(r.id))
+      .expect(409);
+
+    const futureCheckIn = "2048-07-10";
+    const futureCheckOut = "2048-07-13";
+    const availableFuture = await api()
+      .get("/api/front-desk/available")
+      .set(auth())
+      .query({
+        checkIn: futureCheckIn,
+        checkOut: futureCheckOut,
+        guests: 2,
+        roomTypeId: typeId,
+      })
+      .expect(200);
+    expect(
+      availableFuture.body.data.some((v: { id: string }) => v.id === r.id),
+    ).toBe(true);
+
+    const futureBooking = await api()
+      .post("/api/front-desk/walk-in")
+      .set(auth())
+      .send({
+        roomId: r.id,
+        checkIn: futureCheckIn,
+        checkOut: futureCheckOut,
+        guests: 2,
+        customerId: actors.guest.id,
+      })
+      .expect(201);
+    expect(futureBooking.body.status).toBe("PENDING");
+    expect(futureBooking.body.checkIn).toBe(futureCheckIn);
+
+    await api()
+      .post("/api/front-desk/walk-in")
+      .set(auth())
+      .send({
+        roomId: r.id,
+        checkIn: "2048-07-11",
+        checkOut: "2048-07-14",
+        guests: 2,
+        customerId: actors.guest.id,
+      })
+      .expect(409);
+  });
   it("room board and dashboard use booking occupancy, not only cleanliness, and respect date filters", async () => {
     const r = await room(),
       b = await create(r.id);

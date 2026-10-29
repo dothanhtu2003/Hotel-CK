@@ -1092,3 +1092,92 @@
   display: flex;
   gap: 8px;
 }
+
+/* ========================================================
+   UNIFIED ROOM BOARD BOOKING & AVAILABILITY STYLES
+   ======================================================== */
+.room-avail-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+.room-avail-pill.avail-yes {
+  background: #e8f5e9;
+  color: #1b5e20;
+  border: 1px solid #c8e6c9;
+}
+.room-avail-pill.avail-no {
+  background: #f5f5f5;
+  color: #616161;
+  border: 1px solid #e0e0e0;
+}
+.room-avail-pill .avail-icon {
+  font-weight: 700;
+}
+.room-avail-pill .avail-total {
+  margin-left: auto;
+  font-weight: 700;
+}
+.room-avail-pill .avail-reason {
+  display: block;
+  font-size: 10px;
+  color: #757575;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.desk-board-booking-mode-banner {
+  background: #e8f4fd;
+  border: 1px solid #b3d7f4;
+  color: #0c5460;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.desk-date-error-banner {
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+  color: #b71c1c;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.desk-unified-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f8faf8;
+  border: 1px solid #dce2dc;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  font-size: 12px;
+}
+.desk-unified-legend .legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.desk-unified-legend .legend-label {
+  font-weight: 600;
+  color: #294b3f;
+  min-width: 140px;
+}
+.room-booking-highlight {
+  border-color: #2e7d32 !important;
+  box-shadow: 0 0 0 2px #2e7d3240 !important;
+}
+
