@@ -3,7 +3,6 @@ import "./reception-service-pages.css";
 import { Link, useParams, useSearchParams } from "react-router";
 import {
   ArrowLeft,
-  BellRing,
   Building2,
   Calendar,
   Car,
@@ -37,7 +36,7 @@ import {
   type Order,
   type Page,
 } from "../features/guest/contracts";
-import { DeskAction, OrderItems } from "../features/reception/components";
+import { DeskAction } from "../features/reception/components";
 import { pageNumber, type DeskBooking } from "../features/reception/contracts";
 import {
   useDeskBase,
@@ -45,7 +44,6 @@ import {
   useDeskInvoice,
 } from "../features/reception/queries";
 import {
-  Avatar,
   Badge,
   Card,
   CardContent,

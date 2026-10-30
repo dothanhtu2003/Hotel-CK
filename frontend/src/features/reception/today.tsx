@@ -19,12 +19,10 @@ import {
   Wrench,
 } from "lucide-react";
 import {
-  Badge,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  type BadgeTone,
 } from "../../components/kamra-ui";
 import { Button, Dialog, ErrorState, LinkButton } from "../../components/ui";
 import { GuestBadge, Skeleton } from "../guest/components";
@@ -646,26 +644,6 @@ export function ReceptionDashboard() {
                   const isOoo = selectedRoom.operationalStatus !== "ACTIVE";
                   const reservedBooking = bookings.find(b => ['PENDING', 'CONFIRMED'].includes(b.status) && b.checkIn <= todayStr && b.checkOut > todayStr);
                   const isClean = !occupiedBooking && !reservedBooking && !isDirty && !isCleaning && !isOoo;
-                  const statusLabel = occupiedBooking
-                    ? "Đang ở"
-                    : isOoo
-                    ? "Bảo trì"
-                    : reservedBooking
-                    ? reservedBooking.status === "PENDING" ? "Chờ xác nhận" : "Đã đặt"
-                    : isDirty
-                    ? "Cần dọn"
-                    : isCleaning
-                    ? "Đang dọn"
-                    : "Trống sạch";
-                  const statusBadgeTone: BadgeTone = occupiedBooking
-                    ? "brand"
-                    : isOoo
-                    ? "rose"
-                    : isDirty
-                    ? "amber"
-                    : isCleaning
-                    ? "sky"
-                    : "green";
 
                   const roomTypeName = selectedRoom.roomType?.name || "Standard";
                   const nightlyPrice = selectedRoom.roomType?.nightlyPrice || "0";
