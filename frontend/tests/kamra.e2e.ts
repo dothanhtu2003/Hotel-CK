@@ -9,7 +9,7 @@ test("Kamra Today and read-only multiday calendar use real API data at desktop a
   await expect(
     page.getByRole("heading", { name: "Tổng quan lễ tân" }),
   ).toBeVisible();
-  await expect(page.locator(".today-metric")).toHaveCount(6);
+  await expect(page.locator(".today-metric")).toHaveCount(0);
   await expect(page.locator(".today-room").first()).toBeVisible();
   if (await page.getByRole("button", { name: "Đóng thông báo" }).isVisible())
     await page.getByRole("button", { name: "Đóng thông báo" }).click();

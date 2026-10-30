@@ -1,0 +1,35 @@
+.cashier-page { display: grid; gap: 18px; color: #27272a; }
+.cashier-heading, .cashier-drawer header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.cashier-heading h1 { font-size: 24px; font-weight: 700; margin: 0; }
+.cashier-heading p, .cashier-note, .cashier-drawer header p { color: #71717a; font-size: 13px; margin-top: 5px; }
+.cashier-heading label { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.cashier-page input, .cashier-page button, .cashier-drawer > header button { border: 1px solid #dededc; border-radius: 9px; padding: 9px 12px; background: white; color: #3f3f46; }
+.cashier-page button { cursor: pointer; }
+.cashier-page button:focus-visible, .cashier-page a:focus-visible { outline: 2px solid #08745d; outline-offset: 3px; }
+.cashier-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.cashier-groups button { text-align: left; padding: 16px; display: grid; gap: 6px; }
+.cashier-groups strong { font-size: 28px; color: #086b56; }
+.cashier-groups small, .cashier-list small, .cashier-drawer small { display: block; font-size: 11px; color: #71717a; margin-top: 4px; }
+.cashier-page button[aria-pressed=true] { border-color: #0b7a60; background: #eaf6f0; color: #075442; }
+.cashier-list { border: 1px solid #e4e4e7; border-radius: 14px; background: white; overflow: hidden; }
+.cashier-filters { display: flex; gap: 8px; padding: 16px 16px 8px; }
+.cashier-filters input { margin-left: auto; width: min(440px, 55%); }
+.cashier-note { padding: 0 16px 12px; margin: 0; }
+.cashier-list table { font-size: 12px; }
+.cashier-list td { font-variant-numeric: tabular-nums; }
+.cashier-list td:first-child { min-width: 200px; max-width: 270px; }
+.cashier-list td:first-child small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cashier-balance { color: #b45309; }
+.cashier-actions { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+.cashier-page .cashier-primary { background: #086b56; color: #fff !important; border-color: #086b56; }
+.cashier-list footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid #eee; font-size: 12px; }
+.cashier-empty { padding: 28px; text-align: center; color: #71717a; font-size: 13px; }
+.cashier-empty p { margin: 8px 0 16px; }
+.dialog.cashier-drawer { width: min(600px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0 0 0 auto; border: 0; border-radius: 0; overflow-y: auto; background: white; padding: 24px; box-shadow: -8px 0 40px #18181b22; }
+.cashier-drawer h2 { font-size: 20px; font-weight: 700; }
+.cashier-drawer h3 { margin: 24px 0 12px; font-weight: 600; }
+.cashier-totals { margin: 24px 0; }
+.cashier-totals > div, .cashier-payment { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #eee; }
+.cashier-totals dd { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cashier-link { display: inline-block; color: #086b56; text-decoration: underline; margin: 8px 0 18px; }
+@media(max-width: 760px) { .cashier-groups { grid-template-columns: 1fr; } .cashier-heading { align-items: flex-start; flex-direction: column; } .cashier-filters { flex-wrap: wrap; } .cashier-filters input { margin-left: 0; flex: 1; } }

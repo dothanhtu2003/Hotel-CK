@@ -9,7 +9,7 @@ export class LoginDto {
   @IsEmail() @MaxLength(254)
   email!: string;
 
-  @ApiProperty({ writeOnly: true, format: 'password', maxLength: 128 })
-  @IsString() @MinLength(1) @MaxLength(128)
+  @ApiProperty({ writeOnly: true, format: 'password', minLength: 1 })
+  @IsString() @MinLength(1)
   password!: string;
 }

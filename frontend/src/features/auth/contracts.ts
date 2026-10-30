@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const roles = ['GUEST', 'RECEPTIONIST', 'HOUSEKEEPING', 'ADMIN'] as const;
 export type Role = typeof roles[number];
 export const userSchema = z.object({
-  id: z.string().uuid(), fullName: z.string(), email: z.string().email(), phone: z.string().nullable(),
+  id: z.string().uuid(), fullName: z.string(), email: z.string().email().nullable(), phone: z.string().nullable(),
   role: z.enum(roles), status: z.enum(['ACTIVE', 'DISABLED']), createdAt: z.string(), updatedAt: z.string(),
 });
 export type User = z.infer<typeof userSchema>;
@@ -11,10 +11,10 @@ export const loginResponseSchema = z.object({ accessToken: z.string().min(1), to
 const fullName = z.string().trim().min(1, 'Vui lòng nhập họ và tên.').max(120, 'Họ tên tối đa 120 ký tự.');
 const email = z.string().trim().toLowerCase().email('Vui lòng nhập email hợp lệ.').max(254, 'Email quá dài.');
 const phone = z.string().max(24, 'Số điện thoại tối đa 24 ký tự.').refine(value => value === '' || /^\+?[0-9][0-9 ()-]{5,22}[0-9]$/.test(value), 'Số điện thoại chưa hợp lệ.');
-export const loginSchema = z.object({ email, password: z.string().min(1, 'Vui lòng nhập mật khẩu.').max(128, 'Mật khẩu tối đa 128 ký tự.') });
+export const loginSchema = z.object({ email, password: z.string().min(1, 'Vui lòng nhập mật khẩu.') });
 export const registerSchema = z.object({
   fullName, email, phone,
-  password: z.string().min(12, 'Mật khẩu cần ít nhất 12 ký tự.').max(128, 'Mật khẩu tối đa 128 ký tự.').regex(/^(?=[\s\S]*\p{L})(?=[\s\S]*\p{N})[\s\S]+$/u, 'Mật khẩu cần có chữ và số.'),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu.'),
   confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu.'),
 }).refine(data => data.password === data.confirmPassword, { path: ['confirmPassword'], message: 'Mật khẩu xác nhận chưa khớp.' });
 export const profileSchema = z.object({ fullName, phone });

@@ -27,16 +27,16 @@ export function TapeChart({
     "/front-desk/room-filters",
   );
   const query = useDeskGet<Page<DeskRoom>>(
-    `/front-desk/rooms?start=${start}&end=${shiftDate(start, 14)}&page=${page}&pageSize=30${roomType ? "&roomTypeId=" + roomType : ""}`,
+    `/front-desk/rooms?start=${start}&end=${shiftDate(start, 14)}&page=${page}&pageSize=250${roomType ? "&roomTypeId=" + roomType : ""}`,
   );
 
   const days = Array.from({ length: 14 }, (_, i) => shiftDate(start, i));
   const today = hotelToday();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Tape Chart Header & Controls */}
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm space-y-3">
+      <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export function TapeChart({
               </h2>
             </div>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Lịch đặt phòng theo phòng vật lý · Khoảng [nhận phòng, trả phòng) · Click vào thanh booking để xem chi tiết
+              Chọn booking để xem chi tiết · Ngày trả phòng không tính vào đêm lưu trú
             </p>
           </div>
 
@@ -116,19 +116,19 @@ export function TapeChart({
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm bg-emerald-600" />
-            Đang lưu trú (Checked in)
+            Đang lưu trú
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm bg-sky-600" />
-            Đã xác nhận (Confirmed)
+            Đã xác nhận
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm bg-amber-500" />
-            Chờ xử lý (Pending)
+            Chờ xử lý
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm bg-zinc-400" />
-            Đã trả phòng (Checked out)
+            Đã trả phòng
           </span>
         </div>
       </div>
@@ -146,11 +146,11 @@ export function TapeChart({
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[calc(100dvh-300px)] min-h-64">
             <div className="min-w-[900px]">
               {/* Header Row: Room Label Column + 14 Day Columns */}
-              <div className="flex items-center border-b border-zinc-200 bg-zinc-50/80 text-xs font-semibold text-zinc-600">
-                <div className="w-48 shrink-0 px-3 py-2.5 border-r border-zinc-200">
+              <div className="sticky top-0 z-30 flex items-center border-b border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-600">
+                <div className="sticky left-0 z-40 bg-zinc-50 w-48 shrink-0 px-3 py-2 border-r border-zinc-200">
                   Phòng / Loại phòng
                 </div>
                 <div className="flex flex-1">
@@ -186,14 +186,14 @@ export function TapeChart({
                 {query.data!.data.map((room) => (
                   <div key={room.id} className="flex items-stretch hover:bg-zinc-50/40 transition-colors">
                     {/* Room Info Cell */}
-                    <div className="w-48 shrink-0 px-3 py-2 border-r border-zinc-200 flex flex-col justify-center">
+                    <div className="sticky left-0 z-10 bg-white w-48 shrink-0 px-3 py-1 border-r border-zinc-200 flex flex-col justify-center">
                       <div className="flex items-center justify-between">
                         <button
                           type="button"
                           onClick={() => onSelectRoom?.(room)}
-                          className="font-bold text-sm text-zinc-900 hover:text-brand-700 text-start cursor-pointer tabular-nums"
+                          className="min-w-0 truncate font-bold text-xs text-zinc-900 hover:text-brand-700 text-start cursor-pointer tabular-nums"
                         >
-                          Phòng {room.roomNumber}
+                          {room.roomNumber}
                         </button>
                         <Badge
                           tone={
@@ -214,7 +214,7 @@ export function TapeChart({
                     </div>
 
                     {/* Timeline Cell */}
-                    <div className="flex-1 relative min-h-[44px]">
+                    <div className="flex-1 relative min-h-[40px]">
                       {/* Grid Day Lines */}
                       <div className="absolute inset-0 flex pointer-events-none">
                         {days.map((d) => (
@@ -251,7 +251,7 @@ export function TapeChart({
                                   ? onSelectBooking(b)
                                   : navigate(`${base}/bookings/${b.id}`)
                               }
-                              className={`tape-bar absolute h-7 rounded-md px-2 text-start text-xs font-medium shadow-xs transition-transform hover:scale-[1.01] hover:z-20 cursor-pointer overflow-hidden flex items-center gap-1.5 ${barColor}`}
+                              className={`absolute h-7 rounded-md px-2 text-start text-xs font-medium shadow-xs transition-transform hover:scale-[1.01] hover:z-20 cursor-pointer overflow-hidden flex items-center gap-1.5 ${barColor}`}
                               style={{
                                 left: `${(span.left / 14) * 100}%`,
                                 width: `calc(${(span.width / 14) * 100}% - 2px)`,
@@ -283,7 +283,12 @@ export function TapeChart({
           </div>
 
           <div className="border-t border-zinc-200 bg-zinc-50 px-4 py-2">
-            <Pagination {...query.data!.meta} onChange={setPage} />
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+              <span>{query.data!.meta.total} phòng · 14 ngày · Cuộn trong bảng để xem thêm phòng</span>
+              {query.data!.meta.totalPages > 1 && (
+                <Pagination {...query.data!.meta} onChange={setPage} />
+              )}
+            </div>
           </div>
         </div>
       )}

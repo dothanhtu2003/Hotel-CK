@@ -95,7 +95,14 @@ test('a real delayed profile request shows a loading state before rendering', as
 });
 
 test('desktop staff portal renders operational cards and role-specific navigation', async ({ page }) => {
-  await login(page, 'reception'); await expect(page.locator('.desk-stats>a')).toHaveCount(6); await expect(page.getByRole('heading', { name: 'Khách đến', exact: true })).toBeVisible(); await expect(page.getByRole('heading', { name: 'Khách đi', exact: true })).toBeVisible(); await expect(page.locator('.workspace-sidebar').getByRole('link', { name: 'Đặt phòng tại quầy', exact: true })).toBeVisible();
+  await login(page, 'reception');
+  await expect(page.locator('.desk-stats>a')).toHaveCount(6);
+  await expect(page.getByRole('heading', { name: 'Bảng trạng thái phòng (Room Board)', exact: true })).toBeVisible();
+  await expect(page.getByText('Điều phối khách')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Đặt phòng mới', exact: true })).toBeVisible();
+  for (const name of ['Quản lý booking', 'Tape Chart', 'Đơn dịch vụ phòng', 'Buồng phòng', 'Hóa đơn & thanh toán']) {
+    await expect(page.locator('.workspace-sidebar').getByRole('link', { name, exact: true })).toBeVisible();
+  }
   await page.screenshot({ path: fileURLToPath(new URL('../../.local/frontend-portal-desktop.png', import.meta.url)), fullPage: true });
 });
 

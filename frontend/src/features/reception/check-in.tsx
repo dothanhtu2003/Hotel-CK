@@ -11,7 +11,15 @@ import { deskError, type DeskBooking } from "./contracts";
 import { useDeskGet, useRefreshDesk } from "./queries";
 import { cleaningLabels, hotelToday } from "./room-state";
 
-export function CheckInWizard({ bookingId }: { bookingId: string }) {
+export function CheckInWizard({
+  bookingId,
+  variant = "secondary",
+  className = "",
+}: {
+  bookingId: string;
+  variant?: "primary" | "secondary" | "ghost" | "light";
+  className?: string;
+}) {
   const [open, setOpen] = useState(false),
     [step, setStep] = useState(0);
   const lock = useRef(false),
@@ -56,7 +64,8 @@ export function CheckInWizard({ bookingId }: { bookingId: string }) {
   return (
     <>
       <Button
-        variant="secondary"
+        variant={variant}
+        className={className}
         onClick={() => {
           setStep(0);
           mutation.reset();

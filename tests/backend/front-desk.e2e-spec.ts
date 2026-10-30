@@ -42,7 +42,7 @@ describe("Front desk API — isolated local hotel_test", () => {
       });
       actors[key] = {
         id: u.id,
-        email: u.email,
+        email: u.email!,
         token: await c.app
           .get(JwtService)
           .signAsync({ sub: u.id, tokenType: "access" }),
@@ -97,10 +97,13 @@ describe("Front desk API — isolated local hotel_test", () => {
     expect(metrics.body.totalRooms).toBe(await c.prisma.client.room.count());
     expect(metrics.body.occupiedRooms).toBe(await c.prisma.client.room.count({ where: { bookings: { some: { status: 'CHECKED_IN' } } } }));
     expect(metrics.body.openTasks).toBe(await c.prisma.client.housekeepingTask.count({ where: { status: { not: 'DONE' } } }));
+    const counts = await api().get('/api/front-desk/booking-counts?date=2048-06-01').set(auth()).expect(200);
+    expect(counts.body).toEqual({ arrivals: arrivals.body.meta.total, departures: 0, staying: 0 });
   });
   it("protects every endpoint and private customer information", async () => {
     for (const route of [
       "dashboard",
+      "booking-counts",
       "bookings",
       "rooms",
       "room-filters",
@@ -241,6 +244,20 @@ describe("Front desk API — isolated local hotel_test", () => {
         .query(input)
         .expect(400);
   });
+  it('creates separate guests without email and still rejects invalid or duplicate contact details', async () => {
+    for (let i = 0; i < 2; i++) {
+      const r = await room();
+      const phone = `088${run.replaceAll('-', '').slice(0, 12)}${i}`;
+      const payload = { roomId: r.id, checkIn: today, checkOut: tomorrow, guests: 1, fullName: `No email ${run}`, phone };
+      await api().post('/api/front-desk/walk-in').set(auth()).send({ ...payload, email: 'invalid' }).expect(400);
+      const response = await api().post('/api/front-desk/walk-in').set(auth()).send(i ? { ...payload, email: '' } : payload).expect(201);
+      expect(response.body.customer.email).toBeNull();
+      expect((await c.prisma.client.user.findUniqueOrThrow({ where: { id: response.body.customer.id } })).email).toBeNull();
+      const other = await room();
+      await api().post('/api/front-desk/walk-in').set(auth()).send({ ...payload, roomId: other.id }).expect(409);
+    }
+  });
+
   it("blocks dirty, inactive, open-task and over-capacity rooms and validates identities", async () => {
     const dirty = await room(true);
     await api()
@@ -442,6 +459,17 @@ describe("Front desk API — isolated local hotel_test", () => {
       occupiedHeadcount._sum.guestCount,
     );
     expect(dashboard.body.bookingCounts.staying).toBe(occupiedHeadcount._count);
+    // Totals count bookings, use the same date/status predicates as the lists,
+    // and remain independent of the requested page size.
+    for (const date of [today, tomorrow, "2099-01-01"]) {
+      const totals = await api().get("/api/front-desk/booking-counts").set(auth()).query({ date }).expect(200);
+      for (const view of ["arrivals", "departures", "staying"]) {
+        const list = await api().get("/api/front-desk/bookings").set(auth()).query({ date, view, pageSize: 1 }).expect(200);
+        expect(totals.body[view]).toBe(list.body.meta.total);
+      }
+    }
+    await api().get("/api/front-desk/booking-counts?date=2026-02-30").set(auth()).expect(400);
+
     expect(dashboard.headers["cache-control"]).toBe("no-store");
     const staying = await api()
       .get("/api/front-desk/bookings")

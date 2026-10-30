@@ -6,7 +6,7 @@ import { useToast } from '../../components/toast-context';
 import { housekeepingError } from './contracts';
 
 export function useHousekeepingBase() { const { pathname } = useLocation(); return pathname.startsWith('/reception') ? '/reception/housekeeping' : pathname.startsWith('/admin') ? '/admin/housekeeping' : '/housekeeping'; }
-export function useHousekeepingGet<T>(path: string) { return useQuery({ queryKey: ['housekeeping', path], queryFn: ({ signal }) => api.request<T>(path, { signal }) }); }
+export function useHousekeepingGet<T>(path: string, enabled = true) { return useQuery({ enabled, queryKey: ['housekeeping', path], queryFn: ({ signal }) => api.request<T>(path, { signal }) }); }
 export function useWorkMutation<T, V>(action: string, label: string, fn: (variables: V) => Promise<T>, onSuccess?: (result: T) => void) {
   const client = useQueryClient(), toast = useToast(), lock = useRef(false);
   const mutation = useMutation({ retry: false, mutationFn: fn, onSuccess: async result => { toast(label); await refresh(); onSuccess?.(result); }, onError: async error => { toast(housekeepingError(error, action), 'error'); await refresh(); }, onSettled: () => { lock.current = false; } });

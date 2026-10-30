@@ -70,9 +70,12 @@ describe('Phase 3 authentication/profile/RBAC — hotel_test only', () => {
     await api().post('/api/auth/register').send({ ...registration(), email: 'invalid' }).expect(400);
   });
 
-  it.each(['short1A', '12345678901234', 'abcdefghijklmn'])('04 weak password rejected', async weak => {
-    const response = await api().post('/api/auth/register').send({ ...registration(), password: weak }).expect(400);
-    expect(response.text).not.toContain(weak);
+  it.each(['1', '12345678901234', 'abcdefghijklmn', 'a'.repeat(256)])('04 accepts non-empty test passwords', async password => {
+    const testEmail = `password-${randomUUID()}@auth-test.invalid`;
+    emails.add(testEmail);
+    const input = { ...registration(), email: testEmail, password };
+    await api().post('/api/auth/register').send(input).expect(201);
+    await api().post('/api/auth/login').send({ email: input.email, password }).expect(200);
   });
 
   it.each(['ADMIN', 'RECEPTIONIST', 'HOUSEKEEPING'])('05 cannot self-register privileged role %s', async role => {

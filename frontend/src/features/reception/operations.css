@@ -907,29 +907,47 @@
 /* ========================================================
    FRONT DESK QUICK ACTION DRAWER (SLIDE-OVER PANEL)
    ======================================================== */
-.desk-room-action-drawer {
-  width: min(540px, 95vw);
-  max-width: 540px;
-  border-radius: 12px;
+.desk-room-action-drawer:not([open]) {
+  display: none !important;
+}
+
+.desk-room-action-drawer[open] {
+  width: min(600px, 100vw);
+  max-width: 600px;
+  border-radius: 0;
   padding: 0;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.15);
+  border-left: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 
 .desk-room-action-drawer .dialog-heading {
-  padding: 18px 24px;
-  background: #f7f9f7;
-  border-bottom: 1px solid #edf1ed;
+  padding: 16px 22px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.desk-room-action-drawer .dialog-heading h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
 .drawer-body {
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  max-height: calc(85vh - 70px);
+  gap: 16px;
+  max-height: calc(100vh - 65px);
   overflow-y: auto;
+  background: #ffffff;
 }
 
 .drawer-room-hero {
@@ -1181,3 +1199,89 @@
   box-shadow: 0 0 0 2px #2e7d3240 !important;
 }
 
+
+/* ========================================================
+   FRONT DESK ROOM ACTION CENTERED MODAL
+   ======================================================== */
+.desk-room-action-modal:not([open]) {
+  display: none !important;
+}
+
+.desk-room-action-modal[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(680px, calc(100vw - 32px));
+  max-width: 680px;
+  height: fit-content;
+  max-height: min(90dvh, 860px);
+  border-radius: 20px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  z-index: 60;
+  animation: roomModalEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.desk-room-action-modal::backdrop {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: roomBackdropFade 0.2s ease-out;
+}
+
+.desk-room-action-modal .dialog-heading {
+  margin: 0;
+  padding: 16px 22px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.desk-room-action-modal .dialog-heading h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.desk-room-action-modal .dialog-heading > button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+}
+
+.desk-room-action-modal .dialog-heading > button:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.desk-room-action-modal .drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #fafaf9;
+}

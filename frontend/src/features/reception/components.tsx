@@ -3,6 +3,7 @@ import { CheckInWizard } from "./check-in";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { useMutation } from "@tanstack/react-query";
+import { BedDouble, LogOut } from "lucide-react";
 import { Button, Dialog, EmptyState, Table } from "../../components/ui";
 import { Avatar, Badge, type BadgeTone } from "../../components/kamra-ui";
 import { money, statusLabels, type Booking, type Order } from "../guest/contracts";
@@ -25,12 +26,16 @@ function ConfirmDeskAction({
   description,
   action,
   onDone,
+  variant = "secondary",
+  className = "",
 }: {
   path: string;
   label: string;
   description: string;
   action: string;
   onDone?: (result: unknown) => void;
+  variant?: "primary" | "secondary" | "ghost" | "light";
+  className?: string;
 }) {
   const [open, setOpen] = useState(false),
     lock = useRef(false),
@@ -57,7 +62,8 @@ function ConfirmDeskAction({
   return (
     <>
       <Button
-        variant="secondary"
+        variant={variant}
+        className={className}
         busy={mutation.isPending}
         onClick={() => {
           mutation.reset();
@@ -130,20 +136,33 @@ export function BookingTable({
         {
           title: "KHÁCH HÀNG / MÃ",
           render: (b) => {
-            const guestName = b.customer?.fullName ?? b.reference;
+            const rawName = b.customer?.fullName?.trim();
+            const guestName = rawName
+              ? rawName
+                  .split(" ")
+                  .filter(Boolean)
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(" ")
+              : "Khách tại quầy";
+            const contact = b.customer?.phone || b.customer?.email || "Tại quầy";
             return (
               <div className="flex items-center gap-2.5">
                 <Avatar name={guestName} />
                 <div className="min-w-0">
-                  <Link
-                    to={`${base}/bookings/${b.id}`}
-                    className="font-medium text-zinc-900 hover:text-brand-700 block truncate"
-                  >
-                    {b.reference}
-                  </Link>
-                  <small className="text-zinc-400 block text-xs">
-                    {guestName} · {b.customer?.phone ?? b.customer?.email ?? "Tại quầy"}
-                  </small>
+                  <span className="font-semibold text-zinc-900 block truncate text-sm">
+                    {guestName}
+                  </span>
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-500 pt-0.5">
+                    <Link
+                      to={`${base}/bookings/${b.id}`}
+                      className="font-mono font-medium text-brand-700 hover:underline tracking-tight truncate max-w-[140px] inline-block align-bottom"
+                      title={b.reference}
+                    >
+                      {b.reference}
+                    </Link>
+                    <span>·</span>
+                    <span className="text-zinc-400 truncate max-w-[130px]">{contact}</span>
+                  </div>
                 </div>
               </div>
             );
@@ -152,8 +171,15 @@ export function BookingTable({
         {
           title: "PHÒNG",
           render: (b) => (
-            <div className="tabular-nums font-semibold text-zinc-800">
-              {b.roomNumber ? `Phòng ${b.roomNumber}` : <span className="text-zinc-400 font-normal">Chưa xếp</span>}
+            <div>
+              {b.roomNumber ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-100/90 text-zinc-800 text-xs font-semibold tabular-nums">
+                  <BedDouble className="size-3.5 text-zinc-500 shrink-0" />
+                  Phòng {b.roomNumber}
+                </span>
+              ) : (
+                <span className="text-zinc-400 text-xs italic">Chưa xếp</span>
+              )}
             </div>
           ),
         },
@@ -161,12 +187,12 @@ export function BookingTable({
           title: "LƯU TRÚ",
           render: (b) => (
             <div>
-              <div className="tabular-nums text-zinc-700 text-xs">
+              <div className="tabular-nums text-zinc-800 text-xs font-medium">
                 <time dateTime={b.checkIn}>{b.checkIn.split("-").reverse().join("/")}</time>
                 {" → "}
                 <time dateTime={b.checkOut}>{b.checkOut.split("-").reverse().join("/")}</time>
               </div>
-              <small className="text-zinc-400 block text-[11px]">
+              <small className="text-zinc-400 block text-[11px] mt-0.5">
                 {b.nights} đêm · {b.guestCount} khách
               </small>
             </div>
@@ -175,7 +201,7 @@ export function BookingTable({
         {
           title: "TIỀN PHÒNG",
           render: (b) => (
-            <span className="tabular-nums font-medium text-zinc-800 text-sm">
+            <span className="tabular-nums font-semibold text-zinc-900 text-sm">
               {money(b.totalRoomAmount)}
             </span>
           ),
@@ -192,38 +218,56 @@ export function BookingTable({
           title: "THAO TÁC",
           render: (b) => (
             <div className="flex items-center justify-end gap-1.5 flex-wrap">
-              <Link
-                to={`${base}/bookings/${b.id}${billing || b.status === "CHECKED_IN" ? "/billing" : ""}`}
-                className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-              >
-                {billing
-                  ? "Xem chi phí"
-                  : b.status === "CHECKED_IN"
-                  ? "Trả phòng / Hóa đơn"
-                  : "Chi tiết"}
-              </Link>
-              {!billing && b.status === "PENDING" && (
-                <DeskAction
-                  path={`/bookings/${b.id}/confirm`}
-                  action="confirm"
-                  label="Xác nhận"
-                  description={`Xác nhận booking ${b.reference}, phòng ${b.roomNumber}?`}
-                />
-              )}
-              {!billing && b.status === "CONFIRMED" && (
+              {billing ? (
+                <Link
+                  to={`${base}/bookings/${b.id}/billing`}
+                  className="inline-flex items-center rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-900 transition-colors shadow-2xs"
+                >
+                  Xem chi phí
+                </Link>
+              ) : b.status === "CHECKED_IN" ? (
+                <Link
+                  to={`${base}/bookings/${b.id}/billing`}
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs"
+                >
+                  <LogOut className="size-3" />
+                  Trả phòng / Hóa đơn
+                </Link>
+              ) : b.status === "CONFIRMED" ? (
                 <DeskAction
                   path={`/bookings/${b.id}/check-in`}
                   action="check-in"
                   label="Nhận phòng"
                   description="Chỉ nhận phòng trong ngày lưu trú hợp lệ, khách đang hoạt động, phòng ACTIVE và CLEAN, không có công việc buồng phòng còn mở."
+                  variant="primary"
+                  className="!bg-brand-600 !text-white hover:!bg-brand-700 !border-transparent text-xs py-1.5 px-3 font-semibold shadow-2xs"
                 />
-              )}
+              ) : b.status === "PENDING" ? (
+                <DeskAction
+                  path={`/bookings/${b.id}/confirm`}
+                  action="confirm"
+                  label="Xác nhận"
+                  description={`Xác nhận booking ${b.reference}, phòng ${b.roomNumber}?`}
+                  variant="primary"
+                  className="!bg-brand-600 !text-white hover:!bg-brand-700 !border-transparent text-xs py-1.5 px-3 font-semibold shadow-2xs"
+                />
+              ) : null}
+
+              <Link
+                to={`${base}/bookings/${b.id}`}
+                className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 transition-colors shadow-2xs"
+              >
+                Chi tiết
+              </Link>
+
               {!billing && ["PENDING", "CONFIRMED"].includes(b.status) && (
                 <DeskAction
                   path={`/bookings/${b.id}/cancel`}
                   action="cancel"
                   label="Hủy"
                   description={`Hủy booking ${b.reference}? Phòng có thể được khách khác đặt lại.`}
+                  variant="ghost"
+                  className="!text-rose-600 hover:!bg-rose-50 !border-transparent text-xs py-1.5 px-2 font-medium"
                 />
               )}
             </div>
@@ -281,7 +325,11 @@ export function OrderItems({ order }: { order: Order }) {
 
 export function DeskAction(props: Parameters<typeof ConfirmDeskAction>[0]) {
   return props.action === "check-in" ? (
-    <CheckInWizard bookingId={props.path.split("/")[2]} />
+    <CheckInWizard
+      bookingId={props.path.split("/")[2]}
+      variant={props.variant}
+      className={props.className}
+    />
   ) : (
     <ConfirmDeskAction {...props} />
   );

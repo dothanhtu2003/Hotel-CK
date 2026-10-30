@@ -82,6 +82,7 @@ export function WorkspaceLayout() {
       ? '/reception'
       : homeForRole[user.role];
   const features = featuresForRole[user.role];
+  const isBillingPage = location.pathname.includes('/invoices/') || location.pathname.endsWith('/billing') || location.pathname.startsWith(`${home}/billing/`);
   const title = location.pathname.includes('/profile')
     ? 'Hồ sơ cá nhân'
     : location.pathname.includes('/invoices/') || location.pathname.endsWith('/billing')
@@ -116,7 +117,7 @@ export function WorkspaceLayout() {
             to={`${home}/bookings`}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                isActive
+                (isActive && !isBillingPage)
                   ? 'bg-brand-50 text-brand-700 font-semibold'
                   : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
               }`
@@ -184,7 +185,7 @@ export function WorkspaceLayout() {
             to={`${home}/billing`}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                isActive
+                (isActive || isBillingPage)
                   ? 'bg-brand-50 text-brand-700 font-semibold'
                   : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
               }`

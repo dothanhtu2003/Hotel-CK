@@ -11,10 +11,12 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { ToastContext } from "../../components/toast-context";
 import { api } from "../../lib/api";
 import {
+  ReceptionBookingsPage,
   ReceptionDashboard,
   ReceptionRoomBoard,
   ReceptionWalkIn,
 } from "../../pages/front-desk-pages";
+import { BookingTable } from "./components";
 import { WorkspaceLayout } from "../../layouts/workspace-layout";
 import { AuthContext } from "../auth/auth-context";
 import { formatStayDateDisplay, hotelToday, shiftDate } from "./room-state";
@@ -42,6 +44,7 @@ function setupDialog() {
   };
   HTMLDialogElement.prototype.close = function () {
     this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
   };
 }
 
@@ -263,9 +266,13 @@ describe("Unified Room Board & Booking Flow", () => {
     expect(screen.getByText("Trả phòng & Hóa đơn")).toBeTruthy();
     expect(screen.getAllByText("Chi tiết booking").length).toBeGreaterThan(0);
     expect(screen.getByText("Đặt phòng cho ngày tương lai")).toBeTruthy();
+
+    // Verify Guest Dispatch (Điều phối khách) section is completely removed from dashboard
+    expect(screen.queryByText("Điều phối khách")).toBeNull();
+    expect(screen.queryByText("Xem tất cả →")).toBeNull();
   });
 
-  it("Unified Booking Modal enforces valid guest info, forbids invalid emails, and starts in PENDING", async () => {
+  it.each(["real.customer@example.com", ""])("Unified Booking Modal validates optional email %s and starts in PENDING", async (guestEmail) => {
     setupDialog();
     const today = hotelToday();
     const tomorrow = shiftDate(today, 2);
@@ -349,7 +356,7 @@ describe("Unified Room Board & Booking Flow", () => {
 
     // Now enter valid real email
     fireEvent.change(screen.getByPlaceholderText("Email thực tế của khách"), {
-      target: { value: "real.customer@example.com" },
+      target: { value: guestEmail },
     });
     fireEvent.click(screen.getByText("Xem lại & Xác nhận"));
 
@@ -357,6 +364,9 @@ describe("Unified Room Board & Booking Flow", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Xác nhận tạo booking" })).toBeTruthy();
     });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockPost).not.toHaveBeenCalled();
 
     // Check status note: PENDING, no auto check-in
     expect(
@@ -374,7 +384,7 @@ describe("Unified Room Board & Booking Flow", () => {
         guests: 2,
         fullName: "Lê Văn C",
         phone: "0987654321",
-        email: "real.customer@example.com",
+        ...(guestEmail ? { email: guestEmail } : {}),
       });
       expect(onSuccess).toHaveBeenCalled();
     });
@@ -421,4 +431,214 @@ describe("Unified Room Board & Booking Flow", () => {
     const submitBtn = screen.getByText("Xem lại & Xác nhận") as HTMLButtonElement;
     expect(submitBtn.disabled).toBe(true);
   });
+
+  it("ReceptionBookingsPage displays 3 operational tab cards with exact counts from booking-counts API", async () => {
+    vi.spyOn(api, "request").mockImplementation(async (path: string) => {
+      if (path.includes("booking-counts")) {
+        return { arrivals: 4, departures: 2, staying: 7 };
+      }
+      if (path.includes("front-desk/bookings")) {
+        return {
+          data: [
+            {
+              id: "b1",
+              reference: "CK-TEST01",
+              userId: "c1",
+              roomId: "r1",
+              status: "CONFIRMED",
+              checkIn: "2026-10-29",
+              checkOut: "2026-10-31",
+              nights: 2,
+              guestCount: 2,
+              nightlyPrice: "1000000.00",
+              totalRoomAmount: "2000000.00",
+              roomNumber: "101",
+              customer: {
+                id: "c1",
+                fullName: "Nguyễn Văn Test",
+                phone: "0901234567",
+                email: "test@example.com",
+              },
+            },
+          ],
+          meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+        };
+      }
+      return {};
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/reception/bookings"]}>
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <ToastContext.Provider value={() => {}}>
+            <ReceptionBookingsPage />
+          </ToastContext.Provider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    // Verify 3 operational tab cards show exact numbers even on 'All bookings' view
+    await waitFor(() => {
+      const arrivalsTab = screen.getByRole("tab", { name: /Khách đến/ });
+      expect(arrivalsTab.textContent).toContain("4");
+      const stayingTab = screen.getByRole("tab", { name: /Đang ở/ });
+      expect(stayingTab.textContent).toContain("7");
+      const departuresTab = screen.getByRole("tab", { name: /Khách đi/ });
+      expect(departuresTab.textContent).toContain("2");
+    });
+
+    // Check table content
+    expect(screen.getByText("Nguyễn Văn Test")).toBeTruthy();
+    expect(screen.getByText("CK-TEST01")).toBeTruthy();
+  });
+
+  it.each([0, 3])("dashboard removes KPIs and guest hub, preserves conditional actionable alerts (%i)", async (pending) => {
+    setupDialog();
+    vi.spyOn(api, "request").mockImplementation(async (path: string) => {
+      if (path.includes("dashboard")) return { today: hotelToday(), counts: { pending, orders: pending }, arrivals: [], departures: [] };
+      if (path.includes("room-filters")) return { floors: [1], types: [] };
+      return { data: [], meta: { total: 0 } };
+    });
+    const { container } = render(<MemoryRouter initialEntries={["/reception"]}>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AuthContext.Provider value={{ user: mockStaffUser, notice: null, login: async () => mockStaffUser, logout: async () => {}, updateUser: () => true }}>
+          <ToastContext.Provider value={() => {}}><ReceptionDashboard /></ToastContext.Provider>
+        </AuthContext.Provider>
+      </QueryClientProvider>
+    </MemoryRouter>);
+    await waitFor(() => expect(screen.getByText("Bảng trạng thái phòng (Room Board)")).toBeTruthy());
+    expect(container.querySelector(".today-metrics")).toBeNull();
+    expect(screen.queryByText("Điều phối khách")).toBeNull();
+    if (pending) {
+      expect(screen.getByText("3 booking chờ xác nhận").closest("a")?.getAttribute("href")).toBe("/reception/bookings?status=PENDING");
+      expect(screen.getByText("3 đơn dịch vụ phòng chờ xử lý").closest("a")?.getAttribute("href")).toBe("/reception/service-orders?status=PENDING");
+    } else expect(screen.queryByText("Cần lưu ý:")).toBeNull();
+  });
+
+  it("booking totals follow date, stay independent of tabs and filters, and display zero", async () => {
+    const request = vi.spyOn(api, "request").mockImplementation(async (path: string) => {
+      if (path.includes("booking-counts")) return { arrivals: 0, staying: 0, departures: 0 };
+      return { data: [], meta: { page: 1, pageSize: 10, total: 90, totalPages: 9 } };
+    });
+    render(<MemoryRouter initialEntries={["/reception/bookings?date=2026-10-29&q=test&page=2"]}>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ReceptionBookingsPage />
+      </QueryClientProvider>
+    </MemoryRouter>);
+    await waitFor(() => expect(screen.getAllByText("0 booking")).toHaveLength(3));
+    fireEvent.click(screen.getByRole("tab", { name: /Đang ở/ }));
+    await waitFor(() => expect(request.mock.calls.some(([path]) => path.includes("view=staying") && path.includes("q=test") && !path.includes("page=2"))).toBe(true));
+    expect(screen.getAllByText("0 booking")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: "Ngày sau" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/front-desk/booking-counts?date=2026-10-30", expect.anything()));
+    expect(screen.getAllByText("0 booking")).toHaveLength(3);
+  });
+
+  it("booking totals show an actionable API error and recover on retry", async () => {
+    let failed = true;
+    vi.spyOn(api, "request").mockImplementation(async (path: string) => {
+      if (path.includes("booking-counts")) {
+        if (failed) throw new Error("Unavailable");
+        return { arrivals: 0, staying: 0, departures: 0 };
+      }
+      return { data: [], meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 } };
+    });
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ReceptionBookingsPage /></QueryClientProvider></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText("Không thể tải số liệu booking.")).toBeTruthy());
+    expect(screen.getAllByText("Lỗi tải")).toHaveLength(3);
+    failed = false;
+    fireEvent.click(screen.getByRole("button", { name: /Thử lại/ }));
+    await waitFor(() => expect(screen.getAllByText("0 booking")).toHaveLength(3));
+  });
+
+  it("BookingTable renders prominent customer name and booking reference link with fallback for missing customer", () => {
+    const rows = [
+      {
+        id: "b-with-customer",
+        reference: "CK-REF123",
+        userId: "u1",
+        roomId: "r1",
+        status: "CONFIRMED" as const,
+        checkIn: "2026-10-29",
+        checkOut: "2026-10-31",
+        nights: 2,
+        guestCount: 2,
+        nightlyPrice: "500000.00",
+        totalRoomAmount: "1000000.00",
+        roomNumber: "101",
+        customer: {
+          id: "u1",
+          fullName: "Lê Hoàng Yến",
+          phone: "0918765432",
+          email: "yen@example.com",
+        },
+      },
+      {
+        id: "b-without-customer",
+        reference: "8a4b3c2d-1111-2222-3333-444455556666",
+        userId: "u2",
+        roomId: "r2",
+        status: "CHECKED_IN" as const,
+        checkIn: "2026-10-29",
+        checkOut: "2026-10-30",
+        nights: 1,
+        guestCount: 1,
+        nightlyPrice: "800000.00",
+        totalRoomAmount: "800000.00",
+        roomNumber: "202",
+        customer: undefined,
+      },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={["/reception/bookings"]}>
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <ToastContext.Provider value={() => {}}>
+            <BookingTable rows={rows} />
+          </ToastContext.Provider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    // Row 1: has customer name
+    expect(screen.getByText("Lê Hoàng Yến")).toBeTruthy();
+    const link1 = screen.getByRole("link", { name: "CK-REF123" });
+    expect(link1).toBeTruthy();
+    expect(link1.getAttribute("href")).toBe("/reception/bookings/b-with-customer");
+    expect(screen.getByText("0918765432")).toBeTruthy();
+
+    // Row 2: without customer name falls back to "Khách tại quầy" instead of repeating the UUID
+    expect(screen.getByText("Khách tại quầy")).toBeTruthy();
+    const link2 = screen.getByRole("link", {
+      name: "8a4b3c2d-1111-2222-3333-444455556666",
+    });
+    expect(link2).toBeTruthy();
+    expect(link2.getAttribute("href")).toBe(
+      "/reception/bookings/b-without-customer",
+    );
+  });
+});
+
+
+it.each([['PENDING', 'CHỜ XÁC NHẬN'], ['CONFIRMED', 'ĐÃ ĐẶT']])('room board shows %s reservations instead of vacant rooms', async (status, label) => {
+  setupDialog();
+  const today = hotelToday();
+  vi.spyOn(api, 'request').mockImplementation(async path => {
+    if (path.includes('/front-desk/dashboard')) return { today, totalRooms: 1, occupiedRooms: 0, openTasks: 0, counts: { pending: 0, orders: 0, arrivals: 0, departures: 0, staying: 0, ready: 0, dirty: 0 }, arrivals: [], departures: [], staying: [] };
+    if (path.includes('/front-desk/room-filters')) return { types: [], floors: [1] };
+    if (path.includes('/front-desk/rooms')) return { data: [{ id: 'reserved-room', roomNumber: '111', floor: 1, operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN', openTaskCount: 0, roomType: { id: 'type', name: 'Standard', nightlyPrice: '650000', maxGuests: 2 }, bookings: [{ id: 'reserved-booking', status, checkIn: today, checkOut: shiftDate(today, 1), customer: { fullName: 'Khách vừa đặt' } }] }], meta: { page: 1, pageSize: 200, total: 1, totalPages: 1 } };
+    return { data: [], meta: { page: 1, pageSize: 8, total: 0, totalPages: 1 } };
+  });
+  render(<MemoryRouter initialEntries={['/reception']}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastContext.Provider value={() => {}}><AuthContext.Provider value={{ user: mockStaffUser, notice: null, login: async () => mockStaffUser, logout: () => {}, updateUser: () => true }}><ReceptionDashboard /></AuthContext.Provider></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
+  const statusText = await screen.findByText(label);
+  const card = statusText.closest('button')!;
+  expect(card.textContent).not.toContain('TRỐNG SẠCH');
+  expect(card.textContent).toContain('Khách vừa đặt');
+  fireEvent.click(card);
+  expect(screen.getByRole('link', { name: 'Xem booking · Xác nhận / Nhận phòng' }).getAttribute('href')).toBe('/reception/bookings/reserved-booking');
+  expect(screen.queryByRole('button', { name: /Đặt phòng này/ })).toBeNull();
 });

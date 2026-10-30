@@ -15,9 +15,8 @@ export class RegisterDto {
   @IsEmail() @MaxLength(254)
   email!: string;
 
-  @ApiProperty({ writeOnly: true, format: 'password', minLength: 12, maxLength: 128, description: 'At least 12 characters including a letter and a digit; never trimmed' })
-  @IsString() @MinLength(12) @MaxLength(128)
-  @Matches(/^(?=[\s\S]*\p{L})(?=[\s\S]*\p{N})[\s\S]+$/u, { message: 'password must contain a letter and a digit' })
+  @ApiProperty({ writeOnly: true, format: 'password', minLength: 1, description: 'Non-empty password; never trimmed' })
+  @IsString() @MinLength(1)
   password!: string;
 
   @ApiPropertyOptional({ maxLength: 24 })

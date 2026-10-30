@@ -1,5 +1,7 @@
+import { CashierPage } from "../features/reception/cashier";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
+  Calendar,
   ChevronLeft,
   ChevronRight,
   LogIn,
@@ -7,6 +9,7 @@ import {
   Plus,
   Search,
   Users,
+  X,
 } from "lucide-react";
 import {
   ErrorState,
@@ -24,6 +27,7 @@ import { BookingTable } from "../features/reception/components";
 import {
   pageNumber,
   type DeskBooking,
+  type DeskBookingCounts,
 } from "../features/reception/contracts";
 import {
   useDeskBase,
@@ -38,12 +42,18 @@ export function ReceptionBookingsPage({
 }: {
   billing?: boolean;
 }) {
+  return billing ? <CashierPage /> : <ReceptionBookingList />;
+}
+
+function ReceptionBookingList() {
+  const billing = false;
   const base = useDeskBase(),
     [params, setParams] = useSearchParams(),
     page = pageNumber(params.get("page"));
   const filters = new URLSearchParams(params);
   filters.set("page", String(page));
   filters.set("pageSize", "10");
+  if (params.get("view") && !params.get("date")) filters.set("date", hotelToday());
   const query = useDeskGet<Page<DeskBooking>>(
     "/front-desk/bookings?" + filters,
   );
@@ -68,12 +78,29 @@ export function ReceptionBookingsPage({
   };
 
   const currentDate = params.get("date") ?? hotelToday();
+  const countsQuery = useDeskGet<DeskBookingCounts>(
+    `/front-desk/booking-counts?date=${currentDate}`,
+  );
+  const countValue = (key: keyof DeskBookingCounts) => {
+    if (countsQuery.isPending) return <span role="status" aria-label="Đang tải số booking" className="inline-block h-5 w-6 animate-pulse rounded bg-zinc-200/70 align-middle" />;
+    if (countsQuery.isError) return <span className="text-xs whitespace-nowrap">Lỗi tải</span>;
+    return `${(countsQuery.data?.[key] ?? 0).toLocaleString("vi-VN")} booking`;
+  };
   const prettyDate = new Date(currentDate + "T00:00:00Z").toLocaleDateString("vi-VN", {
     weekday: "short",
     day: "numeric",
     month: "numeric",
     timeZone: "UTC",
   });
+
+  const hasActiveFilters = Boolean(
+    params.get("q") ||
+      params.get("status") ||
+      params.get("checkIn") ||
+      params.get("checkOut") ||
+      params.get("view") ||
+      params.get("date"),
+  );
 
   return (
     <div className="space-y-4">
@@ -127,181 +154,215 @@ export function ReceptionBookingsPage({
         </div>
       </div>
 
-      {/* 3 Prominent Operational Tab Cards matching Kamra InHouse.tsx */}
-      <div className="grid grid-cols-3 gap-2 sm:max-w-xl" role="tablist">
+      {/* 3 Prominent Operational Tab Cards spanning full width */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full" role="tablist">
+        {/* Card 1: Khách đến */}
         <button
           type="button"
           role="tab"
           aria-selected={currentView === "arrivals"}
           onClick={() => setTab("arrivals", "")}
-          className={`flex flex-col-reverse items-start gap-0.5 rounded-xl border px-3 py-2 text-start transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:py-2.5 cursor-pointer ${
+          className={`flex flex-col justify-between p-3.5 sm:p-4 rounded-xl border text-start transition-all cursor-pointer ${
             currentView === "arrivals"
-              ? "border-brand-600 bg-brand-50 text-brand-800 shadow-2xs"
-              : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+              ? "border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600/30 shadow-2xs"
+              : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50 shadow-2xs"
           }`}
         >
-          <span className="flex min-w-0 max-w-full items-center gap-1.5 text-xs font-medium sm:gap-2 sm:text-sm">
-            <LogIn className="hidden size-4 shrink-0 sm:block text-brand-700" />
-            <span className="truncate">Khách đến (Arrivals)</span>
-          </span>
-          <span className="text-base sm:text-lg font-semibold tabular-nums">
-            {currentView === "arrivals" && query.data?.meta ? query.data.meta.total : "—"}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-700">
+              <span className="p-1.5 rounded-lg bg-emerald-100/70 text-emerald-700">
+                <LogIn className="size-4 shrink-0" />
+              </span>
+              <span>Khách đến (Arrivals)</span>
+            </span>
+            <span className="text-[11px] text-zinc-400 font-normal">{prettyDate}</span>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between gap-2">
+            <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-800 tabular-nums">
+              {countValue("arrivals")}
+            </span>
+            <span className="text-[11px] text-zinc-400">Dự kiến nhận phòng</span>
+          </div>
         </button>
 
+        {/* Card 2: Đang ở */}
         <button
           type="button"
           role="tab"
           aria-selected={currentView === "staying"}
           onClick={() => setTab("staying", "")}
-          className={`flex flex-col-reverse items-start gap-0.5 rounded-xl border px-3 py-2 text-start transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:py-2.5 cursor-pointer ${
+          className={`flex flex-col justify-between p-3.5 sm:p-4 rounded-xl border text-start transition-all cursor-pointer ${
             currentView === "staying"
-              ? "border-brand-600 bg-brand-50 text-brand-800 shadow-2xs"
-              : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+              ? "border-sky-600 bg-sky-50/50 ring-1 ring-sky-600/30 shadow-2xs"
+              : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50 shadow-2xs"
           }`}
         >
-          <span className="flex min-w-0 max-w-full items-center gap-1.5 text-xs font-medium sm:gap-2 sm:text-sm">
-            <Users className="hidden size-4 shrink-0 sm:block text-brand-700" />
-            <span className="truncate">Đang ở (In-house)</span>
-          </span>
-          <span className="text-base sm:text-lg font-semibold tabular-nums">
-            {currentView === "staying" && query.data?.meta ? query.data.meta.total : "—"}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-700">
+              <span className="p-1.5 rounded-lg bg-sky-100/70 text-sky-700">
+                <Users className="size-4 shrink-0" />
+              </span>
+              <span>Đang ở (In-house)</span>
+            </span>
+            <span className="text-[11px] text-zinc-400 font-normal">Lưu trú</span>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between gap-2">
+            <span className="text-xl sm:text-2xl font-bold tracking-tight text-sky-800 tabular-nums">
+              {countValue("staying")}
+            </span>
+            <span className="text-[11px] text-zinc-400">Đang ở khách sạn</span>
+          </div>
         </button>
 
+        {/* Card 3: Khách đi */}
         <button
           type="button"
           role="tab"
           aria-selected={currentView === "departures"}
           onClick={() => setTab("departures", "")}
-          className={`flex flex-col-reverse items-start gap-0.5 rounded-xl border px-3 py-2 text-start transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:py-2.5 cursor-pointer ${
+          className={`flex flex-col justify-between p-3.5 sm:p-4 rounded-xl border text-start transition-all cursor-pointer ${
             currentView === "departures"
-              ? "border-brand-600 bg-brand-50 text-brand-800 shadow-2xs"
-              : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+              ? "border-amber-600 bg-amber-50/50 ring-1 ring-amber-600/30 shadow-2xs"
+              : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50 shadow-2xs"
           }`}
         >
-          <span className="flex min-w-0 max-w-full items-center gap-1.5 text-xs font-medium sm:gap-2 sm:text-sm">
-            <LogOut className="hidden size-4 shrink-0 sm:block text-amber-700" />
-            <span className="truncate">Khách đi (Departures)</span>
-          </span>
-          <span className="text-base sm:text-lg font-semibold tabular-nums">
-            {currentView === "departures" && query.data?.meta ? query.data.meta.total : "—"}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-700">
+              <span className="p-1.5 rounded-lg bg-amber-100/70 text-amber-700">
+                <LogOut className="size-4 shrink-0" />
+              </span>
+              <span>Khách đi (Departures)</span>
+            </span>
+            <span className="text-[11px] text-zinc-400 font-normal">{prettyDate}</span>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between gap-2">
+            <span className="text-xl sm:text-2xl font-bold tracking-tight text-amber-800 tabular-nums">
+              {countValue("departures")}
+            </span>
+            <span className="text-[11px] text-zinc-400">Dự kiến trả phòng</span>
+          </div>
         </button>
       </div>
 
-      {/* Filter and Search Bar Card */}
-      <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-2xs space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* View Tab Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors cursor-pointer ${
-                !currentView && !currentStatus
-                  ? "bg-brand-50 text-brand-700 font-semibold"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
-              onClick={() => setTab("", "")}
+      {countsQuery.isError && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <span>Không thể tải số liệu booking.</span>
+          <button type="button" className="font-medium underline cursor-pointer" onClick={() => void countsQuery.refetch()}>Thử lại</button>
+        </div>
+      )}
+
+      {/* Unified Table Section */}
+      <section className="rounded-2xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+        {/* Unified Filter & Search Bar Header */}
+        <div className="border-b border-zinc-200 bg-zinc-50/50 p-3 sm:p-4 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Quick Status View Pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all cursor-pointer ${
+                  !currentView && !currentStatus
+                    ? "bg-white text-brand-700 font-semibold shadow-2xs border border-zinc-200"
+                    : "text-zinc-600 hover:bg-zinc-100/80 border border-transparent"
+                }`}
+                onClick={() => setTab("", "")}
+              >
+                Tất cả booking {query.data?.meta && !currentView && !currentStatus ? `(${query.data.meta.total})` : ""}
+              </button>
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-all cursor-pointer ${
+                  currentStatus === "PENDING"
+                    ? "bg-amber-100 text-amber-800 font-semibold shadow-2xs border border-amber-200"
+                    : "text-zinc-600 hover:bg-zinc-100/80 border border-transparent"
+                }`}
+                onClick={() => setTab("", "PENDING")}
+              >
+                <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Chờ xác nhận
+              </button>
+            </div>
+
+            {/* Search Input Form */}
+            <form
+              className="flex items-center gap-2 flex-1 max-w-md lg:ml-auto"
+              onSubmit={(e) => {
+                e.preventDefault();
+                update("q", String(new FormData(e.currentTarget).get("q") ?? ""));
+              }}
             >
-              Tất cả booking {query.data?.meta && !currentView && !currentStatus ? `(${query.data.meta.total})` : ""}
-            </button>
-            <button
-              type="button"
-              className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors cursor-pointer ${
-                currentStatus === "PENDING"
-                  ? "bg-amber-50 text-amber-800 font-semibold"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
-              onClick={() => setTab("", "PENDING")}
-            >
-              Chờ xác nhận
-            </button>
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
+                <input
+                  className="w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-xs text-zinc-800 placeholder-zinc-400 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors"
+                  name="q"
+                  aria-label="Tìm booking hoặc khách"
+                  key={params.get("q") ?? ""}
+                  defaultValue={params.get("q") ?? ""}
+                  placeholder="Tìm mã booking, tên khách, số phòng, SĐT…"
+                />
+              </div>
+              <button
+                type="submit"
+                className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer shrink-0 shadow-2xs transition-colors"
+              >
+                Tìm kiếm
+              </button>
+            </form>
           </div>
 
-          {/* Search Form */}
-          <form
-            className="flex items-center gap-2 flex-1 max-w-sm"
-            onSubmit={(e) => {
-              e.preventDefault();
-              update("q", String(new FormData(e.currentTarget).get("q") ?? ""));
-            }}
-          >
-            <div className="relative w-full">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
+          {/* Secondary Filters row */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-200/60 text-xs">
+            <select
+              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 focus:outline-brand-600 shadow-2xs cursor-pointer"
+              value={params.get("status") ?? ""}
+              onChange={(e) => update("status", e.target.value)}
+              aria-label="Trạng thái booking"
+            >
+              <option value="">Tất cả trạng thái</option>
+              {bookingStatuses.map((s) => (
+                <option key={s} value={s}>
+                  {statusLabels[s]}
+                </option>
+              ))}
+            </select>
+
+            <label className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-600 shadow-2xs">
+              <Calendar className="size-3 text-zinc-400 shrink-0" />
+              <span className="text-zinc-500">Nhận:</span>
               <input
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/70 py-1.5 pl-8 pr-3 text-xs text-zinc-800 placeholder-zinc-400 focus:bg-white focus:outline-brand-600"
-                name="q"
-                aria-label="Tìm booking hoặc khách"
-                key={params.get("q") ?? ""}
-                defaultValue={params.get("q") ?? ""}
-                placeholder="Tìm mã booking, tên khách, số phòng, SĐT…"
+                className="bg-transparent text-xs text-zinc-700 focus:outline-none cursor-pointer"
+                type="date"
+                value={params.get("checkIn") ?? ""}
+                onChange={(e) => update("checkIn", e.target.value)}
               />
-            </div>
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 cursor-pointer shrink-0"
-            >
-              Tìm kiếm
-            </button>
-          </form>
+            </label>
+
+            <label className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-600 shadow-2xs">
+              <Calendar className="size-3 text-zinc-400 shrink-0" />
+              <span className="text-zinc-500">Trả:</span>
+              <input
+                className="bg-transparent text-xs text-zinc-700 focus:outline-none cursor-pointer"
+                type="date"
+                value={params.get("checkOut") ?? ""}
+                onChange={(e) => update("checkOut", e.target.value)}
+              />
+            </label>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => setParams({})}
+                className="inline-flex items-center gap-1 text-xs text-rose-600 font-medium hover:underline cursor-pointer ml-auto"
+              >
+                <X className="size-3.5" />
+                <span>Xóa bộ lọc</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Secondary Filters row */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-2 text-xs">
-          <select
-            className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-700 focus:outline-brand-600"
-            value={params.get("status") ?? ""}
-            onChange={(e) => update("status", e.target.value)}
-            aria-label="Trạng thái booking"
-          >
-            <option value="">Tất cả trạng thái</option>
-            {bookingStatuses.map((s) => (
-              <option key={s} value={s}>
-                {statusLabels[s]}
-              </option>
-            ))}
-          </select>
-
-          <label className="flex items-center gap-1 text-zinc-500">
-            <span>Nhận:</span>
-            <input
-              className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 focus:outline-brand-600"
-              type="date"
-              value={params.get("checkIn") ?? ""}
-              onChange={(e) => update("checkIn", e.target.value)}
-            />
-          </label>
-
-          <label className="flex items-center gap-1 text-zinc-500">
-            <span>Trả:</span>
-            <input
-              className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 focus:outline-brand-600"
-              type="date"
-              value={params.get("checkOut") ?? ""}
-              onChange={(e) => update("checkOut", e.target.value)}
-            />
-          </label>
-
-          {(params.get("q") ||
-            params.get("status") ||
-            params.get("checkIn") ||
-            params.get("checkOut") ||
-            params.get("view") ||
-            params.get("date")) && (
-            <button
-              type="button"
-              onClick={() => setParams({})}
-              className="text-xs text-brand-700 font-medium hover:underline cursor-pointer ml-auto"
-            >
-              Xóa bộ lọc
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Main Table Card */}
-      <section className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+        {/* Table Content */}
         {query.isPending ? (
           <div className="p-6">
             <Skeleton />

@@ -13,7 +13,7 @@ export type BoardRoom = HousekeepingRoom & { openTask: TaskSummary | null };
 export const cleaningLabels: Record<CleaningStatus, string> = { CLEAN: 'Phòng sạch', DIRTY: 'Cần dọn', CLEANING: 'Đang dọn' };
 export const taskLabels: Record<TaskStatus, string> = { TODO: 'Cần thực hiện', IN_PROGRESS: 'Đang thực hiện', DONE: 'Đã hoàn thành' };
 export const createTaskSchema = z.object({ roomId: z.string().uuid('Mã phòng phải là UUID hợp lệ.'), notes: z.string().trim().max(2000, 'Ghi chú tối đa 2000 ký tự.').optional() });
-export const assignTaskSchema = z.object({ assignedStaffId: z.string().trim().uuid('Nhập UUID nhân viên HOUSEKEEPING hợp lệ.') });
+export const assignTaskSchema = z.object({ assignedStaffId: z.string().trim().uuid('Vui lòng chọn nhân viên buồng phòng.') });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type AssignTaskInput = z.infer<typeof assignTaskSchema>;
 export function managesHousekeeping(role: Role) { return role === 'RECEPTIONIST' || role === 'ADMIN'; }

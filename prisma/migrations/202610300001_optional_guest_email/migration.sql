@@ -1,0 +1,1 @@
+ALTER TABLE hotel.users ALTER COLUMN email DROP NOT NULL;

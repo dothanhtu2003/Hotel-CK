@@ -51,6 +51,20 @@ describe('Phase 7 billing and complete hotel workflow — hotel_test only', () =
   async function paid() { const b = await issued(); await pay(b.invoice.id, b.invoice.totalAmount).expect(201); return b; }
   const tasks = (roomId: string) => context.prisma.client.housekeepingTask.findMany({ where: { roomId } });
 
+  it('full payment and checkout commit together and retries create only one receipt and task', async () => {
+    const b = await issued();
+    const key = randomUUID();
+    const requestPayment = (amount: string) => api().post(`/api/invoices/${b.invoice.id}/payments`).auth(actors.receptionist.token, { type: 'bearer' }).set('Idempotency-Key', key).send({ amount, method: 'CASH', checkout: true });
+    await requestPayment('1.00').expect(409);
+    expect(await context.prisma.client.payment.count({ where: { invoiceId: b.invoice.id } })).toBe(0);
+    await requestPayment(b.invoice.balance).expect(201);
+    expect((await context.prisma.client.booking.findUniqueOrThrow({ where: { id: b.id } })).status).toBe('CHECKED_OUT');
+    expect((await context.prisma.client.room.findUniqueOrThrow({ where: { id: b.room.id } })).housekeepingStatus).toBe('DIRTY');
+    await requestPayment(b.invoice.balance).expect(201);
+    expect(await context.prisma.client.payment.count({ where: { invoiceId: b.invoice.id } })).toBe(1);
+    expect(await tasks(b.room.id)).toHaveLength(1);
+  });
+
   it('01-05 preview counts 3 nights and completed snapshot services, excludes pending/cancelled and never writes', async () => {
     const b = await stay();
     const ownService = await context.prisma.client.service.create({ data: { name: randomUUID(), currentPrice: '45000.25' } });

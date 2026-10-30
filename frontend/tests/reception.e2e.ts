@@ -32,9 +32,10 @@ test('desk OpenAPI contract includes idempotency header and real payment schema'
 });
 
 test('reception dashboard totals, booking filters, pagination, detail, double-click confirm and cancel', async ({ page, request }) => {
-  const b = await createBooking(request, 0, '2042-01-01'); await login(page, 'reception'); const staff = await headers(request);
-  const snapshot = await (await request.get(`${api}/front-desk/dashboard`, { headers: staff })).json();
-  for (const key of ['arrivals','departures','staying']) await expect(page.locator(`.desk-stats .metric-${key} strong`)).toHaveText(snapshot.counts[key].toLocaleString('vi-VN'));
+  const b = await createBooking(request, 0, '2042-01-01'); await login(page, 'reception');
+  await expect(page.locator('.today-metric')).toHaveCount(0);
+  await expect(page.getByText('Điều phối khách', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Bảng trạng thái phòng (Room Board)', { exact: true })).toBeVisible();
   await page.locator('.workspace-sidebar').getByRole('link', { name: 'Quản lý booking', exact: true }).click(); await page.getByRole('combobox', { name: 'Trạng thái booking', exact: true }).selectOption('PENDING');
   await expect(page.getByRole('table', { name: 'Danh sách booking', exact: true })).toBeVisible(); await expect(page.locator('tbody tr')).toHaveCount(10);
   await page.getByRole('button', { name: 'Trang sau', exact: true }).click(); await expect(page).toHaveURL(/page=2/); await page.getByRole('button', { name: 'Trang trước', exact: true }).click();

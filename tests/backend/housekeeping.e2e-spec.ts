@@ -39,6 +39,21 @@ describe('Phase 6 housekeeping — every write uses hotel_test', () => {
   const detail = (id: string, who: keyof typeof actors = 'receptionist') => api().get(`/api/housekeeping/tasks/${id}`).auth(actors[who].token, { type: 'bearer' });
   const board = (query: Record<string, unknown> = {}, who: keyof typeof actors = 'receptionist') => api().get('/api/housekeeping/board').auth(actors[who].token, { type: 'bearer' }).query({ roomTypeId: typeId, ...query });
 
+  it('staff directory exposes only active housekeeping names, emails and IDs to managers', async () => {
+    for (const who of ['receptionist', 'admin'] as const) {
+      const result = await api().get('/api/housekeeping/staff').auth(actors[who].token, { type: 'bearer' }).expect(200);
+      expect(result.headers['cache-control']).toBe('no-store');
+      expect(result.body).toEqual(expect.arrayContaining([
+        { id: actors.h1.id, fullName: 'HK Test h1', email: `h1-${runId}@housekeeping-test.invalid` },
+        { id: actors.h2.id, fullName: 'HK Test h2', email: `h2-${runId}@housekeeping-test.invalid` },
+      ]));
+      for (const person of result.body) expect(Object.keys(person).sort()).toEqual(['email', 'fullName', 'id']);
+      expect(result.body.some((person: { id: string }) => person.id === actors.disabled.id || person.id === actors.receptionist.id)).toBe(false);
+    }
+    for (const who of ['guest', 'h1'] as const) await api().get('/api/housekeeping/staff').auth(actors[who].token, { type: 'bearer' }).expect(403);
+    await api().get('/api/housekeeping/staff').expect(401);
+  });
+
   it('01/23 board contains room/type/status, nullable open task and assignee with no sensitive data', async () => {
     const clean = await room(), dirty = await room(); const task = await create(dirty); await assign(task.id).expect(200);
     const response = await board({ pageSize: 100 }).expect(200); safe(response.body);

@@ -17,6 +17,12 @@ import { BookingQueryDto } from "../bookings/dto/booking-query.dto.js";
 import { CreateBookingDto } from "../bookings/dto/create-booking.dto.js";
 import { ServiceOrderQueryDto } from "../service-orders/dto/service-order-query.dto.js";
 import { IsStayDate } from "../common/validation/stay-dates.js";
+export class BookingCountsQueryDto {
+  @ApiPropertyOptional({ format: "date" })
+  @IsOptional()
+  @IsStayDate()
+  date?: string;
+}
 export class DeskQuery extends BookingQueryDto {
   @ApiPropertyOptional({ format: "date" })
   @IsOptional()
@@ -77,6 +83,8 @@ export class RoomQuery extends PaginationQueryDto {
   state?: string;
 }
 export class WalkInDto extends CreateBookingDto {
+  @IsOptional() @IsIn([true, false])
+  receiveNow?: boolean;
   @ApiPropertyOptional({
     format: "uuid",
     description:
@@ -87,7 +95,7 @@ export class WalkInDto extends CreateBookingDto {
   customerId?: string;
   @ApiPropertyOptional({
     maxLength: 120,
-    description: "Required with email and phone when creating a new guest",
+    description: "Required with phone when creating a new guest",
   })
   @IsOptional()
   @IsString()
@@ -97,7 +105,7 @@ export class WalkInDto extends CreateBookingDto {
   @ApiPropertyOptional({ format: "email" })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === "string" ? value.trim().toLowerCase() : value,
+    typeof value === "string" ? value.trim().toLowerCase() || undefined : value,
   )
   @IsEmail()
   @MaxLength(254)
@@ -126,8 +134,19 @@ export class CustomerQuery {
   page = 1;
 }
 export class DeskOrderQuery extends ServiceOrderQueryDto {
+  @ApiPropertyOptional({ maxLength: 120 }) @IsOptional() @IsString() @MaxLength(120)
+  q?: string;
+  @ApiPropertyOptional({ format: "date" }) @IsOptional() @IsStayDate()
+  date?: string;
+
   @ApiPropertyOptional({ format: "uuid" })
   @IsOptional()
   @IsUUID()
   bookingId?: string;
+}
+
+export class BillingQuery extends DeskQuery {
+  @IsOptional()
+  @IsIn(["departures", "outstanding", "paid", "all"])
+  group?: string;
 }

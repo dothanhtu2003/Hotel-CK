@@ -14,7 +14,7 @@ import { parseStay } from "../common/validation/stay-dates.js";
 import { paginationMeta } from "../common/dto/pagination-query.dto.js";
 import { roomSelect, roomView } from "../rooms/room-view.js";
 import { orderSelect, orderView } from "../service-orders/order-view.js";
-import type { DeskOrderQuery } from "./desk.dto.js";
+import type { BillingQuery, DeskOrderQuery } from "./desk.dto.js";
 import type {
   CustomerQuery,
   DeskQuery,
@@ -122,6 +122,40 @@ export class FrontDeskService {
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
+  async billing(q: BillingQuery) {
+    return this.prisma.client.$transaction(async (tx) => {
+      const records = await tx.booking.findMany({
+        where: deskWhere({ ...q, view: undefined }),
+        select: { ...deskSelect,
+          serviceOrders: { where: { status: { in: ["COMPLETED", "PENDING"] } }, select: { status: true, totalAmount: true } },
+          invoice: { select: { id: true, roomAmount: true, serviceAmount: true, totalAmount: true,
+            payments: { where: { status: "COMPLETED" }, select: { amount: true } } } },
+        },
+        orderBy: [{ checkOutDate: "asc" }, { id: "asc" }],
+      });
+      const rows = records.map(({ user, invoice, serviceOrders, ...b }) => {
+        const room = invoice?.roomAmount ?? b.totalRoomAmount;
+        const service = invoice?.serviceAmount ?? serviceOrders.filter(o => o.status === "COMPLETED").reduce((sum, o) => sum.add(o.totalAmount), new Prisma.Decimal(0));
+        const total = invoice?.totalAmount ?? room.add(service);
+        const paid = invoice?.payments.reduce((sum, p) => sum.add(p.amount), new Prisma.Decimal(0)) ?? new Prisma.Decimal(0);
+        const balance = total.sub(paid);
+        const cancelled = b.status === "CANCELLED";
+        return { ...bookingView(b), customer: user, invoiceId: invoice?.id ?? null,
+          roomAmount: room.toFixed(2), serviceAmount: service.toFixed(2), totalAmount: total.toFixed(2), paidAmount: paid.toFixed(2),
+          balance: cancelled ? "0.00" : balance.toFixed(2),
+          paymentState: cancelled ? (paid.gt(0) ? "REVIEW_REFUND" : "CANCELLED") : invoice && balance.lte(0) ? "PAID" : "OUTSTANDING",
+          pendingOrderCount: serviceOrders.filter(o => o.status === "PENDING").length,
+        };
+      });
+      const date = q.date ?? hotelDay();
+      const matches = (r: typeof rows[number], group: string) => group === "all" ||
+        (group === "paid" ? r.paymentState === "PAID" : group === "outstanding" ? r.paymentState === "OUTSTANDING" :
+          r.paymentState === "OUTSTANDING" && r.status === "CHECKED_IN" && r.checkOut === date);
+      const counts = Object.fromEntries(["departures", "outstanding", "paid", "all"].map(group => [group, rows.filter(r => matches(r, group)).length]));
+      const filtered = rows.filter(r => matches(r, q.group ?? "departures"));
+      return { data: filtered.slice((q.page - 1) * q.pageSize, q.page * q.pageSize), meta: paginationMeta(q, filtered.length), counts };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
   async detail(id: string) {
     const b = await this.prisma.client.booking.findUnique({
       where: { id },
@@ -228,6 +262,22 @@ export class FrontDeskService {
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
+  async bookingCounts(dateStr?: string) {
+    const today = hotelDay();
+    const date = dateStr ?? today;
+    const [arrivals, departures, staying] = await Promise.all([
+      this.prisma.client.booking.count({
+        where: deskWhere({ view: "arrivals", date } as DeskQuery, today),
+      }),
+      this.prisma.client.booking.count({
+        where: deskWhere({ view: "departures", date } as DeskQuery, today),
+      }),
+      this.prisma.client.booking.count({
+        where: deskWhere({ view: "staying", date } as DeskQuery, today),
+      }),
+    ]);
+    return { arrivals, departures, staying };
+  }
   async roomFilters() {
     const [types, floors] = await this.prisma.client.$transaction([
       this.prisma.client.roomType.findMany({
@@ -310,6 +360,12 @@ export class FrontDeskService {
   }
   async orders(q: DeskOrderQuery) {
     const where: Prisma.ServiceOrderWhereInput = {
+      ...(q.q?.trim() ? { booking: { OR: [
+        { reference: { contains: q.q.trim(), mode: 'insensitive' } },
+        { room: { roomNumber: { contains: q.q.trim(), mode: 'insensitive' } } },
+        { user: { fullName: { contains: q.q.trim(), mode: 'insensitive' } } },
+      ] } } : {}),
+      ...(q.date ? { orderedAt: { gte: new Date(`${q.date}T00:00:00+07:00`), lt: new Date(new Date(`${q.date}T00:00:00+07:00`).getTime() + 86400000) } } : {}),
       ...(q.status ? { status: q.status } : {}),
       ...(q.bookingId ? { bookingId: q.bookingId } : {}),
     };
@@ -327,7 +383,9 @@ export class FrontDeskService {
           take: q.pageSize,
           skip: (q.page - 1) * q.pageSize,
         });
+        const counts = await tx.serviceOrder.groupBy({ by: ['status'], where: { ...where, status: undefined }, _count: { _all: true } });
         return {
+          counts: Object.fromEntries(counts.map(row => [row.status, row._count._all])),
           data: rows.map(({ booking, ...o }) => ({
             ...orderView(o),
             reference: booking.reference,
@@ -368,13 +426,14 @@ export class FrontDeskService {
     const { start, end } = parseStay(dto.checkIn, dto.checkOut);
     if (
       !dto.customerId &&
-      (!dto.fullName?.trim() || !dto.email || !dto.phone?.trim())
+      (!dto.fullName?.trim() || !dto.phone?.trim())
     )
       throw new BadRequestException(
-        "Nhập họ tên, email và số điện thoại hoặc chọn khách đã có.",
+        "Nhập họ tên và số điện thoại hoặc chọn khách đã có.",
       );
     if (dto.customerId && (dto.email || dto.fullName || dto.phone))
       throw new BadRequestException("Chọn một hồ sơ khách hàng duy nhất.");
+    if (dto.receiveNow && dto.checkIn !== hotelDay()) throw new BadRequestException("Chỉ nhận phòng ngay cho ngày hôm nay.");
     const passwordHash = dto.customerId
       ? undefined
       : await hash(randomBytes(48).toString("base64url"));
@@ -427,7 +486,7 @@ export class FrontDeskService {
           if (
             await tx.user.findFirst({
               where: {
-                OR: [{ email: dto.email }, { phone: dto.phone!.trim() }],
+                OR: [...(dto.email ? [{ email: dto.email }] : []), { phone: dto.phone!.trim() }],
               },
               select: { id: true },
             })
@@ -439,7 +498,7 @@ export class FrontDeskService {
           customer = await tx.user.create({
             data: {
               fullName: dto.fullName!.trim(),
-              email: dto.email!,
+              email: dto.email ?? null,
               phone: dto.phone!.trim(),
               passwordHash: passwordHash!,
             },
@@ -461,6 +520,11 @@ export class FrontDeskService {
           },
           select: bookingSelect,
         });
+        if (dto.receiveNow) {
+          await tx.booking.update({ where: { id: booking.id }, data: { status: 'CONFIRMED' } });
+          const checkedIn = await tx.booking.update({ where: { id: booking.id }, data: { status: 'CHECKED_IN' }, select: bookingSelect });
+          return { ...bookingView(checkedIn), customer };
+        }
         return { ...bookingView(booking), customer };
       });
     } catch (error) {

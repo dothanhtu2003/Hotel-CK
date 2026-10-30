@@ -20,6 +20,9 @@ import { HousekeepingService } from './housekeeping.service.js';
 export class HousekeepingController {
   constructor(private readonly housekeeping: HousekeepingService) {}
 
+  @Get('staff') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  staff(@CurrentUser() user: PublicUser) { return this.housekeeping.staffDirectory(user); }
+
   @Get('board') @Header('Cache-Control', 'no-store') @ApiOkResponse({ type: HousekeepingBoardPageDto })
   board(@Query() query: HousekeepingBoardQueryDto, @CurrentUser() user: PublicUser) { return this.housekeeping.board(query, user); }
 

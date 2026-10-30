@@ -7,7 +7,7 @@ describe('Forms and role navigation contract', () => {
     const parsed = registerSchema.parse(valid); expect(parsed.email).toBe('guest@example.com'); expect(parsed.fullName).toBe('An Nhiên');
     expect(loginSchema.parse({ email: 'guest@example.com', password: ' password ' }).password).toBe(' password ');
   });
-  it.each(['short1', 'onlylettershere', '1234567890123'])('rejects password %s', password => expect(registerSchema.safeParse({ ...valid, password, confirmPassword: password }).success).toBe(false));
+  it.each(['1', 'short1', 'onlylettershere', '1234567890123', 'a'.repeat(256)])('accepts password %s', password => expect(registerSchema.safeParse({ ...valid, password, confirmPassword: password }).success).toBe(true));
   it('validates confirmation, name/email and phone', () => {
     for (const change of [{ confirmPassword: 'not-matching' }, { fullName: '   ' }, { email: 'bad' }, { phone: 'abc' }]) expect(registerSchema.safeParse({ ...valid, ...change }).success).toBe(false);
     expect(profileSchema.safeParse({ fullName: 'An', phone: '+84 901 234 567' }).success).toBe(true); expect(profileSchema.safeParse({ fullName: 'An', phone: '' }).success).toBe(true);

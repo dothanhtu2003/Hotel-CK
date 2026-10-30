@@ -1,3 +1,4 @@
+import { hotelToday } from "./room-state";
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useMutation } from "@tanstack/react-query";
@@ -91,10 +92,10 @@ export function UnifiedBookingModal({
     mutationFn: (data: Record<string, unknown>) =>
       api.request<DeskBooking>("/front-desk/walk-in", {
         method: "POST",
-        body: data,
+        body: { ...data, receiveNow: data.checkIn === hotelToday() },
       }),
     onSuccess: async (b) => {
-      toast("Đã tạo booking thành công.");
+      toast(b.status === "CHECKED_IN" ? "Đã nhận phòng thành công." : "Đã tạo đặt phòng trước.");
       await refresh();
       onClose();
       if (onSuccess) {
@@ -152,9 +153,9 @@ export function UnifiedBookingModal({
         setFormError("Vui lòng nhập số điện thoại hợp lệ (6-24 ký tự).");
         return;
       }
-      // Strict real email validation - absolutely no dummy/fake emails
+      // Validate email only when the guest provides one.
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      if (trimmedEmail && !emailRegex.test(trimmedEmail)) {
         setFormError("Vui lòng nhập địa chỉ email hợp lệ của khách.");
         return;
       }
@@ -166,7 +167,7 @@ export function UnifiedBookingModal({
         guests: Number(guests),
         fullName: trimmedName,
         phone: trimmedPhone,
-        email: trimmedEmail,
+        ...(trimmedEmail ? { email: trimmedEmail } : {}),
       });
     } else {
       if (!customer) {
@@ -436,7 +437,7 @@ export function UnifiedBookingModal({
                   </label>
                   <label className="block">
                     <span className="text-xs text-zinc-700 block mb-1">
-                      Địa chỉ Email <span className="text-rose-500">*</span>
+                      Địa chỉ Email (không bắt buộc)
                     </span>
                     <input
                       type="email"
@@ -445,11 +446,10 @@ export function UnifiedBookingModal({
                       value={email}
                       maxLength={254}
                       onChange={(e) => setEmail(e.target.value)}
-                      required
                     />
                   </label>
                   <p className="text-[11px] text-zinc-500">
-                    ℹ️ Hồ sơ khách mới sẽ được tạo và liên kết trực tiếp với booking này. Vui lòng không dùng email giả.
+                    ℹ️ Hồ sơ khách mới sẽ được tạo và liên kết trực tiếp với booking này. Có thể bỏ trống email nếu khách không cung cấp.
                   </p>
                 </div>
               )}
@@ -509,7 +509,7 @@ export function UnifiedBookingModal({
               <div className="flex justify-between items-center text-xs">
                 <span className="text-zinc-600">Liên hệ:</span>
                 <span className="text-zinc-800">
-                  {customer ? `${customer.phone ?? ""} · ${customer.email}` : `${String(review.phone)} · ${String(review.email)}`}
+                  {customer ? [customer.phone, customer.email].filter(Boolean).join(" · ") : [review.phone, review.email].filter(Boolean).join(" · ")}
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs">
@@ -527,7 +527,7 @@ export function UnifiedBookingModal({
             </div>
 
             <p className="text-xs text-zinc-500 bg-amber-50 p-2.5 rounded border border-amber-200 text-amber-800">
-              📌 Booking bắt đầu ở trạng thái <strong>Chờ xác nhận (PENDING)</strong>. Không tự động nhận phòng.
+              {checkIn === hotelToday() ? "Xác nhận sẽ tạo booking và nhận phòng ngay. Phòng chuyển sang Đang ở." : "Đặt trước cho ngày tương lai. Khách sẽ nhận phòng vào ngày đến."}
             </p>
 
             {mutation.error && (

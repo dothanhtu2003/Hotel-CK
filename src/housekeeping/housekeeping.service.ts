@@ -29,6 +29,15 @@ export class HousekeepingService {
     if (!rooms.length) throw new NotFoundException('Room not found');
   }
 
+  async staffDirectory(actor: Actor) {
+    this.staff(actor);
+    return this.prisma.client.user.findMany({
+      where: { role: 'HOUSEKEEPING', status: 'ACTIVE' },
+      select: { id: true, fullName: true, email: true },
+      orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   async board(query: HousekeepingBoardQueryDto, actor: Actor) {
     const scope = this.assigneeScope(actor, query.assignedStaffId);
     const where: Prisma.RoomWhereInput = {

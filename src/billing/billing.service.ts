@@ -75,16 +75,29 @@ export class BillingService {
         if (!target) throw new NotFoundException('Invoice not found');
         // Same parent-first lock order as invoice/service/check-out operations.
         await this.lockBooking(tx, target.bookingId); await this.lockInvoice(tx, id);
+        const finishCheckout = async () => {
+          if (!dto.checkout) return;
+          const booking = await tx.booking.findUniqueOrThrow({ where: { id: target.bookingId }, select: { status: true } });
+          if (booking.status === 'CHECKED_OUT') return;
+          if (booking.status !== 'CHECKED_IN') throw new ConflictException('Booking must be checked in');
+          const paid = invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect }));
+          if (paid.status !== 'PAID' || new Prisma.Decimal(paid.balance).gt(0)) throw new ConflictException('Full payment required for checkout');
+          if (await tx.serviceOrder.count({ where: { bookingId: target.bookingId, status: 'PENDING' } })) throw new ConflictException('Resolve pending service orders before checkout');
+          await tx.booking.update({ where: { id: target.bookingId }, data: { status: 'CHECKED_OUT' } });
+        };
         const prior = await tx.payment.findUnique({ where: { id: key }, select: paymentSelect });
         if (prior) {
           if (prior.invoiceId !== id || !prior.amount.equals(amount) || prior.method !== dto.method || prior.status !== 'COMPLETED') throw new ConflictException('Idempotency key was already used for a different payment');
+          await finishCheckout();
           return { payment: { ...prior, amount: prior.amount.toFixed(2) }, replayed: true, invoice: invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect })) };
         }
         const invoice = await tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect });
         const balance = new Prisma.Decimal(invoiceView(invoice).balance);
+        if (dto.checkout && !amount.equals(balance)) throw new ConflictException('Full payment required for checkout');
         if (amount.gt(balance)) throw new ConflictException('Payment exceeds outstanding balance');
         // A counter receipt for funds staff already verified, never bank/gateway verification.
         const payment = await tx.payment.create({ data: { id: key, invoiceId: id, amount, method: dto.method, status: 'COMPLETED' }, select: paymentSelect });
+        await finishCheckout();
         return { payment: { ...payment, amount: payment.amount.toFixed(2) }, replayed: false, invoice: invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect })) };
       });
     } catch (error) { throwBillingError(error); }

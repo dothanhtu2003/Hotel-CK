@@ -13,6 +13,8 @@ import { Roles } from "../auth/decorators/roles.decorator.js";
 import { CurrentUser } from "../auth/decorators/current-user.decorator.js";
 import type { PublicUser } from "../users/public-user.js";
 import {
+  BillingQuery,
+  BookingCountsQueryDto,
   CustomerQuery,
   DeskOrderQuery,
   DeskQuery,
@@ -41,6 +43,14 @@ export class FrontDeskController {
   }
   @Header("Cache-Control", "no-store") @Get("dashboard") dashboard() {
     return this.desk.dashboard();
+  }
+  @Header("Cache-Control", "no-store") @Get("booking-counts") bookingCounts(
+    @Query() q: BookingCountsQueryDto,
+  ) {
+    return this.desk.bookingCounts(q.date);
+  }
+  @Header("Cache-Control", "no-store") @Get("billing") billing(@Query() q: BillingQuery) {
+    return this.desk.billing(q);
   }
   @Header("Cache-Control", "no-store") @Get("bookings") bookings(
     @Query() q: DeskQuery,

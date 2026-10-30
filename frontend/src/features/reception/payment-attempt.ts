@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { cents, type Invoice } from '../guest/contracts';
 import { paymentSchema } from './contracts';
 
-const attemptSchema = z.object({ key: z.string().uuid(), invoiceId: z.string().uuid(), userId: z.string().uuid(), amount: paymentSchema.shape.amount, method: paymentSchema.shape.method, rejected: z.boolean() });
+const attemptSchema = z.object({ key: z.string().uuid(), invoiceId: z.string().uuid(), userId: z.string().uuid(), amount: paymentSchema.shape.amount, method: paymentSchema.shape.method, checkout: z.boolean().optional(), rejected: z.boolean() });
 export type PaymentAttempt = z.infer<typeof attemptSchema>;
 const prefix = 'an-nhien:pending-receipt:';
 // Store receipt metadata only, never JWTs. A reload must not silently generate a new key.

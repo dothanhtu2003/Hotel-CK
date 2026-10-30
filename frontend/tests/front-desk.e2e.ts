@@ -134,7 +134,7 @@ test("walk-in links an existing guest, shows quote, creates once, confirms and c
     .locator(".workspace-sidebar")
     .getByRole("link", { name: "Hôm nay", exact: true })
     .click();
-  await expect(page.locator(".today-metrics>a")).toHaveCount(6);
+  await expect(page.locator(".today-metrics>a")).toHaveCount(0);
   await page.screenshot({
     path: "../.local/front-desk-dashboard.png",
     fullPage: true,

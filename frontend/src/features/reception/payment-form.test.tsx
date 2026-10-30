@@ -8,12 +8,15 @@ import { PaymentForm } from './payment-form';
 import type { Invoice } from '../guest/contracts';
 import type { User } from '../auth/contracts';
 afterEach(() => { cleanup(); sessionStorage.clear(); });
-it('blocks an unverified or excessive payment before any receipt is reserved', async () => {
+it('uses the full balance and requires receipt verification', async () => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
   const user = { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' } as User;
   render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><AuthContext.Provider value={{ user, notice: null, login: vi.fn(), logout: vi.fn(), updateUser: vi.fn() }}><ToastContext.Provider value={vi.fn()}><PaymentForm invoice={{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', status: 'ISSUED', balance: '100.25' } as Invoice} /></ToastContext.Provider></AuthContext.Provider></QueryClientProvider></MemoryRouter>);
-  fireEvent.change(screen.getByLabelText('Số tiền (VND)'), { target: { value: '100.26' } }); fireEvent.click(screen.getByRole('button', { name: 'Xem lại khoản thu' }));
+  expect(screen.queryByRole('textbox')).toBeNull(); fireEvent.click(screen.getByRole('button', { name: 'Thanh toán đủ & trả phòng' }));
   await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Xác nhận đã nhận'));
-  fireEvent.click(screen.getByRole('checkbox')); fireEvent.click(screen.getByRole('button', { name: 'Xem lại khoản thu' }));
-  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('không được vượt số dư'));
+  fireEvent.click(screen.getByRole('checkbox')); fireEvent.click(screen.getByRole('button', { name: 'Thanh toán đủ & trả phòng' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: 'Xác nhận thanh toán & trả phòng' })).toBeTruthy());
+  expect(document.querySelector<HTMLInputElement>('input[name=amount]')?.value).toBe('100.25');
   expect(sessionStorage.length).toBe(0);
 });
