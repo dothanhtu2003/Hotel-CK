@@ -15,7 +15,6 @@ import {
   ErrorState,
   LinkButton,
   Pagination,
-  PageHeading,
 } from "../components/ui";
 import { Skeleton } from "../features/guest/components";
 import {
@@ -279,7 +278,7 @@ function ReceptionBookingList() {
                 onClick={() => setTab("", "PENDING")}
               >
                 <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
-                Chờ xác nhận
+                Chờ nhận phòng
               </button>
             </div>
 
@@ -320,9 +319,9 @@ function ReceptionBookingList() {
               aria-label="Trạng thái booking"
             >
               <option value="">Tất cả trạng thái</option>
-              {bookingStatuses.map((s) => (
+              {bookingStatuses.filter((s) => s !== "CONFIRMED").map((s) => (
                 <option key={s} value={s}>
-                  {statusLabels[s]}
+                  {s === "PENDING" ? "Chờ nhận phòng" : statusLabels[s]}
                 </option>
               ))}
             </select>
@@ -411,11 +410,7 @@ export function ReceptionTapeChartPage() {
   const base = useDeskBase(),
     navigate = useNavigate();
   return (
-    <div className="desk-page">
-      <PageHeading
-        title="Lịch đặt phòng"
-        description="Phòng thực tế và các đêm lưu trú đã đặt."
-      />
+    <div className="desk-page desk-tape-chart-page">
       <TapeChart
         base={base}
         onSelectRoom={(room) =>

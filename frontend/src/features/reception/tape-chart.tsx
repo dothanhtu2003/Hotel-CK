@@ -7,7 +7,7 @@ import { Skeleton } from "../guest/components";
 import { statusLabels, type Page } from "../guest/contracts";
 import type { DeskBooking, DeskRoom } from "./contracts";
 import { useDeskGet } from "./queries";
-import { cleaningLabels, hotelToday, shiftDate, staySpan } from "./room-state";
+import { bookingLanes, cleaningLabels, hotelToday, shiftDate } from "./room-state";
 
 export function TapeChart({
   base,
@@ -42,12 +42,9 @@ export function TapeChart({
             <div className="flex items-center gap-2">
               <Calendar className="size-5 text-brand-700" />
               <h2 className="text-lg font-bold text-zinc-900 tracking-tight">
-                Tape Chart
+                Lịch đặt phòng
               </h2>
             </div>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Chọn booking để xem chi tiết · Ngày trả phòng không tính vào đêm lưu trú
-            </p>
           </div>
 
           {/* Navigation Controls */}
@@ -111,9 +108,6 @@ export function TapeChart({
 
         {/* Legend strip */}
         <div className="flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-2.5 text-xs text-zinc-500">
-          <span className="font-semibold text-zinc-400 text-[11px] uppercase tracking-wider">
-            Chú thích:
-          </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm bg-emerald-600" />
             Đang lưu trú
@@ -130,6 +124,7 @@ export function TapeChart({
             <span className="size-2.5 rounded-sm bg-zinc-400" />
             Đã trả phòng
           </span>
+          <span>VS: tình trạng vệ sinh hiện tại · Thanh lịch hiển thị khoảng ngày đặt</span>
         </div>
       </div>
 
@@ -146,11 +141,11 @@ export function TapeChart({
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
-          <div className="overflow-auto max-h-[calc(100dvh-300px)] min-h-64">
+          <div className="tape-chart-scroll overflow-auto max-h-[calc(100dvh-210px)] min-h-64">
             <div className="min-w-[900px]">
               {/* Header Row: Room Label Column + 14 Day Columns */}
               <div className="sticky top-0 z-30 flex items-center border-b border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-600">
-                <div className="sticky left-0 z-40 bg-zinc-50 w-48 shrink-0 px-3 py-2 border-r border-zinc-200">
+                <div className="sticky left-0 z-40 bg-zinc-50 w-36 shrink-0 px-2 py-2 border-r border-zinc-200">
                   Phòng / Loại phòng
                 </div>
                 <div className="flex flex-1">
@@ -183,10 +178,13 @@ export function TapeChart({
 
               {/* Rows for each room */}
               <div className="divide-y divide-zinc-100">
-                {query.data!.data.map((room) => (
+                {query.data!.data.map((room) => {
+                  const bars = bookingLanes(room.bookings, start, 14);
+                  const lanes = Math.max(1, ...bars.map(bar => bar.lane + 1));
+                  return (
                   <div key={room.id} className="flex items-stretch hover:bg-zinc-50/40 transition-colors">
                     {/* Room Info Cell */}
-                    <div className="sticky left-0 z-10 bg-white w-48 shrink-0 px-3 py-1 border-r border-zinc-200 flex flex-col justify-center">
+                    <div className="sticky left-0 z-10 bg-white w-36 shrink-0 px-2 py-1 border-r border-zinc-200 flex flex-col justify-center">
                       <div className="flex items-center justify-between">
                         <button
                           type="button"
@@ -197,7 +195,7 @@ export function TapeChart({
                         </button>
                         <Badge
                           tone={
-                            room.housekeepingStatus === "CLEAN"
+                            room.operationalStatus === "ACTIVE" && room.housekeepingStatus === "CLEAN"
                               ? "green"
                               : room.housekeepingStatus === "DIRTY"
                               ? "amber"
@@ -205,16 +203,16 @@ export function TapeChart({
                           }
                           className="text-[10px] py-0 px-1.5"
                         >
-                          {cleaningLabels[room.housekeepingStatus] ?? room.housekeepingStatus}
+                          {room.operationalStatus !== "ACTIVE" ? "Bảo trì" : `VS: ${cleaningLabels[room.housekeepingStatus] ?? room.housekeepingStatus}`}
                         </Badge>
                       </div>
-                      <div className="text-[11px] text-zinc-400 truncate">
+                      <div className="text-[11px] text-zinc-400 truncate" title={`${room.roomType.name} · Tầng ${room.floor}`}>
                         {room.roomType.name} · Tầng {room.floor}
                       </div>
                     </div>
 
                     {/* Timeline Cell */}
-                    <div className="flex-1 relative min-h-[40px]">
+                    <div className="flex-1 relative min-h-[40px]" style={{ minHeight: lanes * 36 + 8 }}>
                       {/* Grid Day Lines */}
                       <div className="absolute inset-0 flex pointer-events-none">
                         {days.map((d) => (
@@ -229,9 +227,9 @@ export function TapeChart({
 
                       {/* Booking Bars */}
                       <div className="absolute inset-0 flex items-center px-0.5">
-                        {room.bookings.map((b) => {
-                          const span = staySpan(b.checkIn, b.checkOut, start, 14);
-                          if (!span) return null;
+                        {bars.map(({ booking: b, span, lane }) => {
+
+
 
                           const barColor =
                             b.status === "CHECKED_IN"
@@ -253,7 +251,7 @@ export function TapeChart({
                               }
                               className={`absolute h-7 rounded-md px-2 text-start text-xs font-medium shadow-xs transition-transform hover:scale-[1.01] hover:z-20 cursor-pointer overflow-hidden flex items-center gap-1.5 ${barColor}`}
                               style={{
-                                left: `${(span.left / 14) * 100}%`,
+                                top: 6 + lane * 36, left: `${(span.left / 14) * 100}%`,
                                 width: `calc(${(span.width / 14) * 100}% - 2px)`,
                               }}
                               title={`${b.customer?.fullName ?? b.reference} · ${b.checkIn} → ${b.checkOut} (${b.nights} đêm) · ${statusLabels[b.status]}`}
@@ -263,7 +261,7 @@ export function TapeChart({
                                 {b.customer?.fullName ?? b.reference}
                               </span>
                               <span className="hidden sm:inline text-[10px] opacity-80 truncate">
-                                ({b.nights}đ)
+                                ({b.nights} đêm)
                               </span>
                             </button>
                           );
@@ -271,7 +269,7 @@ export function TapeChart({
                       </div>
                     </div>
                   </div>
-                ))}
+                ); })}
 
                 {!query.data!.data.length && (
                   <div className="py-12 text-center text-sm text-zinc-400">

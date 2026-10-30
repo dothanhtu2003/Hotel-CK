@@ -90,6 +90,7 @@ export function WorkspaceLayout() {
     : features.find((f) => location.pathname.includes('/' + f.slug))?.title ?? 'Tổng quan';
 
   const isReception = user.role === 'RECEPTIONIST' || user.role === 'ADMIN';
+  const hideDesktopTopbar = isReception && location.pathname.replace(/\/+$/, '') !== home;
 
   // Kamra-style grouped navigation for reception
   const receptionNavigation = (
@@ -247,7 +248,7 @@ export function WorkspaceLayout() {
           : isReception
           ? 'staff-workspace kamra-workspace'
           : 'staff-workspace'
-      }`}
+      } ${location.pathname.endsWith('/tape-chart') ? 'workspace-tape-chart' : ''} ${hideDesktopTopbar ? 'workspace-without-topbar' : ''}`}
     >
       <a className="skip-link" href="#main-content">
         Đến nội dung chính

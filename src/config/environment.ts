@@ -31,6 +31,11 @@ class EnvironmentVariables {
   JWT_ACCESS_TTL_SECONDS = 900;
 
   @IsInt()
+  @Min(3600)
+  @Max(86400)
+  JWT_STAFF_TTL_SECONDS = 86400;
+
+  @IsInt()
   @Min(1)
   @Max(1000)
   AUTH_RATE_LIMIT = 5;
@@ -46,6 +51,7 @@ export function validateEnvironment(input: Record<string, unknown>) {
     ...input,
     PORT: input.PORT === undefined ? 3000 : Number(input.PORT),
     JWT_ACCESS_TTL_SECONDS: input.JWT_ACCESS_TTL_SECONDS === undefined ? 900 : Number(input.JWT_ACCESS_TTL_SECONDS),
+    JWT_STAFF_TTL_SECONDS: input.JWT_STAFF_TTL_SECONDS === undefined ? 86400 : Number(input.JWT_STAFF_TTL_SECONDS),
     AUTH_RATE_LIMIT: input.AUTH_RATE_LIMIT === undefined ? 5 : Number(input.AUTH_RATE_LIMIT),
     AUTH_RATE_TTL_MS: input.AUTH_RATE_TTL_MS === undefined ? 60000 : Number(input.AUTH_RATE_TTL_MS),
   }, { exposeDefaultValues: true });

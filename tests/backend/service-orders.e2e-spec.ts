@@ -98,7 +98,12 @@ describe('Phase 5 Room Service Ordering — writes restricted to hotel_test', ()
   it('11 booking must exist and belong to the authenticated GUEST', async () => {
     const bid = await booking('CHECKED_IN', 'other'); await post(bid).expect(404); await post(randomUUID()).expect(404);
     await api().post('/api/service-orders').send({ bookingId: bid, items: [{ serviceId: serviceA, quantity: 1 }] }).expect(401);
-    for (const who of ['receptionist', 'admin', 'housekeeping'] as const) await post(bid, [{ serviceId: serviceA, quantity: 1 }], who).expect(403);
+    await post(bid, [{ serviceId: serviceA, quantity: 1 }], 'housekeeping').expect(403);
+    for (const who of ['receptionist', 'admin'] as const) {
+      const response = await post(bid, [{ serviceId: serviceA, quantity: 1 }], who).expect(201);
+      expect(response.body.bookingId).toBe(bid);
+      expect(response.body.status).toBe('COMPLETED');
+    }
   });
   it('12 owner can read their order and paginated filtered my-list', async () => {
     const result = await create(await booking());
@@ -158,9 +163,10 @@ describe('Phase 5 Room Service Ordering — writes restricted to hotel_test', ()
       await action(result.id, 'cancel', who).expect(409);
     }
   });
-  it('22 a completed order cannot be cancelled or edited through any generic endpoint', async () => {
+  it('22 only staff may cancel a recorded unbilled order; generic edits remain forbidden', async () => {
     const result = await create(await booking()); await action(result.id, 'complete').expect(200);
-    for (const who of ['guest', 'admin'] as const) await action(result.id, 'cancel', who).expect(409);
+    await action(result.id, 'cancel', 'guest').expect(409);
+    await action(result.id, 'cancel', 'admin').expect(200);
     await api().patch(`/api/service-orders/${result.id}`).auth(actors.admin.token, { type: 'bearer' }).send({ totalAmount: 0 }).expect(404);
     await api().delete(`/api/service-orders/${result.id}`).auth(actors.admin.token, { type: 'bearer' }).expect(404);
     const pending = await create(await booking()); await api().patch(`/api/service-orders/${pending.id}/complete`).auth(actors.admin.token, { type: 'bearer' }).send({ status: 'COMPLETED', totalAmount: 1 }).expect(400);
@@ -228,6 +234,57 @@ describe('Phase 5 Room Service Ordering — writes restricted to hotel_test', ()
     expect(await context.prisma.client.booking.findUniqueOrThrow({ where: { id: bid } })).toEqual(before);
     expect(await context.prisma.client.invoice.count({ where: { bookingId: bid } })).toBe(0);
     expect(await context.prisma.client.payment.count({ where: { invoice: { bookingId: bid } } })).toBe(0);
+  });
+  const staffOrder = (bookingId: string, extra: Record<string, unknown> = {}) => api().post('/api/service-orders').auth(actors.receptionist.token, { type: 'bearer' }).send({ bookingId, items: [{ serviceId: serviceA, quantity: 1 }], ...extra });
+  const settle = (id: string, body: Record<string, unknown>) => api().patch(`/api/service-orders/${id}/settle`).auth(actors.receptionist.token, { type: 'bearer' }).send(body);
+  it.each(['CASH', 'BANK_TRANSFER'])('counter %s receipt is immediate and excluded from preview, billing list and final invoice', async paymentMethod => {
+    const bid = await booking();
+    const paid = await staffOrder(bid, { settlement: paymentMethod, paymentVerified: true, expectedAmount: '45000.25' }).expect(201);
+    expect(paid.body.status).toBe('COMPLETED'); expect(paid.body.paymentMethod).toBe(paymentMethod); expect(paid.body.paidAt).toBeTruthy();
+    const room = await staffOrder(bid).expect(201);
+    expect(room.body.status).toBe('COMPLETED'); expect(room.body.paymentMethod).toBeNull();
+    const preview = await api().get(`/api/bookings/${bid}/billing-preview`).auth(actors.receptionist.token, { type: 'bearer' }).expect(200);
+    expect(preview.body.serviceAmount).toBe('45000.25'); expect(preview.body.counterPaidAmount).toBe('45000.25'); expect(preview.body.pendingOrderCount).toBe(0);
+    expect(preview.body.completedOrders.map((o: { id: string }) => o.id)).toEqual([room.body.id]);
+    const invoice = await api().post(`/api/bookings/${bid}/invoice`).auth(actors.receptionist.token, { type: 'bearer' }).send({}).expect(201);
+    expect(invoice.body.serviceAmount).toBe('45000.25'); expect(invoice.body.totalAmount).toBe(preview.body.totalAmount);
+    await settle(paid.body.id, { settlement: paymentMethod, paymentVerified: true, expectedAmount: '45000.25' }).expect(409);
+    await action(room.body.id, 'cancel', 'admin').expect(409);
+  });
+  it('counter collection needs verified funds and the exact server price; failures roll back the whole order', async () => {
+    const bid = await booking();
+    await staffOrder(bid, { settlement: 'CASH', expectedAmount: '45000.25' }).expect(400);
+    await staffOrder(bid, { settlement: 'BANK_TRANSFER', paymentVerified: true, expectedAmount: '1' }).expect(409);
+    expect(await context.prisma.client.serviceOrder.count({ where: { bookingId: bid } })).toBe(0);
+    await api().post('/api/service-orders').auth(actors.guest.token, { type: 'bearer' }).send({ bookingId: bid, items: [{ serviceId: serviceA, quantity: 1 }], settlement: 'CASH', paymentVerified: true, expectedAmount: '45000.25' }).expect(403);
+  });
+  it('replaying the same counter request never creates a second receipt; a changed payload conflicts', async () => {
+    const bid = await booking(), requestId = randomUUID();
+    const body = { requestId, settlement: 'CASH', paymentVerified: true, expectedAmount: '45000.25' };
+    const responses = await Promise.all([staffOrder(bid, body), staffOrder(bid, body)]);
+    expect(responses.map(r => r.status)).toEqual([201, 201]); expect(responses[0].body.id).toBe(responses[1].body.id);
+    expect(await context.prisma.client.serviceOrder.count({ where: { bookingId: bid } })).toBe(1);
+    await staffOrder(bid, { ...body, settlement: 'BANK_TRANSFER' }).expect(409);
+  });
+  it('existing room charges can be collected once; receipt is immutable and cancellation requires full refund', async () => {
+    const bid = await booking(); const order = (await staffOrder(bid).expect(201)).body;
+    const paid = await settle(order.id, { settlement: 'BANK_TRANSFER', paymentVerified: true, expectedAmount: '45000.25' }).expect(200);
+    const replay = await settle(order.id, { settlement: 'BANK_TRANSFER', paymentVerified: true, expectedAmount: '45000.25' }).expect(200);
+    expect(replay.body.paidAt).toBe(paid.body.paidAt);
+    await settle(order.id, { settlement: 'CASH', paymentVerified: true, expectedAmount: '45000.25' }).expect(409);
+    await action(order.id, 'cancel').expect(409);
+    await expect(context.prisma.client.serviceOrder.update({ where: { id: order.id }, data: { paymentMethod: 'CASH' } })).rejects.toBeTruthy();
+    const cancelled = await api().patch(`/api/service-orders/${order.id}/cancel`).auth(actors.receptionist.token, { type: 'bearer' }).send({ refundConfirmed: true }).expect(200);
+    expect(cancelled.body.status).toBe('CANCELLED'); expect(cancelled.body.refundedAt).toBeTruthy(); expect(cancelled.body.paidAt).toBe(paid.body.paidAt);
+    const preview = await api().get(`/api/bookings/${bid}/billing-preview`).auth(actors.receptionist.token, { type: 'bearer' }).expect(200);
+    expect(preview.body.serviceAmount).toBe('0.00'); expect(preview.body.counterPaidAmount).toBe('0.00');
+    await settle(order.id, { settlement: 'ROOM' }).expect(409);
+  });
+  it('staff can accept a guest request using the selected payment route without a fulfillment step', async () => {
+    const bid = await booking(), order = await create(bid);
+    const result = await settle(order.id, { settlement: 'CASH', paymentVerified: true, expectedAmount: '90000.50' }).expect(200);
+    expect(result.body.status).toBe('COMPLETED'); expect(result.body.paymentMethod).toBe('CASH');
+    await api().patch(`/api/service-orders/${order.id}/settle`).auth(actors.guest.token, { type: 'bearer' }).send({ settlement: 'ROOM' }).expect(403);
   });
   it('final DB reconciliation matches every new order total to stored item subtotals', async () => {
     const orders = await context.prisma.client.serviceOrder.findMany({ where: { bookingId: { in: createdBookings } }, include: { items: true } });

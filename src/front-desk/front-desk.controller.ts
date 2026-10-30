@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Patch,
   Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
@@ -24,6 +25,7 @@ import {
 import { RoomsService } from "../rooms/rooms.service.js";
 import { AvailabilityQueryDto } from "../rooms/dto/availability-query.dto.js";
 import { FrontDeskService } from "./front-desk.service.js";
+import { UpdateRoomConditionDto } from './room-condition.dto.js';
 @ApiTags("Front desk")
 @ApiBearerAuth()
 @Roles("RECEPTIONIST", "ADMIN")
@@ -71,6 +73,13 @@ export class FrontDeskController {
     @Query() q: RoomQuery,
   ) {
     return this.desk.rooms(q);
+  }
+  @Header('Cache-Control', 'no-store') @Patch('rooms/:id/condition') updateRoomCondition(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: PublicUser,
+    @Body() dto: UpdateRoomConditionDto,
+  ) {
+    return this.desk.updateRoomCondition(id, actor, dto);
   }
   @Header("Cache-Control", "no-store") @Get("customers") customers(
     @Query() q: CustomerQuery,

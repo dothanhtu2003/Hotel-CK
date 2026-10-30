@@ -2,6 +2,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 
 export const orderSelect = {
   id: true, bookingId: true, status: true, totalAmount: true, orderedAt: true,
+  paymentMethod: true, paidAt: true, refundedAt: true,
   items: { orderBy: { id: 'asc' }, select: {
     id: true, serviceId: true, quantity: true, unitPrice: true, subtotal: true,
     service: { select: { name: true } },

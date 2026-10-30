@@ -100,6 +100,10 @@ model User {
   bookings      Booking[] @relation("BookingOwner")
   createdBookings Booking[] @relation("BookingCreator")
   assignedTasks HousekeepingTask[]
+  collectedServiceOrders ServiceOrder[] @relation("ServiceOrderCollector")
+  refundedServiceOrders ServiceOrder[] @relation("ServiceOrderRefunder")
+  manuallyCompletedTasks HousekeepingTask[] @relation("ManualTaskCompleter")
+  roomStatusChanges RoomStatusChange[]
 
   @@map("users")
   @@schema("hotel")
@@ -132,6 +136,7 @@ model Room {
   images             RoomImage[]
   bookings           Booking[]
   tasks              HousekeepingTask[]
+  statusChanges      RoomStatusChange[]
 
   @@index([roomTypeId, operationalStatus])
   @@map("rooms")
@@ -198,6 +203,13 @@ model ServiceOrder {
   status      OrderStatus        @default(PENDING)
   totalAmount Decimal            @default(0) @map("total_amount") @db.Decimal(14, 2)
   orderedAt   DateTime           @default(now()) @map("ordered_at") @db.Timestamptz(3)
+  paymentMethod PaymentMethod?    @map("payment_method")
+  paidAt      DateTime?           @map("paid_at") @db.Timestamptz(3)
+  receivedBy  String?             @map("received_by") @db.Uuid
+  refundedAt  DateTime?           @map("refunded_at") @db.Timestamptz(3)
+  refundedBy  String?             @map("refunded_by") @db.Uuid
+  collector   User?              @relation("ServiceOrderCollector", fields: [receivedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  refunder    User?              @relation("ServiceOrderRefunder", fields: [refundedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
   booking     Booking            @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   items       ServiceOrderItem[]
 
@@ -230,12 +242,32 @@ model HousekeepingTask {
   notes           String?
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   completedAt     DateTime?  @map("completed_at") @db.Timestamptz(3)
+  manualCompletedBy String? @map("manual_completed_by") @db.Uuid
+  manualCompleter User? @relation("ManualTaskCompleter", fields: [manualCompletedBy], references: [id], onDelete: Restrict, onUpdate: Restrict)
   room            Room       @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   assignedStaff   User?      @relation(fields: [assignedStaffId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([assignedStaffId, status])
   @@index([roomId, createdAt])
   @@map("housekeeping_tasks")
+  @@schema("hotel")
+}
+
+model RoomStatusChange {
+  id String @id @default(uuid()) @db.Uuid
+  roomId String @map("room_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  condition String @db.VarChar(20)
+  previousOperationalStatus OperationalStatus @map("previous_operational_status")
+  previousHousekeepingStatus HousekeepingStatus @map("previous_housekeeping_status")
+  completedTaskIds String[] @map("completed_task_ids") @db.Uuid
+  note String? @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([roomId, createdAt])
+  @@map("room_status_changes")
   @@schema("hotel")
 }
 

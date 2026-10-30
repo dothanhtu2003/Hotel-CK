@@ -4,7 +4,7 @@ import { BellRing, CheckCircle2, Clock, ExternalLink, User } from 'lucide-react'
 import { api } from '../../lib/api';
 import { Dialog } from '../../components/ui';
 import { money, type Order, type Page } from '../guest/contracts';
-import { DeskAction } from './components';
+import { ServiceOrderActions } from './service-order-actions';
 import { useDeskBase } from './queries';
 
 type RoomOrder = Order & { roomNumber: string; customerName: string; reference: string; canProcess: boolean };
@@ -15,7 +15,7 @@ export function useRoomRequests() {
     queryFn: async ({ signal }) => {
       const orders: RoomOrder[] = [];
       let page = 1;
-      let pages = 1;
+      let pages: number;
       do {
         const result = await api.request<Page<RoomOrder>>(`/front-desk/orders?status=PENDING&pageSize=100&page=${page}`, { signal });
         orders.push(...result.data);
@@ -166,20 +166,13 @@ export function RoomRequestsDrawer({
                   </Link>
 
                   {order.canProcess && (
-                    <DeskAction
-                      path={`/service-orders/${order.id}/complete`}
-                      label="Hoàn tất đơn"
-                      description="Xác nhận dịch vụ đã được phục vụ cho khách."
-                      action="complete"
-                      variant="primary"
-                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-2xs"
-                    />
+                    <ServiceOrderActions order={order} />
                   )}
                 </div>
 
                 {!order.canProcess && (
                   <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs">
-                    ⚠️ Không thể hoàn tất khi khách chưa nhận phòng, đã trả phòng hoặc đã lập hóa đơn.
+                    Không thể ghi nhận khi khách chưa nhận phòng, đã trả phòng hoặc đã lập hóa đơn.
                   </div>
                 )}
               </article>

@@ -1151,3 +1151,19 @@
   gap: 16px;
   background: #fafaf9;
 }
+
+/* Give the booking calendar more room without changing other pages. */
+.kamra-workspace.workspace-tape-chart .workspace-content {
+  padding: 12px;
+}
+
+@media (min-width: 1000px) {
+  .kamra-workspace.workspace-without-topbar .workspace-topbar {
+    display: none !important;
+  }
+
+  .kamra-workspace.workspace-tape-chart .tape-chart-scroll {
+    max-height: calc(100dvh - 150px);
+  }
+}
+

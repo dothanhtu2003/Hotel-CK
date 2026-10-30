@@ -1,7 +1,7 @@
 import { CheckoutSummary } from "./reservation-panels";
 import { CheckInWizard } from "./check-in";
 import { useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useMutation } from "@tanstack/react-query";
 import { BedDouble, LogOut } from "lucide-react";
 import { Button, Dialog, EmptyState, Table } from "../../components/ui";
@@ -121,11 +121,14 @@ export function BookingTable({
   billing?: boolean;
 }) {
   const base = useDeskBase();
+  const navigate = useNavigate();
   return (
     <Table
       caption="Danh sách booking"
       rows={rows}
       rowKey={(b) => b.id}
+      rowClassName={() => "cursor-pointer hover:bg-zinc-50/80 transition-colors"}
+      onRowClick={(b) => navigate(`${base}/bookings/${b.id}`)}
       empty={
         <EmptyState
           title="Chưa có booking phù hợp"
@@ -147,11 +150,21 @@ export function BookingTable({
             const contact = b.customer?.phone || b.customer?.email || "Tại quầy";
             return (
               <div className="flex items-center gap-2.5">
-                <Avatar name={guestName} />
+                <Link
+                  to={`${base}/bookings/${b.id}`}
+                  className="shrink-0 transition-opacity hover:opacity-80"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                >
+                  <Avatar name={guestName} />
+                </Link>
                 <div className="min-w-0">
-                  <span className="font-semibold text-zinc-900 block truncate text-sm">
+                  <Link
+                    to={`${base}/bookings/${b.id}`}
+                    className="font-semibold text-zinc-900 hover:text-brand-700 hover:underline block truncate text-sm transition-colors"
+                  >
                     {guestName}
-                  </span>
+                  </Link>
                   <div className="flex items-center gap-1.5 text-xs text-zinc-500 pt-0.5">
                     <Link
                       to={`${base}/bookings/${b.id}`}
@@ -210,14 +223,17 @@ export function BookingTable({
           title: "TRẠNG THÁI",
           render: (b) => (
             <Badge tone={STATUS_TONES[b.status] || "zinc"} className="status-badge">
-              {statusLabels[b.status] ?? b.status}
+              {["PENDING", "CONFIRMED"].includes(b.status) ? "Chờ nhận phòng" : statusLabels[b.status] ?? b.status}
             </Badge>
           ),
         },
         {
           title: "THAO TÁC",
           render: (b) => (
-            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+            <div
+              className="flex items-center justify-end gap-1.5 flex-wrap w-full cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            >
               {billing ? (
                 <Link
                   to={`${base}/bookings/${b.id}/billing`}
@@ -233,7 +249,7 @@ export function BookingTable({
                   <LogOut className="size-3" />
                   Trả phòng / Hóa đơn
                 </Link>
-              ) : b.status === "CONFIRMED" ? (
+              ) : ["PENDING", "CONFIRMED"].includes(b.status) ? (
                 <DeskAction
                   path={`/bookings/${b.id}/check-in`}
                   action="check-in"
@@ -242,23 +258,8 @@ export function BookingTable({
                   variant="primary"
                   className="!bg-brand-600 !text-white hover:!bg-brand-700 !border-transparent text-xs py-1.5 px-3 font-semibold shadow-2xs"
                 />
-              ) : b.status === "PENDING" ? (
-                <DeskAction
-                  path={`/bookings/${b.id}/confirm`}
-                  action="confirm"
-                  label="Xác nhận"
-                  description={`Xác nhận booking ${b.reference}, phòng ${b.roomNumber}?`}
-                  variant="primary"
-                  className="!bg-brand-600 !text-white hover:!bg-brand-700 !border-transparent text-xs py-1.5 px-3 font-semibold shadow-2xs"
-                />
               ) : null}
 
-              <Link
-                to={`${base}/bookings/${b.id}`}
-                className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 transition-colors shadow-2xs"
-              >
-                Chi tiết
-              </Link>
 
               {!billing && ["PENDING", "CONFIRMED"].includes(b.status) && (
                 <DeskAction
@@ -307,6 +308,10 @@ export function Amounts({
   );
 }
 
+function cleanServiceName(name: string) {
+  return name.replace(/^TEST\s*-\s*\d{8}\s*/i, "").trim() || name;
+}
+
 export function OrderItems({ order }: { order: Order }) {
   return (
     <Table
@@ -314,7 +319,7 @@ export function OrderItems({ order }: { order: Order }) {
       rows={order.items}
       rowKey={(i) => i.id}
       columns={[
-        { title: "DỊCH VỤ", render: (i) => i.serviceName },
+        { title: "DỊCH VỤ", render: (i) => cleanServiceName(i.serviceName) },
         { title: "SỐ LƯỢNG", render: (i) => i.quantity },
         { title: "GIÁ ĐÃ CHỐT", render: (i) => money(i.unitPrice) },
         { title: "THÀNH TIỀN", render: (i) => money(i.subtotal) },

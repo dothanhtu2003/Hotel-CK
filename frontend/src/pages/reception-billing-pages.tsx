@@ -4,14 +4,21 @@ import { Link, useParams } from "react-router";
 import {
   AlertCircle,
   ArrowLeft,
+  BedDouble,
   Calendar,
   CheckCircle2,
   Clock,
+  ConciergeBell,
   CreditCard,
   LogOut,
   Receipt,
-    Users,
+  User,
+  Users,
 } from "lucide-react";
+
+function cleanServiceName(name: string) {
+  return name.replace(/^TEST\s*-\s*\d{8}\s*/i, "").trim() || name;
+}
 import {
   ErrorState,
   Pagination,
@@ -26,7 +33,8 @@ import {
   type Page,
   type Preview,
 } from "../features/guest/contracts";
-import { DeskAction, OrderItems } from "../features/reception/components";
+import { DeskAction } from "../features/reception/components";
+import { ServiceOrderActions } from '../features/reception/service-order-actions';
 import {
   canCheckout,
   canIssue,
@@ -64,56 +72,327 @@ export function ReceptionBillingPage() {
   const amount = i?.totalAmount ?? p.totalAmount;
   const paid = i?.paidAmount ?? "0";
   const balance = i?.balance ?? p.totalAmount;
-  return <div className="billing-workspace">
-    <Link className="billing-back" to={`${base}/billing`}><ArrowLeft className="size-4" /> Danh sách thu ngân</Link>
-    <header className="billing-title">
-      <div><h1>Thanh toán & trả phòng</h1><p>Phòng {b.roomNumber} · {b.customer?.fullName ?? "Khách tại quầy"}</p></div>
-      <Badge tone={b.status === "CHECKED_IN" ? "green" : "zinc"}>{statusLabels[b.status]}</Badge>
-    </header>
-    <div className="billing-context"><span>{formatDate(b.checkIn)} → {formatDate(b.checkOut)} · {b.nights} đêm</span><Link to={`${base}/bookings/${id}`}>Hồ sơ {b.reference}</Link></div>
-    <div className="billing-columns">
-      <main className="billing-breakdown">
-        <section className="billing-box">
-          <h2>Chi tiết chi phí</h2>
-          <div className="billing-line"><div><strong>Tiền phòng {b.roomNumber}</strong><small>{b.nights} đêm · {formatDate(b.checkIn)} → {formatDate(b.checkOut)}</small></div><strong>{money(i?.roomAmount ?? p.roomAmount)}</strong></div>
-          <div className="billing-line"><span>Dịch vụ đã hoàn thành</span><strong>{money(i?.serviceAmount ?? p.serviceAmount)}</strong></div>
-          <div className="billing-line billing-total"><strong>Tổng chi phí{i ? "" : " tạm tính"}</strong><strong>{money(amount)}</strong></div>
-          {!i && <p className="billing-help">Chỉ dịch vụ đã hoàn thành được tính tiền. Kiểm tra các khoản bên dưới trước khi chốt hóa đơn.</p>}
-        </section>
-        {p.pendingOrderCount > 0 && <section className="billing-pending"><h2>Cần xử lý {p.pendingOrderCount} đơn dịch vụ</h2><p>Hoàn thành hoặc hủy các đơn này trước khi phát hành hóa đơn.</p><PendingServiceQueue bookingId={id} /></section>}
-        <section className="billing-box">
-          <h2>Dịch vụ đã sử dụng</h2>
-          {!p.completedOrders.length ? <p className="billing-help">Chưa phát sinh dịch vụ đã hoàn thành.</p> : <Table caption="Dịch vụ đã hoàn thành" rows={p.completedOrders.flatMap(o => o.items.map(item => ({ ...item, key: `${o.id}-${item.id ?? item.serviceName}` })))} rowKey={item => item.key} columns={[
-            { title: "DỊCH VỤ", render: item => item.serviceName },
-            { title: "SL", render: item => item.quantity },
-            { title: "ĐƠN GIÁ", render: item => money(item.unitPrice) },
-            { title: "THÀNH TIỀN", render: item => money(item.subtotal) },
-          ]} />}
-        </section>
-        {i && <details className="billing-box"><summary>Lịch sử thanh toán ({i.payments.length})</summary>{i.payments.length === 0 ? <p className="billing-help">Chưa ghi nhận khoản thu.</p> : i.payments.map(payment => <div className="billing-line" key={payment.id}><div>{payment.method === "CASH" ? "Tiền mặt" : "Chuyển khoản"}<small>{payment.paidAt ? new Date(payment.paidAt).toLocaleString("vi-VN") : "Chưa ghi nhận"} · {payment.status === "COMPLETED" ? "Đã thu" : payment.status === "FAILED" ? "Thất bại" : "Đang chờ"}</small></div><strong>{money(payment.amount)}</strong></div>)}</details>}
-      </main>
-      <aside className="billing-checkout">
-        <section className="billing-box billing-summary">
-          <h2>{i ? "Thanh toán" : "Chốt hóa đơn"}</h2>
-          <div className="billing-line"><span>Tổng chi phí</span><strong>{money(amount)}</strong></div>
-          <div className="billing-line"><span>Đã thu</span><strong>{money(paid)}</strong></div>
-          <div className="billing-due"><span>{i ? "Còn phải thu" : "Cần thanh toán · tạm tính"}</span><strong>{money(balance)}</strong></div>
-          {!i ? <>
-            {canIssue(p.booking, p.pendingOrderCount, null) ? <><p className="billing-help">Các dịch vụ đã xử lý xong. Phát hành hóa đơn để chốt chi phí và bắt đầu thu tiền.</p><DeskAction path={`/bookings/${id}/invoice`} action="invoice" label="Phát hành hóa đơn" description={`Chốt hóa đơn ${b.reference} với tổng tiền ${money(amount)}? Sau khi phát hành, không thể thêm hoặc sửa chi phí.`} variant="primary" className="billing-main-action" /></> : <p className="billing-blocked">{p.pendingOrderCount > 0 ? "Hãy xử lý các đơn dịch vụ đang chờ ở bên trái trước." : "Chỉ phát hành hóa đơn khi khách đang lưu trú."}</p>}
-            <p className="billing-help">Sau khi phát hành, không thể thêm hoặc sửa chi phí.</p>
-          </> : <>
-            <Link className="billing-invoice-link" to={`${base}/invoices/${i.id}`}>Xem / in hóa đơn</Link>
-            {i.status !== "PAID" && b.status !== "CANCELLED" && <PaymentForm key={i.id} invoice={i} />}
-            {i.status === "PAID" && <p className="billing-success">Đã thanh toán đủ.</p>}
-            {canCheckout(p.booking, p.pendingOrderCount, i) && <DeskAction path={`/bookings/${id}/check-out`} action="check-out" label="Xác nhận trả phòng" description={`Trả phòng ${b.roomNumber} cho ${b.customer?.fullName ?? "khách"}?`} variant="primary" className="billing-main-action" onDone={result => setCheckoutResult(result as Checkout)} />}
-            {b.status === "CHECKED_OUT" && <p className="billing-success">Đã trả phòng. Phòng đã chuyển sang chờ dọn.</p>}
-            {i.status === "PAID" && b.status === "CHECKED_IN" && p.pendingOrderCount > 0 && <p className="billing-blocked">Cần xử lý dịch vụ đang chờ trước khi trả phòng.</p>}
-          </>}
-          {checkoutResult && <p role="status" className="billing-success">Trả phòng thành công · Phòng {b.roomNumber} cần dọn.</p>}
-        </section>
-      </aside>
+
+  return (
+    <div className="billing-workspace">
+      <Link className="billing-back" to={`${base}/billing`}>
+        <ArrowLeft className="size-3.5" /> Danh sách thu ngân
+      </Link>
+
+      <header className="billing-header-card">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="billing-title-wrap">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-800">
+              <Receipt className="size-3.5 text-emerald-700" />
+              Thu ngân & Quyết toán phòng
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mt-1 mb-2">
+              Thanh toán & trả phòng
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-900 text-white font-semibold tabular-nums shadow-2xs">
+                <BedDouble className="size-3.5 text-zinc-300" />
+                Phòng {b.roomNumber}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-800 font-medium">
+                <User className="size-3.5 text-zinc-500" />
+                {b.customer?.fullName ?? "Khách tại quầy"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-zinc-600 px-2 py-1">
+                <Calendar className="size-3.5 text-zinc-400" />
+                {formatDate(b.checkIn)} → {formatDate(b.checkOut)} · {b.nights} đêm
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <Badge tone={b.status === "CHECKED_IN" ? "green" : "zinc"} className="text-xs px-2.5 py-1 font-semibold">
+              {statusLabels[b.status]}
+            </Badge>
+            <Link
+              to={`${base}/bookings/${id}`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-200 transition-colors"
+            >
+              Hồ sơ {b.reference}
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <div className="billing-columns">
+        <main className="billing-breakdown">
+          {/* Folio Breakdown */}
+          <section className="billing-box">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-100">
+              <h2 className="flex items-center gap-2">
+                <Receipt className="size-4 text-emerald-700" />
+                Chi tiết chi phí
+              </h2>
+              <span className="text-xs text-zinc-500 font-medium">
+                Phòng {b.roomNumber}
+              </span>
+            </div>
+
+            <div className="billing-receipt-lines">
+              <div className="billing-receipt-row">
+                <div className="billing-receipt-label">
+                  <span className="font-semibold text-zinc-800">Tiền phòng {b.roomNumber}</span>
+                  <span className="billing-receipt-sub">{b.nights} đêm · {formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
+                </div>
+                <div className="billing-receipt-leader" />
+                <strong className="billing-receipt-value font-semibold text-zinc-900">{money(i?.roomAmount ?? p.roomAmount)}</strong>
+              </div>
+
+              <div className="billing-receipt-row">
+                <div className="billing-receipt-label">
+                  <span className="font-semibold text-zinc-800">Dịch vụ ghi vào phòng</span>
+                  <span className="billing-receipt-sub">Gồm {p.completedOrders.length} đơn dịch vụ đã xác nhận</span>
+                </div>
+                <div className="billing-receipt-leader" />
+                <strong className="billing-receipt-value font-semibold text-zinc-900">{money(i?.serviceAmount ?? p.serviceAmount)}</strong>
+              </div>
+
+              <div className="billing-receipt-row billing-receipt-total">
+                <div className="billing-receipt-label">
+                  <strong className="text-base font-bold text-zinc-900">Tổng chi phí{i ? "" : " tạm tính"}</strong>
+                </div>
+                <div className="billing-receipt-leader billing-leader-thick" />
+                <strong className="billing-receipt-value text-base font-bold text-emerald-800">{money(amount)}</strong>
+              </div>
+            </div>
+
+            {!i && (
+              <p className="billing-help mt-3 pt-3 border-t border-zinc-100 text-xs text-zinc-500 flex items-center gap-1.5">
+                <span className="inline-block size-1.5 rounded-full bg-zinc-400" />
+                Các khoản đã thu tại quầy không tính vào hóa đơn này.
+              </p>
+            )}
+          </section>
+
+          {/* Counter Paid Services Notice */}
+          {Number(p.counterPaidAmount ?? 0) > 0 && (
+            <section className="billing-box border-emerald-200 bg-emerald-50/40">
+              <h2 className="text-emerald-950 flex items-center gap-2 mb-1.5">
+                <CheckCircle2 className="size-4 text-emerald-600" />
+                Dịch vụ đã thu riêng tại quầy
+              </h2>
+              <p className="text-xs text-emerald-800">
+                <strong>{money(p.counterPaidAmount!)}</strong> · Không nằm trong tổng hóa đơn phòng và không thu lại khi trả phòng.
+              </p>
+            </section>
+          )}
+
+          {/* Pending Services Section */}
+          {p.pendingOrderCount > 0 && (
+            <section className="billing-pending-card">
+              <div className="billing-pending-header">
+                <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                  <AlertCircle className="size-5" />
+                </div>
+                <div>
+                  <h2>Cần xử lý {p.pendingOrderCount} đơn dịch vụ</h2>
+                  <p>Chọn cách thanh toán để ghi nhận, hoặc hủy yêu cầu từ khách trước khi phát hành hóa đơn.</p>
+                </div>
+              </div>
+              <PendingServiceQueue bookingId={id} />
+            </section>
+          )}
+
+          {/* Completed Services */}
+          <section className="billing-box">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-100">
+              <h2 className="flex items-center gap-2">
+                <ConciergeBell className="size-4 text-emerald-700" />
+                Dịch vụ đã sử dụng
+              </h2>
+              <span className="text-xs text-zinc-500">
+                {p.completedOrders.length} đơn hoàn thành
+              </span>
+            </div>
+            {!p.completedOrders.length ? (
+              <p className="billing-help">Chưa phát sinh dịch vụ ghi vào hóa đơn phòng.</p>
+            ) : (
+              <div className="rounded-lg border border-zinc-200/80 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-semibold">
+                    <tr>
+                      <th className="py-2.5 px-3.5 text-left">DỊCH VỤ</th>
+                      <th className="py-2.5 px-3 text-center">SL</th>
+                      <th className="py-2.5 px-3.5 text-right">ĐƠN GIÁ</th>
+                      <th className="py-2.5 px-3.5 text-right">THÀNH TIỀN</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {p.completedOrders.flatMap(o => o.items.map(item => ({ ...item, key: `${o.id}-${item.id ?? item.serviceName}` }))).map(item => (
+                      <tr key={item.key} className="hover:bg-zinc-50/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-medium text-zinc-900">{cleanServiceName(item.serviceName)}</td>
+                        <td className="py-2.5 px-3 text-center tabular-nums text-zinc-600">{item.quantity}</td>
+                        <td className="py-2.5 px-3.5 text-right tabular-nums text-zinc-600">{money(item.unitPrice)}</td>
+                        <td className="py-2.5 px-3.5 text-right tabular-nums font-semibold text-zinc-900">{money(item.subtotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* Payment History if Invoice Exists */}
+          {i && (
+            <details className="billing-box group">
+              <summary className="text-sm font-bold text-zinc-900 flex items-center justify-between cursor-pointer select-none">
+                <span className="flex items-center gap-2">
+                  <CreditCard className="size-4 text-emerald-700" />
+                  Lịch sử thanh toán ({i.payments.length})
+                </span>
+                <span className="text-xs text-zinc-400 font-normal">Bấm để xem</span>
+              </summary>
+              <div className="pt-3 mt-2 border-t border-zinc-100 space-y-2">
+                {i.payments.length === 0 ? (
+                  <p className="billing-help">Chưa ghi nhận khoản thu.</p>
+                ) : (
+                  i.payments.map((payment) => (
+                    <div className="billing-receipt-row text-xs" key={payment.id}>
+                      <div>
+                        <span className="font-semibold text-zinc-800">
+                          {payment.method === "CASH" ? "Tiền mặt" : "Chuyển khoản"}
+                        </span>
+                        <small className="block text-zinc-400 mt-0.5">
+                          {payment.paidAt ? new Date(payment.paidAt).toLocaleString("vi-VN") : "Chưa ghi nhận"} ·{" "}
+                          {payment.status === "COMPLETED" ? "Đã thu" : payment.status === "FAILED" ? "Thất bại" : "Đang chờ"}
+                        </small>
+                      </div>
+                      <div className="billing-receipt-leader" />
+                      <strong className="tabular-nums font-semibold text-zinc-900">{money(payment.amount)}</strong>
+                    </div>
+                  ))
+                )}
+              </div>
+            </details>
+          )}
+        </main>
+
+        {/* Right Summary Column */}
+        <aside className="billing-checkout">
+          <section className="billing-box billing-summary shadow-xs">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-100">
+              <h2 className="flex items-center gap-2">
+                <CreditCard className="size-4 text-emerald-700" />
+                {i ? "Thanh toán" : "Chốt hóa đơn"}
+              </h2>
+              <span className="text-xs text-zinc-400 font-mono">
+                {i ? `HD #${i.id.slice(0, 8)}` : `Mã ${b.reference}`}
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center py-1 text-zinc-600">
+                <span>Tổng chi phí</span>
+                <strong className="text-zinc-900 font-semibold tabular-nums text-sm">{money(amount)}</strong>
+              </div>
+              <div className="flex justify-between items-center py-1 text-zinc-600">
+                <span>Đã thu</span>
+                <strong className="text-emerald-700 font-semibold tabular-nums text-sm">{money(paid)}</strong>
+              </div>
+            </div>
+
+            <div className={`billing-due-card ${Number(balance) <= 0 ? "billing-due-paid" : "billing-due-pending"}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider">
+                  {i ? "Còn phải thu" : "Cần thanh toán · tạm tính"}
+                </span>
+                {Number(balance) <= 0 && (
+                  <CheckCircle2 className="size-4 text-emerald-600" />
+                )}
+              </div>
+              <div className="billing-due-amount">
+                {money(balance)}
+              </div>
+              {Number(balance) <= 0 && (
+                <span className="text-[11px] text-emerald-700 font-medium">Hóa đơn đã được tất toán</span>
+              )}
+            </div>
+
+            {!i ? (
+              <div className="space-y-3 pt-1">
+                {canIssue(p.booking, p.pendingOrderCount, null) ? (
+                  <>
+                    <p className="billing-help">
+                      Các dịch vụ đã xử lý xong. Phát hành hóa đơn để chốt chi phí và bắt đầu thu tiền.
+                    </p>
+                    <DeskAction
+                      path={`/bookings/${id}/invoice`}
+                      action="invoice"
+                      label="Phát hành hóa đơn"
+                      description={`Chốt hóa đơn ${b.reference} với tổng tiền ${money(amount)}? Sau khi phát hành, không thể thêm hoặc sửa chi phí.`}
+                      variant="primary"
+                      className="billing-main-action"
+                    />
+                  </>
+                ) : (
+                  <div className="billing-blocked flex items-start gap-2.5">
+                    <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs leading-relaxed text-amber-800 m-0">
+                      {p.pendingOrderCount > 0
+                        ? "Hãy xử lý các đơn dịch vụ đang chờ ở bên trái trước."
+                        : "Chỉ phát hành hóa đơn khi khách đang lưu trú."}
+                    </p>
+                  </div>
+                )}
+                <p className="billing-help text-[11px] text-zinc-400">
+                  Sau khi phát hành, không thể thêm hoặc sửa chi phí.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-1">
+                <Link className="billing-invoice-link" to={`${base}/invoices/${i.id}`}>
+                  <Receipt className="size-3.5" />
+                  Xem / in hóa đơn
+                </Link>
+                {i.status !== "PAID" && b.status !== "CANCELLED" && (
+                  <PaymentForm key={i.id} invoice={i} />
+                )}
+                {i.status === "PAID" && (
+                  <p className="billing-success flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                    Đã thanh toán đủ.
+                  </p>
+                )}
+                {canCheckout(p.booking, p.pendingOrderCount, i) && (
+                  <DeskAction
+                    path={`/bookings/${id}/check-out`}
+                    action="check-out"
+                    label="Xác nhận trả phòng"
+                    description={`Trả phòng ${b.roomNumber} cho ${b.customer?.fullName ?? "khách"}?`}
+                    variant="primary"
+                    className="billing-main-action"
+                    onDone={(result) => setCheckoutResult(result as Checkout)}
+                  />
+                )}
+                {b.status === "CHECKED_OUT" && (
+                  <p className="billing-success flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                    Đã trả phòng. Phòng đã chuyển sang chờ dọn.
+                  </p>
+                )}
+                {i.status === "PAID" && b.status === "CHECKED_IN" && p.pendingOrderCount > 0 && (
+                  <p className="billing-blocked flex items-start gap-2">
+                    <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                    Cần xử lý dịch vụ đang chờ trước khi trả phòng.
+                  </p>
+                )}
+              </div>
+            )}
+            {checkoutResult && (
+              <p role="status" className="billing-success flex items-center gap-2 mt-3">
+                <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                Trả phòng thành công · Phòng {b.roomNumber} cần dọn.
+              </p>
+            )}
+          </section>
+        </aside>
+      </div>
     </div>
-  </div>;
+  );
 }
 
 export function ReceptionInvoicePage() {
@@ -467,7 +746,7 @@ export function ReceptionInvoicePage() {
                         )}
                         {preview.data && preview.data.pendingOrderCount > 0 && (
                           <li>
-                            Còn {preview.data.pendingOrderCount} đơn dịch vụ chưa hoàn thành hoặc chưa hủy.
+                            Còn {preview.data.pendingOrderCount} yêu cầu dịch vụ từ khách chưa được ghi nhận hoặc hủy.
                           </li>
                         )}
                         {i.booking.status !== "CHECKED_IN" && (
@@ -516,56 +795,77 @@ function PendingServiceQueue({ bookingId }: { bookingId: string }) {
     `/front-desk/orders?bookingId=${bookingId}&status=PENDING&page=${page}&pageSize=5`,
   );
 
+  if (query.isPending) return <Skeleton />;
+  if (query.error) {
+    return (
+      <ErrorState
+        message={query.error.message}
+        retry={() => void query.refetch()}
+      />
+    );
+  }
+
+  const orders = query.data?.data ?? [];
+  if (orders.length === 0) return null;
+
   return (
-    <Card className="border-amber-200 bg-amber-50/20" aria-label="Dịch vụ cần xử lý trước trả phòng">
-      <CardHeader className="pb-2 border-b border-amber-100">
-        <CardTitle className="text-sm font-semibold text-amber-950 flex items-center gap-2">
-          <Clock className="size-4 text-amber-700" />
-          Dịch vụ đang chờ cần giải quyết trước khi trả phòng
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-3 space-y-3">
-        {query.isPending ? (
-          <Skeleton />
-        ) : query.error ? (
-          <ErrorState
-            message={query.error.message}
-            retry={() => void query.refetch()}
-          />
-        ) : (
-          <>
-            {query.data!.data.map((o) => (
-              <div
-                key={o.id}
-                className="rounded-lg border border-zinc-200 bg-white p-3 shadow-2xs space-y-2"
-              >
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-zinc-900">
-                    Đơn #{o.id.slice(0, 8)}
-                  </span>
-                  <Badge tone="amber">Đang chờ</Badge>
-                </div>
-                <OrderItems order={o} />
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
-                  <DeskAction
-                    path={`/service-orders/${o.id}/complete`}
-                    action="complete"
-                    label="Hoàn thành dịch vụ"
-                    description="Xác nhận đã cung cấp các dịch vụ trong đơn?"
-                  />
-                  <DeskAction
-                    path={`/service-orders/${o.id}/cancel`}
-                    action="cancel"
-                    label="Hủy đơn dịch vụ"
-                    description="Xác nhận hủy các dịch vụ đang chờ trong đơn?"
-                  />
-                </div>
-              </div>
-            ))}
-            <Pagination {...query.data!.meta} onChange={setPage} />
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-3" aria-label="Dịch vụ cần xử lý trước trả phòng">
+      {orders.map((o) => (
+        <div
+          key={o.id}
+          className="rounded-xl border border-amber-200/90 bg-white p-3.5 shadow-2xs space-y-3"
+        >
+          <div className="flex items-center justify-between text-xs pb-2 border-b border-zinc-100">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-zinc-900 font-mono">
+                Đơn #{o.id.slice(0, 8)}
+              </span>
+              <Badge tone="amber">Đang chờ</Badge>
+            </div>
+            <div className="text-xs font-semibold text-zinc-600">
+              Tổng đơn: <strong className="text-sm font-bold text-zinc-900 tabular-nums">{money(o.totalAmount)}</strong>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-100 bg-zinc-50/60 overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-zinc-200/60 text-zinc-500 font-medium text-left">
+                  <th className="py-2 px-3">Dịch vụ</th>
+                  <th className="py-2 px-3 text-center">SL</th>
+                  <th className="py-2 px-3 text-right">Đơn giá</th>
+                  <th className="py-2 px-3 text-right">Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {o.items.map((item) => (
+                  <tr key={item.id} className="text-zinc-800">
+                    <td className="py-2 px-3 font-medium text-zinc-900">
+                      {cleanServiceName(item.serviceName)}
+                    </td>
+                    <td className="py-2 px-3 text-center tabular-nums text-zinc-600">
+                      {item.quantity}
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums text-zinc-600">
+                      {money(item.unitPrice)}
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums font-semibold text-zinc-900">
+                      {money(item.subtotal)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <ServiceOrderActions order={o} />
+          </div>
+        </div>
+      ))}
+      {query.data!.meta.totalPages > 1 && (
+        <Pagination {...query.data!.meta} onChange={setPage} />
+      )}
+    </div>
   );
 }

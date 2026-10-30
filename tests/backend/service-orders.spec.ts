@@ -50,7 +50,7 @@ describe('ServiceOrdersService trusted transaction boundary', () => {
       $queryRaw: lock,
       booking: { findUniqueOrThrow: jest.fn().mockImplementation(async () => ({ status, invoice })) },
       service: { findUnique: jest.fn().mockImplementation(async () => ({ isActive: true })) },
-      serviceOrder: { create: createOrder, findUniqueOrThrow: jest.fn().mockImplementation(async () => ({ id: 'order-id', bookingId: 'booking-id', status: 'PENDING', totalAmount: new Prisma.Decimal('123.45'), orderedAt: new Date(), items: [{ id: 'item-id', serviceId: 'service-id', quantity: 3, unitPrice: new Prisma.Decimal('41.15'), subtotal: new Prisma.Decimal('123.45'), service: { name: 'Service' } }] })) },
+      serviceOrder: { update: jest.fn().mockImplementation(async () => ({})), create: createOrder, findUniqueOrThrow: jest.fn().mockImplementation(async () => ({ id: 'order-id', bookingId: 'booking-id', status: 'PENDING', totalAmount: new Prisma.Decimal('123.45'), orderedAt: new Date(), items: [{ id: 'item-id', serviceId: 'service-id', quantity: 3, unitPrice: new Prisma.Decimal('41.15'), subtotal: new Prisma.Decimal('123.45'), service: { name: 'Service' } }] })) },
       serviceOrderItem: { create: createItem },
     };
     const service = new ServiceOrdersService({ client: { $transaction: async (fn: (client: unknown) => Promise<unknown>) => fn(tx), serviceOrder: { findFirst } } } as unknown as PrismaService);
@@ -63,6 +63,17 @@ describe('ServiceOrdersService trusted transaction boundary', () => {
     expect(f.createItem).toHaveBeenCalledWith({ data: { serviceOrderId: 'order-id', serviceId: 'service-id', quantity: 3 }, select: { id: true } });
     expect(f.lock).toHaveBeenCalledWith(expect.objectContaining({ values: ['booking-id', 'jwt-user'] }));
     expect(response.totalAmount).toBe('123.45'); expect(response.items[0].unitPrice).toBe('41.15');
+  });
+  it.each(['RECEPTIONIST', 'ADMIN'] as const)('allows %s to create orders for a checked-in guest without owner scoping', async role => {
+    const f = fixture();
+    await f.service.create({ id: 'staff', role }, { bookingId: 'booking-id', items: [{ serviceId: 'service-id', quantity: 1 }] });
+    expect(f.lock).toHaveBeenCalledWith(expect.objectContaining({ values: ['booking-id'] }));
+    expect(f.createOrder).toHaveBeenCalledTimes(1);
+  });
+  it('rejects housekeeping creation', async () => {
+    const f = fixture();
+    await expect(f.service.create({ id: 'staff', role: 'HOUSEKEEPING' }, { bookingId: 'booking-id', items: [{ serviceId: 'service-id', quantity: 1 }] })).rejects.toBeInstanceOf(ForbiddenException);
+    expect(f.createOrder).not.toHaveBeenCalled();
   });
   it('denies a checked-in stay with invoice before inserting any order', async () => {
     const f = fixture('CHECKED_IN', { id: 'invoice-id' });

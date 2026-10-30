@@ -59,12 +59,16 @@ export class BookingsService {
     const transitions: Record<typeof action, { from: BookingStatus[]; to: BookingStatus }> = {
       cancel: { from: ['PENDING', 'CONFIRMED'], to: 'CANCELLED' },
       confirm: { from: ['PENDING'], to: 'CONFIRMED' },
-      'check-in': { from: ['CONFIRMED'], to: 'CHECKED_IN' },
+      'check-in': { from: ['PENDING', 'CONFIRMED'], to: 'CHECKED_IN' },
     };
     const change = transitions[action];
     const scope = { id, ...this.scope(actor) };
     try {
       return await this.prisma.client.$transaction(async tx => {
+        // Keep the database's guarded transitions atomic behind one reception action.
+        if (action === 'check-in') {
+          await tx.booking.updateMany({ where: { ...scope, status: 'PENDING' }, data: { status: 'CONFIRMED' } });
+        }
         const result = await tx.booking.updateMany({ where: { ...scope, status: { in: change.from } }, data: { status: change.to } });
         if (result.count !== 1) {
           const exists = await tx.booking.findFirst({ where: scope, select: { id: true } });

@@ -181,18 +181,18 @@ describe('Phase 4 rooms and multi-night booking engine — hotel_test only', () 
     expect(mutation.body.message).toBe('This action does not accept body fields');
   });
 
-  it('16 checks in a confirmed booking during its date window with active clean room', async () => {
-    const booking = await create(await room(), 0, 2); await action(booking.id, 'check-in', 'receptionist', 409); await action(booking.id, 'confirm');
+  it('16 checks in a pending web booking directly during its date window', async () => {
+    const booking = await create(await room(), 0, 2);
     expect((await action(booking.id, 'check-in')).body.status).toBe('CHECKED_IN'); await action(booking.id, 'check-in', 'guest', 403);
     const future = await create(await room(), 10, 12); await action(future.id, 'confirm'); await action(future.id, 'check-in', 'admin', 409);
   });
 
   it('17 dirty/out-of-service rooms fail the actual DB check-in trigger without partial status change', async () => {
     for (const condition of ['DIRTY', 'OUT_OF_SERVICE']) {
-      const id = await room(), booking = await create(id, 0, 2); await action(booking.id, 'confirm');
+      const id = await room(), booking = await create(id, 0, 2);
       await context.prisma.client.room.update({ where: { id }, data: condition === 'DIRTY' ? { housekeepingStatus: 'DIRTY' } : { operationalStatus: 'OUT_OF_SERVICE' } });
       await action(booking.id, 'check-in', 'receptionist', 409);
-      expect((await context.prisma.client.booking.findUniqueOrThrow({ where: { id: booking.id } })).status).toBe('CONFIRMED');
+      expect((await context.prisma.client.booking.findUniqueOrThrow({ where: { id: booking.id } })).status).toBe('PENDING');
     }
   });
 

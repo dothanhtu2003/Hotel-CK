@@ -193,7 +193,7 @@ export function UnifiedBookingModal({
         open={open && !review}
         onClose={onClose}
         title={`Đặt phòng ${room.roomNumber} (${room.roomType.name})`}
-        className="desk-room-action-drawer unified-booking-dialog"
+        className="desk-room-action-modal unified-booking-dialog"
       >
         <div className="drawer-body p-4 sm:p-6 space-y-5">
           {/* Room Banner */}
@@ -448,9 +448,6 @@ export function UnifiedBookingModal({
                       onChange={(e) => setEmail(e.target.value)}
                     />
                   </label>
-                  <p className="text-[11px] text-zinc-500">
-                    ℹ️ Hồ sơ khách mới sẽ được tạo và liên kết trực tiếp với booking này. Có thể bỏ trống email nếu khách không cung cấp.
-                  </p>
                 </div>
               )}
             </div>
@@ -489,7 +486,7 @@ export function UnifiedBookingModal({
           if (!lock.current) setReview(null);
         }}
         title="Xác nhận tạo booking"
-        className="desk-room-action-drawer"
+        className="desk-room-action-modal"
       >
         {review && (
           <div className="drawer-body p-4 sm:p-6 space-y-4">

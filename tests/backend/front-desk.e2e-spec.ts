@@ -74,6 +74,57 @@ describe("Front desk API — isolated local hotel_test", () => {
     guests: 2,
     customerId: actors.guest.id,
   });
+  it('registers a walk-in today as checked in without a separate reception action', async () => {
+    const r = await room();
+    const result = await api().post('/api/front-desk/walk-in').set(auth()).send(body(r.id)).expect(201);
+    expect(result.body.status).toBe('CHECKED_IN');
+  });
+  const condition = (roomId: string, body: Record<string, unknown>, who = 'desk') => api().patch(`/api/front-desk/rooms/${roomId}/condition`).set(auth(who)).send(body);
+  const expectedClean = { expectedOperationalStatus: 'ACTIVE', expectedHousekeepingStatus: 'CLEAN' };
+  it.each(['desk', 'admin'])('%s can switch maintenance on and back to clean, with an actor audit trail', async who => {
+    const r = await room();
+    const maintenance = await condition(r.id, { ...expectedClean, condition: 'MAINTENANCE', note: 'Sửa máy lạnh' }, who).expect(200);
+    expect(maintenance.body.operationalStatus).toBe('OUT_OF_SERVICE');
+    const clean = await condition(r.id, { ...expectedClean, expectedOperationalStatus: 'OUT_OF_SERVICE', condition: 'CLEAN' }, who).expect(200);
+    expect(clean.body.operationalStatus).toBe('ACTIVE'); expect(clean.body.housekeepingStatus).toBe('CLEAN');
+    const log = await c.prisma.client.roomStatusChange.findMany({ where: { roomId: r.id }, orderBy: { createdAt: 'asc' } });
+    expect(log.map(change => change.condition)).toEqual(['MAINTENANCE', 'CLEAN']);
+    expect(log.every(change => change.actorId === actors[who].id)).toBe(true); expect(log[0].note).toBe('Sửa máy lạnh');
+  });
+  it.each(['TODO', 'IN_PROGRESS'] as const)('manual clean closes %s cleaning work only after explicit confirmation', async status => {
+    const r = await room(true);
+    let task = await c.prisma.client.housekeepingTask.create({ data: { roomId: r.id, assignedStaffId: status === 'IN_PROGRESS' ? actors.hk.id : null } });
+    if (status === 'IN_PROGRESS') task = await c.prisma.client.housekeepingTask.update({ where: { id: task.id }, data: { status } });
+    const body = { condition: 'CLEAN', expectedOperationalStatus: 'ACTIVE', expectedHousekeepingStatus: status === 'TODO' ? 'DIRTY' : 'CLEANING' };
+    await condition(r.id, body).expect(409);
+    expect(await c.prisma.client.roomStatusChange.count({ where: { roomId: r.id } })).toBe(0);
+    const response = await condition(r.id, { ...body, completeOpenTasks: true }).expect(200);
+    expect(response.body).toMatchObject({ operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN', openTaskCount: 0 });
+    const completed = await c.prisma.client.housekeepingTask.findUniqueOrThrow({ where: { id: task.id } });
+    expect(completed.status).toBe('DONE'); expect(completed.manualCompletedBy).toBe(actors.desk.id); expect(completed.completedAt).toBeTruthy();
+    expect(completed.assignedStaffId).toBe(task.assignedStaffId);
+    const audit = await c.prisma.client.roomStatusChange.findFirstOrThrow({ where: { roomId: r.id } });
+    expect(audit.completedTaskIds).toEqual([task.id]);
+    await api().patch(`/api/housekeeping/tasks/${task.id}/start`).set(auth('hk')).send({}).expect(task.assignedStaffId ? 409 : 404);
+  });
+  it('does not let guest/housekeeping change room conditions or accept invalid/stale updates', async () => {
+    const r = await room(); const body = { ...expectedClean, condition: 'MAINTENANCE' };
+    for (const who of ['guest', 'hk']) await condition(r.id, body, who).expect(403);
+    await condition(r.id, { ...body, condition: 'OCCUPIED' }).expect(400);
+    await condition(r.id, { ...body, expectedHousekeepingStatus: 'DIRTY' }).expect(409);
+    await condition(r.id, { ...body, note: 'x'.repeat(501) }).expect(400);
+    await condition(randomUUID(), body).expect(404);
+    expect(await c.prisma.client.roomStatusChange.count({ where: { roomId: r.id } })).toBe(0);
+  });
+  it('preserves booking state and refuses empty/maintenance changes while a guest is checked in', async () => {
+    const r = await room(); const booking = await c.prisma.client.booking.create({ data: { roomId: r.id, userId: actors.guest.id, checkInDate: new Date(today), checkOutDate: new Date(tomorrow), guestCount: 1 } });
+    await condition(r.id, { ...expectedClean, condition: 'CLEAN' }).expect(200);
+    expect((await c.prisma.client.booking.findUniqueOrThrow({ where: { id: booking.id } })).status).toBe('PENDING');
+    await c.prisma.client.booking.update({ where: { id: booking.id }, data: { status: 'CONFIRMED' } });
+    await c.prisma.client.booking.update({ where: { id: booking.id }, data: { status: 'CHECKED_IN' } });
+    for (const target of ['CLEAN', 'MAINTENANCE']) await condition(r.id, { ...expectedClean, condition: target }).expect(409);
+    expect((await c.prisma.client.room.findUniqueOrThrow({ where: { id: r.id } })).operationalStatus).toBe('ACTIVE');
+  });
   async function create(roomId: string) {
     return (
       await api()

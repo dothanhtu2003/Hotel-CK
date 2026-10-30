@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -15,6 +16,8 @@ import { paginationMeta } from "../common/dto/pagination-query.dto.js";
 import { roomSelect, roomView } from "../rooms/room-view.js";
 import { orderSelect, orderView } from "../service-orders/order-view.js";
 import type { BillingQuery, DeskOrderQuery } from "./desk.dto.js";
+import type { UpdateRoomConditionDto } from './room-condition.dto.js';
+import type { PublicUser } from '../users/public-user.js';
 import type {
   CustomerQuery,
   DeskQuery,
@@ -47,7 +50,7 @@ export function deskWhere(
   const date = new Date((q.date ?? today) + "T00:00:00Z");
   return {
     AND: [
-      q.status ? { status: q.status } : {},
+      q.status ? { status: q.status === "PENDING" ? { in: ["PENDING", "CONFIRMED"] } : q.status } : {},
       q.checkIn ? { checkInDate: new Date(q.checkIn + "T00:00:00Z") } : {},
       q.checkOut ? { checkOutDate: new Date(q.checkOut + "T00:00:00Z") } : {},
       q.view === "arrivals"
@@ -127,7 +130,7 @@ export class FrontDeskService {
       const records = await tx.booking.findMany({
         where: deskWhere({ ...q, view: undefined }),
         select: { ...deskSelect,
-          serviceOrders: { where: { status: { in: ["COMPLETED", "PENDING"] } }, select: { status: true, totalAmount: true } },
+          serviceOrders: { where: { status: { in: ["COMPLETED", "PENDING"] }, paymentMethod: null }, select: { status: true, totalAmount: true } },
           invoice: { select: { id: true, roomAmount: true, serviceAmount: true, totalAmount: true,
             payments: { where: { status: "COMPLETED" }, select: { amount: true } } } },
         },
@@ -291,6 +294,35 @@ export class FrontDeskService {
       }),
     ]);
     return { types, floors: floors.map((r) => r.floor) };
+  }
+  async updateRoomCondition(id: string, actor: Pick<PublicUser, 'id' | 'role'>, dto: UpdateRoomConditionDto) {
+    if (actor.role !== 'RECEPTIONIST' && actor.role !== 'ADMIN') throw new ForbiddenException('Only front desk staff can change room conditions');
+    try {
+      return await this.prisma.client.$transaction(async tx => {
+        const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM hotel.rooms WHERE id=${id}::uuid FOR UPDATE`;
+        if (!locked.length) throw new NotFoundException('Room not found');
+        const room = await tx.room.findUniqueOrThrow({ where: { id }, select: roomSelect });
+        if (room.operationalStatus !== dto.expectedOperationalStatus || room.housekeepingStatus !== dto.expectedHousekeepingStatus)
+          throw new ConflictException({ code: 'ROOM_CHANGED', message: 'Room condition changed; reload before editing' });
+        if (await tx.booking.findFirst({ where: { roomId: id, status: 'CHECKED_IN' }, select: { id: true } }))
+          throw new ConflictException({ code: 'ROOM_OCCUPIED', message: 'Cannot mark an occupied room as empty or out of service' });
+        const tasks = await tx.housekeepingTask.findMany({ where: { roomId: id, status: { not: 'DONE' } }, select: { id: true } });
+        if (dto.condition === 'CLEAN' && tasks.length && dto.completeOpenTasks !== true)
+          throw new ConflictException({ code: 'ROOM_TASK_CONFIRMATION_REQUIRED', message: 'Confirm inspection and completion of open cleaning tasks' });
+        await tx.roomStatusChange.create({ data: {
+          roomId: id, actorId: actor.id, condition: dto.condition,
+          previousOperationalStatus: room.operationalStatus, previousHousekeepingStatus: room.housekeepingStatus,
+          completedTaskIds: dto.condition === 'CLEAN' ? tasks.map(task => task.id) : [], note: dto.note?.trim() || null,
+        } });
+        if (dto.condition === 'CLEAN' && tasks.length) {
+          await tx.housekeepingTask.updateMany({ where: { roomId: id, status: { not: 'DONE' } }, data: { status: 'DONE', manualCompletedBy: actor.id } });
+        }
+        const updated = await tx.room.update({ where: { id }, data: dto.condition === 'CLEAN'
+          ? { operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN' }
+          : { operationalStatus: 'OUT_OF_SERVICE' }, select: roomSelect });
+        return { ...roomView(updated), openTaskCount: dto.condition === 'CLEAN' ? 0 : tasks.length };
+      });
+    } catch (error) { throwBookingError(error); }
   }
   async rooms(q: RoomQuery) {
     const date = new Date(hotelDay() + "T00:00:00Z");
@@ -520,7 +552,7 @@ export class FrontDeskService {
           },
           select: bookingSelect,
         });
-        if (dto.receiveNow) {
+        if (dto.receiveNow ?? dto.checkIn === hotelDay()) {
           await tx.booking.update({ where: { id: booking.id }, data: { status: 'CONFIRMED' } });
           const checkedIn = await tx.booking.update({ where: { id: booking.id }, data: { status: 'CHECKED_IN' }, select: bookingSelect });
           return { ...bookingView(checkedIn), customer };

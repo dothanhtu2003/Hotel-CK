@@ -57,16 +57,24 @@ it("blocks a dirty assigned room and never submits check-in", async () => {
     </MemoryRouter>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Nhận phòng" }));
-  await waitFor(() => expect(screen.getByText("Test guest")).toBeTruthy());
-  fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
-  expect(screen.getByRole("alert").textContent).toContain("CLEAN");
-  expect(
-    (screen.getByRole("button", { name: "Tiếp tục" }) as HTMLButtonElement)
-      .disabled,
-  ).toBe(true);
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("chưa dọn xong"));
   expect(
     request.mock.calls.every(
       ([, options]) => !options?.method || options.method === "GET",
     ),
   ).toBe(true);
+});
+
+it.each(['PENDING', 'CONFIRMED'])('checks in a %s ready room with one click', async (status) => {
+  const request = vi.spyOn(api, 'request').mockResolvedValue({
+    status, checkIn: hotelToday(), checkOut: shiftDate(hotelToday(), 1),
+    roomNumber: '101', openTaskCount: 0,
+    room: { operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN' },
+  });
+  const toast = vi.fn();
+  render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><ToastContext.Provider value={toast}><CheckInWizard bookingId="booking" /></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
+  fireEvent.click(screen.getByRole('button', { name: 'Nhận phòng' }));
+  await waitFor(() => expect(request).toHaveBeenCalledWith('/bookings/booking/check-in', { method: 'PATCH' }));
+  await waitFor(() => expect(toast).toHaveBeenCalledWith('Nhận phòng thành công.'));
+  expect(screen.queryByRole('dialog')).toBeNull();
 });

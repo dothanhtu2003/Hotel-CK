@@ -9,6 +9,7 @@ export class BillingPreviewDto {
   @ApiProperty({ type: BillingBookingDto }) booking!: BillingBookingDto;
   @ApiProperty({ type: [ServiceOrderResponseDto] }) completedOrders!: ServiceOrderResponseDto[];
   @ApiProperty() pendingOrderCount!: number;
+  @ApiProperty({ type: String, description: 'Services already paid separately at the counter; excluded from this invoice' }) counterPaidAmount!: string;
   @ApiProperty({ type: String }) roomAmount!: string;
   @ApiProperty({ type: String }) serviceAmount!: string;
   @ApiProperty({ type: String }) totalAmount!: string;

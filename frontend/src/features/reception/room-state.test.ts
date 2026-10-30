@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hotelToday, roomState, shiftDate, staySpan } from "./room-state";
+import { bookingLanes, hotelToday, roomState, shiftDate, staySpan } from "./room-state";
 import type { DeskBooking, DeskRoom } from "./contracts";
 const room = {
   operationalStatus: "ACTIVE",
@@ -7,6 +7,17 @@ const room = {
   openTaskCount: 0,
   bookings: [],
 } as unknown as DeskRoom;
+it('keeps overlapping historical bookings visible and reuses lanes after checkout', () => {
+  const bookings = [
+    { id: 'a', checkIn: '2026-10-29', checkOut: '2026-10-31' },
+    { id: 'b', checkIn: '2026-10-30', checkOut: '2026-10-31' },
+    { id: 'c', checkIn: '2026-10-31', checkOut: '2026-11-02' },
+    { id: 'd', checkIn: '2026-10-27', checkOut: '2026-10-30' },
+  ] as DeskBooking[];
+  expect(bookingLanes(bookings, '2026-10-30', 14).map(({ booking, lane }) => [booking.id, lane])).toEqual([
+    ['a', 0], ['b', 1], ['c', 0],
+  ]);
+});
 describe("hotel calendar and occupancy dimensions", () => {
   it("switches days at hotel midnight and handles month/year boundaries", () => {
     expect(hotelToday(new Date("2026-10-28T16:59:59Z"))).toBe("2026-10-28");

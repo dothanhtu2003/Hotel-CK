@@ -66,6 +66,20 @@ export function staySpan(
   return { left, width: right - left };
 }
 
+export function bookingLanes(bookings: DeskRoom['bookings'], start: string, days: number) {
+  const ends: number[] = [];
+  const bars = bookings.flatMap(booking => {
+    const span = staySpan(booking.checkIn, booking.checkOut, start, days);
+    return span ? [{ booking, span }] : [];
+  }).sort((a, b) => a.span.left - b.span.left || a.booking.checkIn.localeCompare(b.booking.checkIn) || a.booking.id.localeCompare(b.booking.id));
+  return bars.map(bar => {
+    let lane = ends.findIndex(end => end <= bar.span.left);
+    if (lane === -1) lane = ends.length;
+    ends[lane] = bar.span.left + bar.span.width;
+    return { ...bar, lane };
+  });
+}
+
 export function formatStayDateDisplay(
   dateStr?: string | null,
   referenceDateStr?: string | null,

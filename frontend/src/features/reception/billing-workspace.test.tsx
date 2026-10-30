@@ -20,7 +20,7 @@ function setup(pendingOrderCount: number, paid = false) {
 describe("Billing workspace next action", () => {
   it("shows the issue action beside the amount when services are ready", async () => {
     setup(0);
-    expect(await screen.findByRole("button", { name: "Phát hành hóa đơn", exact: true })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Phát hành hóa đơn" })).toBeTruthy();
     expect(screen.getByText("Đang lưu trú")).toBeTruthy();
     expect(screen.getByText("26/10/2026 → 30/10/2026 · 4 đêm")).toBeTruthy();
     expect(screen.queryByText("Bước 1")).toBeNull();
@@ -29,12 +29,12 @@ describe("Billing workspace next action", () => {
   it("blocks issue when services are pending", async () => {
     setup(1);
     expect(await screen.findByText("Cần xử lý 1 đơn dịch vụ")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Phát hành hóa đơn", exact: true })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Phát hành hóa đơn" })).toBeNull();
   });
   it("offers checkout after the invoice is paid in full", async () => {
     setup(0, true);
-    expect(await screen.findByRole("button", { name: "Xác nhận trả phòng", exact: true })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Xác nhận trả phòng" })).toBeTruthy();
     expect(screen.getByText("Đã thanh toán đủ.")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Phát hành hóa đơn", exact: true })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Phát hành hóa đơn" })).toBeNull();
   });
 });

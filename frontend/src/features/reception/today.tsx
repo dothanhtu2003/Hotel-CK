@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useState, type MouseEvent } from "react";
+import { Link, useLocation, useSearchParams } from "react-router";
 import {
   Bell,
   BellRing,
@@ -41,8 +41,13 @@ import {
 import { UnifiedBookingModal } from "./unified-booking-modal";
 
 import { RoomRequestsDrawer, useRoomRequests } from "./room-requests";
+import { RoomConditionEditor } from './room-condition-editor';
+import type { BoardRoom } from '../housekeeping/contracts';
+import { useHousekeepingGet } from '../housekeeping/queries';
 
 export function ReceptionDashboard() {
+  const location = useLocation();
+  const bookingOrigin = { returnTo: location.pathname + location.search, returnLabel: 'Trở lại Hôm nay' };
   const base = useDeskBase(),
     refresh = useRefreshDesk(),
     { user } = useAuth();
@@ -72,6 +77,7 @@ export function ReceptionDashboard() {
   const [manualBookingRoom, setManualBookingRoom] = useState<DeskRoom | null | undefined>(undefined);
 
   const query = useDeskGet<Dashboard>("/front-desk/dashboard");
+  const todayStr = query.data?.today ?? hotelToday();
 
   // Facets for complete floor list
   const facets = useDeskGet<{
@@ -82,18 +88,17 @@ export function ReceptionDashboard() {
   // Get room list for Room Board, filtered by floor on the server if selected
   const roomsPath =
     floor === "All"
-      ? `/front-desk/rooms?pageSize=100`
-      : `/front-desk/rooms?pageSize=100&floor=${floor}`;
+      ? `/front-desk/rooms?pageSize=100&start=${todayStr}&end=${shiftDate(todayStr, 7)}`
+      : `/front-desk/rooms?pageSize=100&floor=${floor}&start=${todayStr}&end=${shiftDate(todayStr, 7)}`;
   const roomsQuery = useDeskGet<Page<DeskRoom>>(roomsPath);
 
   const d = query.data;
   const allRooms = roomsQuery.data?.data || [];
-  const todayStr = d?.today ?? hotelToday();
 
   // Selected room for action drawer
   const selectedRoom =
     manualSelectedRoom !== undefined
-      ? manualSelectedRoom
+      ? allRooms.find((r) => r.id === manualSelectedRoom?.id) ?? manualSelectedRoom
       : urlRoomId && !isBookingMode
       ? allRooms.find((r) => r.id === urlRoomId) ?? null
       : null;
@@ -108,6 +113,22 @@ export function ReceptionDashboard() {
 
   const setSelectedRoom = (r: DeskRoom | null) => setManualSelectedRoom(r);
   const setBookingRoom = (r: DeskRoom | null) => setManualBookingRoom(r);
+  const roomWork = useHousekeepingGet<Page<BoardRoom>>(
+    `/housekeeping/board?roomId=${selectedRoom?.id ?? ''}&pageSize=1`,
+    !!selectedRoom,
+  );
+  const openTask = roomWork.data?.data[0]?.openTask;
+  const housekeepingTarget = openTask
+    ? `${base}/housekeeping/tasks/${openTask.id}`
+    : `${base}/housekeeping?roomId=${selectedRoom?.id ?? ''}`;
+  const openRoomWork = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (roomWork.isPending || roomWork.isError) {
+      event.preventDefault();
+      if (roomWork.isError) void roomWork.refetch();
+      return;
+    }
+    setSelectedRoom(null);
+  };
 
   // Determine floors available from facets or loaded rooms
   const floorList =
@@ -474,7 +495,7 @@ export function ReceptionDashboard() {
                                           : isOoo
                                           ? "BẢO TRÌ"
                                           : reservedBooking
-                                          ? reservedBooking.status === "PENDING" ? "CHỜ XÁC NHẬN" : "ĐÃ ĐẶT"
+                                          ? "CHỜ NHẬN PHÒNG"
                                           : isDirty
                                           ? "CẦN DỌN"
                                           : isCleaning
@@ -740,7 +761,7 @@ export function ReceptionDashboard() {
                           ) : reservedBooking ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-2xs">
                               <LogIn className="size-3.5 text-indigo-600" />
-                              {reservedBooking.status === "PENDING" ? "Chờ xác nhận" : "Đã đặt"}
+                              {"Chờ nhận phòng"}
                             </span>
                           ) : isDirty ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
@@ -793,8 +814,8 @@ export function ReceptionDashboard() {
                           </div>
                           <LinkButton
                             variant="secondary"
-                            to={`${base}/housekeeping`}
-                            onClick={() => setSelectedRoom(null)}
+                            to={housekeepingTarget}
+                            onClick={openRoomWork}
                             className="shrink-0 text-xs px-3 py-1.5 bg-white hover:bg-amber-100 border-amber-300 text-amber-900 font-semibold rounded-lg shadow-2xs"
                           >
                             Xử lý dọn phòng
@@ -815,6 +836,11 @@ export function ReceptionDashboard() {
                           </span>
                         </div>
                       ) : null}
+
+                      {roomWork.isError && (
+                        <ErrorState message="Chưa tải được công việc buồng phòng của phòng này." retry={() => void roomWork.refetch()} />
+                      )}
+                      <RoomConditionEditor key={selectedRoom.id} room={selectedRoom} onSaved={() => setSelectedRoom(null)} />
 
                       {/* 3. GUEST IN-HOUSE CARD IF OCCUPIED */}
                       {occupiedBooking && (
@@ -895,11 +921,12 @@ export function ReceptionDashboard() {
                           {reservedBooking && !occupiedBooking && (
                             <LinkButton
                               to={`${base}/bookings/${reservedBooking.id}`}
+                              state={bookingOrigin}
                               onClick={() => setSelectedRoom(null)}
                               className="sm:col-span-2 justify-center bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl shadow-xs"
                             >
                               <LogIn className="size-4 mr-1.5" />
-                              Xem booking · Xác nhận / Nhận phòng
+                              Xem booking · Nhận phòng
                             </LinkButton>
                           )}
 
@@ -928,6 +955,7 @@ export function ReceptionDashboard() {
                               <LinkButton
                                 variant="secondary"
                                 to={`${base}/bookings/${occupiedBooking.id}`}
+                                state={bookingOrigin}
                                 onClick={() => setSelectedRoom(null)}
                                 className="justify-center py-2.5 rounded-xl font-medium"
                               >
@@ -960,14 +988,16 @@ export function ReceptionDashboard() {
                             </Button>
                           )}
 
-                          <LinkButton
-                            variant="secondary"
-                            to={`${base}/housekeeping`}
-                            onClick={() => setSelectedRoom(null)}
-                            className={`justify-center py-2.5 rounded-xl font-medium ${isClean ? "sm:col-span-2" : ""}`}
-                          >
-                            <Broom className="size-4 mr-1.5 text-amber-600" /> Điều phối buồng phòng
-                          </LinkButton>
+                          {(isDirty || isCleaning || selectedRoom.openTaskCount > 0) && (
+                            <LinkButton
+                              variant="secondary"
+                              to={housekeepingTarget}
+                              onClick={openRoomWork}
+                              className="justify-center py-2.5 rounded-xl font-medium"
+                            >
+                              <Broom className="size-4 mr-1.5 text-amber-600" /> Điều phối buồng phòng
+                            </LinkButton>
+                          )}
                         </div>
                       </div>
 
@@ -1033,6 +1063,7 @@ export function ReceptionDashboard() {
                             <LinkButton
                               variant="secondary"
                               to={`${base}/bookings/${nextUpcomingBooking.id}`}
+                              state={bookingOrigin}
                               onClick={() => setSelectedRoom(null)}
                               className="text-xs py-1 px-2.5 rounded-lg"
                             >

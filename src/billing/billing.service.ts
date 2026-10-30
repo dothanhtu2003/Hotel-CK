@@ -33,11 +33,13 @@ export class BillingService {
     return this.prisma.client.$transaction(async tx => {
       const booking = await tx.booking.findFirst({ where: { id, ...scope }, select: bookingSelect });
       if (!booking) throw new NotFoundException('Booking not found');
-      const completed = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED' }, select: orderSelect, orderBy: [{ orderedAt: 'asc' }, { id: 'asc' }] });
+      const completed = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: null }, select: orderSelect, orderBy: [{ orderedAt: 'asc' }, { id: 'asc' }] });
       const serviceAmount = completed.reduce((sum, order) => order.items.reduce((subtotal, item) => subtotal.add(item.subtotal), sum), new Prisma.Decimal(0));
       const pendingOrderCount = await tx.serviceOrder.count({ where: { bookingId: id, status: 'PENDING' } });
+      const counterPaid = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: { not: null } }, select: { totalAmount: true } });
+      const counterPaidAmount = counterPaid.reduce((sum, order) => sum.add(order.totalAmount), new Prisma.Decimal(0)).toFixed(2);
       const view = billingBookingView(booking);
-      return { booking: view, completedOrders: completed.map(orderView), pendingOrderCount,
+      return { booking: view, completedOrders: completed.map(orderView), pendingOrderCount, counterPaidAmount,
         roomAmount: booking.totalRoomAmount.toFixed(2), serviceAmount: serviceAmount.toFixed(2), totalAmount: booking.totalRoomAmount.add(serviceAmount).toFixed(2) };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }

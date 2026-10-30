@@ -29,9 +29,10 @@ export class AuthService {
     const user = await this.prisma.client.user.findUnique({ where: { email: dto.email.trim().toLowerCase() }, select: { ...publicUserSelect, passwordHash: true } });
     const valid = await this.passwords.verify(user?.passwordHash, dto.password);
     if (!user || !valid || user.status !== 'ACTIVE') throw new UnauthorizedException('Invalid email or password');
-    const accessToken = await this.jwt.signAsync({ sub: user.id, tokenType: 'access' });
+    const expiresIn = this.config.getOrThrow<number>(user.role === 'GUEST' ? 'JWT_ACCESS_TTL_SECONDS' : 'JWT_STAFF_TTL_SECONDS');
+    const accessToken = await this.jwt.signAsync({ sub: user.id, tokenType: 'access' }, { expiresIn });
     // Return a fresh allowlisted object; never spread a record containing passwordHash.
     const safeUser: PublicUser = { id: user.id, fullName: user.fullName, email: user.email, phone: user.phone, role: user.role, status: user.status, createdAt: user.createdAt, updatedAt: user.updatedAt };
-    return { accessToken, tokenType: 'Bearer' as const, expiresIn: this.config.getOrThrow<number>('JWT_ACCESS_TTL_SECONDS'), user: safeUser };
+    return { accessToken, tokenType: 'Bearer' as const, expiresIn, user: safeUser };
   }
 }

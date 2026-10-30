@@ -1,24 +1,25 @@
+import { serviceOrderLabel } from '../features/reception/service-order-label';
 import { useState } from "react";
 import "./reception-service-pages.css";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { CreateServiceOrder } from "../features/reception/create-service-order";
 import {
   ArrowLeft,
-  Building2,
-  Calendar,
+  BedDouble,
   Car,
   Check,
   CheckCircle2,
   Clock,
-  ConciergeBell,
   Copy,
   ExternalLink,
-  Mail,
   Package,
+  Plus,
   Phone,
   Printer,
+  Search,
   Sparkles,
-  User,
   Utensils,
+  X,
   XCircle,
 } from "lucide-react";
 import { Button } from "../components/ui";
@@ -32,11 +33,10 @@ import {
 import { Skeleton } from "../features/guest/components";
 import {
   money,
-  statusLabels,
   type Order,
   type Page,
 } from "../features/guest/contracts";
-import { DeskAction } from "../features/reception/components";
+import { ServiceOrderActions } from "../features/reception/service-order-actions";
 import { pageNumber, type DeskBooking } from "../features/reception/contracts";
 import {
   useDeskBase,
@@ -59,10 +59,12 @@ type DeskOrder = Order & {
 };
 
 export function ReceptionOrdersPage() {
+  const [createOpen, setCreateOpen] = useState(false);
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const base = useDeskBase();
   const page = pageNumber(params.get("page"));
-  const raw = params.get("status") ?? "PENDING";
+  const raw = params.get("status") ?? "";
   const [search, setSearch] = useState(params.get("q") ?? "");
   const status = ["PENDING", "COMPLETED", "CANCELLED"].includes(raw) ? raw : "";
 
@@ -83,28 +85,39 @@ export function ReceptionOrdersPage() {
   );
 
   return (
-    <div className="service-orders-page space-y-6 max-w-6xl mx-auto pb-12">
+    <div className="service-orders-page max-w-6xl mx-auto pb-10">
+      {createOpen && <CreateServiceOrder onClose={() => setCreateOpen(false)} onCreated={order => { setCreateOpen(false); navigate(`${base}/service-orders/${order.id}`); }} />}
       {/* Header */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand-700">
-          <Utensils className="size-3.5" />
-          Dịch vụ phòng · Room Service
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-zinc-900">
               Quản lý đơn dịch vụ
             </h1>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Theo dõi, hoàn thành hoặc hủy đơn dịch vụ của khách. Giá được lưu tại thời điểm đặt.
-            </p>
+            <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">
+              <Utensils className="size-3" />
+              Room Service
+            </span>
           </div>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Ghi nhận dịch vụ, thu tiền tại quầy hoặc ghi vào hóa đơn phòng.
+          </p>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="h-8.5 px-3.5 text-xs font-semibold rounded-lg bg-brand-700 hover:bg-brand-800 text-white transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
+          >
+            <Plus className="size-3.5" /> Thêm đơn dịch vụ
+          </button>
         </div>
       </div>
-
-      {/* Status Filter Tab Pills */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-1.5">
+      {/* Unified Compact Toolbar: Status Filter Tabs + Search & Date Filter */}
+      <div className="service-order-toolbar">
+        {/* Status Filter Tab Pills */}
+        <div className="service-order-tabs">
           <button
             type="button"
             className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
@@ -125,7 +138,7 @@ export function ReceptionOrdersPage() {
             }`}
             onClick={() => update("status", "PENDING")}
           >
-            Chờ xử lý ({query.data?.counts.PENDING ?? "…"})
+            Yêu cầu từ khách ({query.data?.counts.PENDING ?? "…"})
           </button>
           <button
             type="button"
@@ -136,7 +149,7 @@ export function ReceptionOrdersPage() {
             }`}
             onClick={() => update("status", "COMPLETED")}
           >
-            Đã hoàn thành ({query.data?.counts.COMPLETED ?? "…"})
+            Đã ghi nhận ({query.data?.counts.COMPLETED ?? "…"})
           </button>
           <button
             type="button"
@@ -149,28 +162,75 @@ export function ReceptionOrdersPage() {
           >
             Đã hủy ({query.data?.counts.CANCELLED ?? "…"})
           </button>
+
+          {params.get("bookingId") && (
+            <div className="flex items-center gap-1.5 text-xs text-brand-700 bg-brand-50 border border-brand-200/60 px-2.5 py-1 rounded-md ml-1">
+              <span>Lọc booking: {params.get("bookingId")?.slice(0, 8)}</span>
+              <button
+                type="button"
+                className="text-zinc-400 hover:text-zinc-700 p-0.5 rounded cursor-pointer inline-flex items-center"
+                onClick={() => update("bookingId", "")}
+                title="Bỏ lọc theo booking"
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          )}
         </div>
 
-        {params.get("bookingId") && (
-          <div className="flex items-center gap-2 text-xs text-brand-700 bg-brand-50 px-2.5 py-1 rounded-md">
-            <span>Lọc theo booking: {params.get("bookingId")?.slice(0, 8)}</span>
+        {/* Search & Date Filter Form */}
+        <form
+          className="service-order-filter-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            update("q", search.trim());
+          }}
+        >
+          <div className="relative">
+            <Search className="size-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="search"
+              aria-label="Tìm phòng hoặc khách"
+              placeholder="Số phòng, tên khách, mã booking…"
+              maxLength={120}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8.5 w-44 sm:w-60 pl-8 pr-2.5 text-xs border border-zinc-200 rounded-lg bg-zinc-50/50 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors"
+            />
+          </div>
+
+          <input
+            type="date"
+            aria-label="Ngày đặt đơn"
+            title="Lọc theo ngày đặt đơn"
+            value={params.get("date") ?? ""}
+            onChange={(e) => update("date", e.target.value)}
+            className="h-8.5 px-2 text-xs border border-zinc-200 rounded-lg bg-zinc-50/50 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors text-zinc-700"
+          />
+
+          <button
+            type="submit"
+            className="h-8.5 px-3 text-xs font-medium rounded-lg bg-brand-700 hover:bg-brand-800 text-white transition-colors cursor-pointer shrink-0"
+          >
+            Tìm kiếm
+          </button>
+
+          {(params.get("q") || params.get("date")) && (
             <button
               type="button"
-              className="text-zinc-400 hover:text-zinc-700 font-bold ml-1 cursor-pointer"
-              onClick={() => update("bookingId", "")}
+              className="h-8.5 px-2.5 text-xs font-medium rounded-lg border border-zinc-200 hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1"
+              onClick={() => {
+                const next = new URLSearchParams(params);
+                ["q", "date", "page"].forEach((k) => next.delete(k));
+                setSearch("");
+                setParams(next);
+              }}
             >
-              ✕
+              <X className="size-3" /> Xóa bộ lọc
             </button>
-          </div>
-        )}
+          )}
+        </form>
       </div>
-
-      <form className="service-order-filters" onSubmit={e => { e.preventDefault(); update('q', search.trim()); }}>
-        <label>Tìm phòng hoặc khách<input className="input" type="search" placeholder="Số phòng, tên khách, mã booking…" maxLength={120} value={search} onChange={e => setSearch(e.target.value)} /></label>
-        <label>Ngày đặt đơn<input className="input" type="date" value={params.get('date') ?? ''} onChange={e => update('date', e.target.value)} /></label>
-        <button className="service-filter-submit" type="submit">Tìm kiếm</button>
-        {(params.get('q') || params.get('date')) && <button type="button" onClick={() => { const next = new URLSearchParams(params); ['q', 'date', 'page'].forEach(k => next.delete(k)); setSearch(''); setParams(next); }}>Xóa bộ lọc</button>}
-      </form>
 
       {/* Orders Table Card */}
       <Card>
@@ -281,7 +341,7 @@ export function ReceptionOrdersPage() {
                             : "zinc"
                         }
                       >
-                        {statusLabels[o.status] ?? o.status}
+                        {serviceOrderLabel(o)}
                       </Badge>
                     ),
                   },
@@ -295,22 +355,7 @@ export function ReceptionOrdersPage() {
                         >
                           Chi tiết
                         </LinkButton>
-                        {o.status === "PENDING" && o.canProcess && (
-                          <>
-                            <DeskAction
-                              path={`/service-orders/${o.id}/complete`}
-                              action="complete"
-                              label="Hoàn thành"
-                              description={`Xác nhận đã cung cấp dịch vụ phòng ${o.roomNumber}?`}
-                            />
-                            <DeskAction
-                              path={`/service-orders/${o.id}/cancel`}
-                              action="cancel"
-                              label="Hủy"
-                              description={`Hủy đơn của phòng ${o.roomNumber}?`}
-                            />
-                          </>
-                        )}
+                        {o.canProcess && <ServiceOrderActions order={o} />}
                       </div>
                     ),
                   },
@@ -382,7 +427,7 @@ export function ReceptionOrderDetailPage() {
 
   const o = query.data!;
   const eligible =
-    o.status === "PENDING" &&
+    o.status !== "CANCELLED" &&
     booking.data?.status === "CHECKED_IN" &&
     invoice.isSuccess &&
     invoice.data === null;
@@ -391,21 +436,21 @@ export function ReceptionOrderDetailPage() {
   const customer = booking.data?.customer;
 
   return (
-    <div className="desk-page space-y-6 max-w-6xl mx-auto pb-16">
-      {/* 1. Top Breadcrumb & Metadata Bar */}
+    <div className="desk-page space-y-4 max-w-5xl mx-auto pb-12">
+      {/* 1. Top Navigation & Order ID */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs service-order-no-print">
         <Link
           to={base + "/service-orders"}
-          className="inline-flex items-center gap-1.5 font-medium text-zinc-500 hover:text-zinc-900 transition-colors bg-white px-3 py-1.5 rounded-lg border border-zinc-200 shadow-2xs hover:border-zinc-300"
+          className="inline-flex items-center gap-1.5 font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
         >
-          <ArrowLeft className="size-3.5" />
-          Quay lại danh sách đơn dịch vụ
+          <ArrowLeft className="size-4" />
+          <span>Quay lại danh sách đơn dịch vụ</span>
         </Link>
         <button
           type="button"
           onClick={handleCopyId}
           title="Sao chép toàn bộ mã UUID"
-          className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-800 font-mono bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-800 font-mono text-xs bg-white hover:bg-zinc-50 border border-zinc-200/90 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs"
         >
           {copied ? (
             <>
@@ -415,164 +460,117 @@ export function ReceptionOrderDetailPage() {
           ) : (
             <>
               <Copy className="size-3 text-zinc-400" />
-              <span>Mã đơn: {o.id}</span>
+              <span>Mã đơn: {o.id.slice(0, 8)}…{o.id.slice(-6)}</span>
             </>
           )}
         </button>
       </div>
 
-      {/* 2. Page Hero Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 bg-white p-5 rounded-2xl border border-zinc-200 shadow-2xs">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200/80 text-brand-800 flex items-center justify-center shrink-0 shadow-2xs">
-            <ConciergeBell className="size-6 text-brand-700" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-brand-700">
-                Chi tiết yêu cầu dịch vụ
-              </span>
-              <span className="text-zinc-300">•</span>
-              <span className="text-xs text-zinc-500 font-mono">
-                Phòng {roomNum}
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 mt-1">
+      {/* 2. Order Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-xl border border-zinc-200/90 shadow-2xs">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900">
               Đơn dịch vụ #{o.id.slice(0, 8)}
             </h1>
-            <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
-              <Clock className="size-3.5 text-zinc-400" />
-              Thời gian đặt:{" "}
-              <strong className="text-zinc-700 font-semibold">
-                {new Date(o.orderedAt).toLocaleString("vi-VN", {
-                  timeZone: "Asia/Bangkok",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })}
-              </strong>
-            </p>
+            <Badge
+              className="px-2.5 py-1 text-xs font-semibold"
+              tone={
+                o.status === "COMPLETED"
+                  ? "green"
+                  : o.status === "PENDING"
+                  ? "amber"
+                  : "zinc"
+              }
+            >
+              {o.status === "PENDING" && (
+                <span className="inline-block size-1.5 rounded-full bg-amber-600 animate-pulse mr-1.5" />
+              )}
+              {o.status === "COMPLETED" && (
+                <CheckCircle2 className="size-3.5 mr-1 text-emerald-700 inline" />
+              )}
+              {serviceOrderLabel(o)}
+            </Badge>
           </div>
+          <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
+            <Clock className="size-3.5 text-zinc-400" />
+            Thời gian đặt:{" "}
+            <span className="text-zinc-700 font-medium">
+              {new Date(o.orderedAt).toLocaleString("vi-VN", {
+                timeZone: "Asia/Bangkok",
+                hour: "2-digit",
+                minute: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              })}
+            </span>
+          </p>
         </div>
 
-        <div className="flex flex-col sm:items-end gap-2">
-          <Badge
-            className="px-3.5 py-1.5 text-xs font-semibold shadow-2xs"
-            tone={
-              o.status === "COMPLETED"
-                ? "green"
-                : o.status === "PENDING"
-                ? "amber"
-                : "zinc"
-            }
-          >
-            {o.status === "PENDING" && (
-              <span className="inline-block size-2 rounded-full bg-amber-600 animate-pulse mr-1.5" />
-            )}
-            {o.status === "COMPLETED" && (
-              <CheckCircle2 className="size-3.5 mr-1 text-emerald-700 inline" />
-            )}
-            {statusLabels[o.status] ?? o.status}
-          </Badge>
-          <span className="text-[11px] text-zinc-400">
-            {o.items.length} hạng mục trong đơn
-          </span>
+        <div className="text-right">
+          <div className="text-xs text-zinc-400">Tổng thanh toán</div>
+          <div className="text-xl sm:text-2xl font-black text-brand-900 tabular-nums">
+            {money(o.totalAmount)}
+          </div>
         </div>
       </div>
 
       {/* 3. Main 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: 7 cols */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Guest & Room Destination Hero Card */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* Guest & Room Destination */}
           {booking.data ? (
-            <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-                <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                  <Building2 className="size-3.5 text-brand-700" />
-                  Điểm giao & Thông tin khách
+            <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-50 border border-brand-200/80 text-brand-900 font-bold text-sm">
+                  <BedDouble className="size-4 text-brand-700" />
+                  Phòng {booking.data.roomNumber}
                 </span>
-                <Link
-                  to={`${base}/bookings/${o.bookingId}`}
-                  className="text-xs font-semibold text-brand-700 hover:text-brand-900 flex items-center gap-1 group"
-                >
-                  <span>Mã booking: {booking.data.reference}</span>
-                  <ExternalLink className="size-3 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
+                <span className="font-semibold text-zinc-900 text-sm">
+                  {customer?.fullName || "Khách lẻ tại quầy"}
+                </span>
+                {customer?.phone && (
+                  <span className="text-xs text-zinc-500 flex items-center gap-1">
+                    <Phone className="size-3 text-zinc-400" />
+                    {customer.phone}
+                  </span>
+                )}
+                <span className="text-xs text-zinc-400">
+                  ({booking.data.checkIn} → {booking.data.checkOut})
+                </span>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-800 text-white font-black text-xl flex items-center justify-center shadow-md shadow-emerald-950/20 ring-4 ring-emerald-50 shrink-0">
-                    {booking.data.roomNumber}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold text-zinc-900 tracking-tight">
-                        Phòng {booking.data.roomNumber}
-                      </h2>
-                      <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                        Đang lưu trú
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-zinc-500 mt-1">
-                      <Calendar className="size-3.5 text-zinc-400" />
-                      <span>
-                        {booking.data.checkIn} → {booking.data.checkOut} ({booking.data.nights} đêm · {booking.data.guestCount} khách)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="sm:border-l sm:border-zinc-100 sm:pl-4 space-y-1 text-xs">
-                  <div className="flex items-center gap-1.5 font-semibold text-zinc-900">
-                    <User className="size-3.5 text-zinc-400" />
-                    <span>{customer?.fullName || "Khách lẻ tại quầy"}</span>
-                  </div>
-                  {customer?.phone && (
-                    <div className="flex items-center gap-1.5 text-zinc-500 font-medium">
-                      <Phone className="size-3 text-zinc-400" />
-                      <span>{customer.phone}</span>
-                    </div>
-                  )}
-                  {customer?.email && (
-                    <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] truncate max-w-[200px]">
-                      <Mail className="size-3 text-zinc-400" />
-                      <span className="truncate">{customer.email}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <Link
+                to={`${base}/bookings/${o.bookingId}`}
+                className="text-xs font-medium text-brand-700 hover:underline inline-flex items-center gap-1 shrink-0"
+              >
+                <span>Booking #{booking.data.reference}</span>
+                <ExternalLink className="size-3" />
+              </Link>
             </div>
           ) : null}
 
-          {/* Service Items Card */}
-          <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-2xs">
-            <div className="p-4 sm:p-5 border-b border-zinc-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-zinc-900">
-                  Danh mục dịch vụ & Đơn giá
-                </h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Đơn giá snapshot đã chốt cố định tại thời điểm khách đặt
-                </p>
-              </div>
-              <span className="text-xs font-semibold text-zinc-500 bg-zinc-100 px-2.5 py-1 rounded-full">
-                {o.items.length} món/dịch vụ
+          {/* Service Items Table */}
+          <div className="rounded-xl border border-zinc-200/90 bg-white overflow-hidden shadow-2xs">
+            <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-600">
+                Chi tiết dịch vụ ({o.items.length} món)
+              </span>
+              <span className="text-xs text-zinc-400">
+                Đơn giá snapshot chốt khi đặt
               </span>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
-                  <tr className="bg-zinc-50/80 border-b border-zinc-100 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-                    <th className="py-3 px-4">Dịch vụ</th>
-                    <th className="py-3 px-3 text-center">Số lượng</th>
-                    <th className="py-3 px-3 text-right">Giá đã chốt</th>
-                    <th className="py-3 px-4 text-right">Thành tiền</th>
+                  <tr className="border-b border-zinc-100 text-[11px] font-bold uppercase tracking-wider text-zinc-500 bg-white">
+                    <th className="py-2.5 px-4">Dịch vụ</th>
+                    <th className="py-2.5 px-3 text-center">Số lượng</th>
+                    <th className="py-2.5 px-3 text-right">Đơn giá</th>
+                    <th className="py-2.5 px-4 text-right">Thành tiền</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -582,164 +580,72 @@ export function ReceptionOrderDetailPage() {
                     return (
                       <tr
                         key={item.id || idx}
-                        className="hover:bg-zinc-50/60 transition-colors"
+                        className="hover:bg-zinc-50/50 transition-colors"
                       >
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center shrink-0">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2.5">
+                            <span className="p-1.5 rounded-lg bg-zinc-100 text-zinc-600 shrink-0">
                               {icon}
-                            </div>
-                            <div>
-                              <strong className="text-xs sm:text-sm font-semibold text-zinc-900 block">
-                                {cleanName}
-                              </strong>
-                              <span className="text-[11px] text-zinc-400 font-mono">
-                                Mã SP: {item.serviceId ? item.serviceId.slice(0, 8) : `#${idx + 1}`}
-                              </span>
-                            </div>
+                            </span>
+                            <span className="font-semibold text-zinc-900">
+                              {cleanName}
+                            </span>
                           </div>
                         </td>
-                        <td className="py-3.5 px-3 text-center">
-                          <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 text-zinc-800 tabular-nums">
-                            ×{item.quantity}
-                          </span>
+                        <td className="py-3 px-3 text-center font-medium tabular-nums">
+                          ×{item.quantity}
                         </td>
-                        <td className="py-3.5 px-3 text-right text-xs font-medium text-zinc-600 tabular-nums">
+                        <td className="py-3 px-3 text-right text-zinc-600 tabular-nums">
                           {money(item.unitPrice)}
                         </td>
-                        <td className="py-3.5 px-4 text-right text-xs sm:text-sm font-bold text-zinc-900 tabular-nums">
+                        <td className="py-3 px-4 text-right font-bold text-zinc-900 tabular-nums">
                           {money(item.subtotal)}
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t border-zinc-200 bg-zinc-50/60">
+                    <td colSpan={3} className="py-3 px-4 font-bold text-zinc-700 text-right">
+                      Tổng cộng:
+                    </td>
+                    <td className="py-3 px-4 text-right text-base sm:text-lg font-extrabold text-brand-900 tabular-nums">
+                      {money(o.totalAmount)}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
-            </div>
-
-            <div className="p-4 sm:p-5 bg-zinc-50/60 border-t border-zinc-200 flex items-center justify-between">
-              <div>
-                <span className="text-xs sm:text-sm font-bold text-zinc-900 block">
-                  Tổng tiền thanh toán đã chốt
-                </span>
-                <span className="text-[11px] text-zinc-500 block mt-0.5">
-                  Đã bao gồm thuế và phí phục vụ khách sạn
-                </span>
-              </div>
-              <strong className="text-lg sm:text-2xl font-extrabold text-emerald-800 tabular-nums">
-                {money(o.totalAmount)}
-              </strong>
-            </div>
-          </div>
-
-          {/* Order Lifecycle Timeline */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 block">
-              Tiến trình xử lý đơn
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs space-y-1">
-                <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                  <CheckCircle2 className="size-4 text-emerald-700" />
-                  <span>1. Đặt dịch vụ</span>
-                </div>
-                <p className="text-[11px] text-emerald-700">
-                  Khách gửi lúc {new Date(o.orderedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
-
-              <div
-                className={`p-3 rounded-xl border text-xs space-y-1 ${
-                  o.status === "PENDING"
-                    ? "bg-amber-50/80 border-amber-300 text-amber-900 ring-2 ring-amber-400/30"
-                    : o.status === "COMPLETED"
-                    ? "bg-emerald-50/70 border-emerald-200 text-emerald-900"
-                    : "bg-zinc-50 border-zinc-200 text-zinc-500"
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold">
-                  {o.status === "PENDING" ? (
-                    <Clock className="size-4 text-amber-600 animate-spin" />
-                  ) : o.status === "COMPLETED" ? (
-                    <CheckCircle2 className="size-4 text-emerald-700" />
-                  ) : (
-                    <XCircle className="size-4 text-zinc-400" />
-                  )}
-                  <span>2. Tiếp nhận & Chuẩn bị</span>
-                </div>
-                <p className="text-[11px]">
-                  {o.status === "PENDING"
-                    ? "Lễ tân đang điều phối"
-                    : o.status === "COMPLETED"
-                    ? "Đã chuẩn bị xong"
-                    : "Đã hủy đơn"}
-                </p>
-              </div>
-
-              <div
-                className={`p-3 rounded-xl border text-xs space-y-1 ${
-                  o.status === "COMPLETED"
-                    ? "bg-emerald-50/70 border-emerald-200 text-emerald-900"
-                    : o.status === "CANCELLED"
-                    ? "bg-rose-50 border-rose-200 text-rose-900"
-                    : "bg-zinc-50 border-zinc-200 text-zinc-400"
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold">
-                  {o.status === "COMPLETED" ? (
-                    <CheckCircle2 className="size-4 text-emerald-700" />
-                  ) : o.status === "CANCELLED" ? (
-                    <XCircle className="size-4 text-rose-600" />
-                  ) : (
-                    <Clock className="size-4 text-zinc-300" />
-                  )}
-                  <span>3. Giao phòng & Xong</span>
-                </div>
-                <p className="text-[11px]">
-                  {o.status === "COMPLETED"
-                    ? "Đã hoàn thành phục vụ"
-                    : o.status === "CANCELLED"
-                    ? "Đã hủy bỏ"
-                    : "Chờ xác nhận phục vụ"}
-                </p>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column: 5 cols (Action & Summary Panel) */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Financial Summary & Action Hub */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-brand-700" />
-                Tổng quan & Thao tác
+        {/* Right Column: 5 cols */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs space-y-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                Phương thức & Trạng thái
               </span>
-              <Badge
-                tone={
-                  o.status === "COMPLETED"
-                    ? "green"
-                    : o.status === "PENDING"
-                    ? "amber"
-                    : "zinc"
-                }
-              >
-                {statusLabels[o.status] ?? o.status}
-              </Badge>
-            </div>
-
-            {/* Total Money Card */}
-            <div className="p-4.5 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/40 border border-emerald-200/90 text-center">
-              <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider block">
-                Tổng thanh toán đơn dịch vụ
-              </span>
-              <strong className="text-3xl font-black text-emerald-950 block mt-1.5 tabular-nums">
-                {money(o.totalAmount)}
-              </strong>
-              <p className="text-xs text-emerald-700 mt-2 leading-relaxed">
-                Khi hoàn thành, khoản phí sẽ tự động được ghi nhận vào chi phí lưu trú của phòng {roomNum} để thanh toán khi trả phòng.
+              <p className="text-xs text-zinc-600 leading-relaxed">
+                {o.status === 'CANCELLED'
+                  ? (o.refundedAt ? 'Đơn đã hủy và đã ghi nhận hoàn đủ tiền cho khách.' : 'Đơn đã hủy, không tính phí.')
+                  : o.paymentMethod
+                  ? 'Đã thu tại quầy. Khoản này không cộng vào hóa đơn phòng và không thu lại khi trả phòng.'
+                  : o.status === 'PENDING'
+                  ? 'Yêu cầu từ khách, chưa ghi nhận phí. Tiếp nhận đơn bên dưới.'
+                  : `Đã ghi vào hóa đơn phòng ${roomNum}, thanh toán khi trả phòng.`}
               </p>
+              {o.paidAt && (
+                <div className="mt-1 text-[11px] text-zinc-500 font-medium">
+                  Đã thu lúc {new Date(o.paidAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ({o.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'})
+                </div>
+              )}
+              {o.refundedAt && (
+                <div className="mt-1 text-[11px] text-zinc-500 font-medium">
+                  Đã hoàn lúc {new Date(o.refundedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              )}
             </div>
 
             {/* Execution Actions */}
@@ -754,53 +660,21 @@ export function ReceptionOrderDetailPage() {
                 }}
               />
             ) : eligible ? (
-              <div className="space-y-3 pt-1">
-                <DeskAction
-                  path={`/service-orders/${id}/complete`}
-                  action="complete"
-                  label="✓ Hoàn thành dịch vụ"
-                  description="Xác nhận đã cung cấp toàn bộ dịch vụ trong đơn? Giá tại thời điểm đặt sẽ được ghi nhận vào hóa đơn khi hoàn thành."
-                  variant="primary"
-                  className="w-full justify-center py-3 text-sm font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer"
-                />
-                <DeskAction
-                  path={`/service-orders/${id}/cancel`}
-                  action="cancel"
-                  label="Hủy đơn dịch vụ"
-                  description="Hủy toàn bộ các dịch vụ đang chờ trong đơn?"
-                  variant="secondary"
-                  className="w-full justify-center py-2.5 text-xs font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-50 border-rose-200 rounded-xl cursor-pointer"
-                />
+              <div className="pt-2 border-t border-zinc-100 flex flex-wrap gap-2">
+                <ServiceOrderActions order={o} />
               </div>
             ) : (
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-xs text-zinc-600 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-zinc-800">
-                  {o.status === "COMPLETED" ? (
-                    <>
-                      <CheckCircle2 className="size-4 text-emerald-600" />
-                      <span>Đơn dịch vụ đã hoàn thành</span>
-                    </>
-                  ) : o.status === "CANCELLED" ? (
-                    <>
-                      <XCircle className="size-4 text-zinc-500" />
-                      <span>Đơn dịch vụ đã bị hủy</span>
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="size-4 text-amber-600" />
-                      <span>Đơn đang chờ nhưng chưa thể cập nhật</span>
-                    </>
-                  )}
-                </div>
-                <p className="text-zinc-500 text-[11px] leading-relaxed">
-                  {o.status === "COMPLETED"
-                    ? "Dịch vụ đã được ghi nhận vào billing của phòng và không thể thay đổi."
-                    : o.status === "CANCELLED"
-                    ? "Đơn dịch vụ đã bị hủy bỏ và không tính phí."
-                    : invoice.data !== null
-                    ? "Hóa đơn của booking này đã được phát hành; không thể sửa đổi đơn dịch vụ."
-                    : "Chỉ cập nhật được đơn của booking đang lưu trú (CHECKED_IN)."}
-                </p>
+              <div className="pt-2 border-t border-zinc-100 text-xs text-zinc-500">
+                {o.status === "COMPLETED" && (
+                  <span className="inline-flex items-center gap-1.5 text-emerald-700 font-medium">
+                    <CheckCircle2 className="size-3.5" /> Đơn đã ghi nhận hoàn tất
+                  </span>
+                )}
+                {o.status === "CANCELLED" && (
+                  <span className="inline-flex items-center gap-1.5 text-rose-600 font-medium">
+                    <XCircle className="size-3.5" /> Đơn dịch vụ đã hủy
+                  </span>
+                )}
               </div>
             )}
 
@@ -809,43 +683,23 @@ export function ReceptionOrderDetailPage() {
               <Button
                 variant="secondary"
                 onClick={() => window.print()}
-                className="w-full justify-center py-2.5 text-xs font-medium text-zinc-700 rounded-xl gap-2 cursor-pointer"
+                className="w-full justify-center py-2 text-xs font-medium text-zinc-700 rounded-lg gap-2 cursor-pointer shadow-2xs"
               >
                 <Printer className="size-3.5 text-zinc-500" />
                 In phiếu dịch vụ phòng (Ticket)
               </Button>
 
-              <LinkButton
-                to={`${base}/bookings/${o.bookingId}`}
-                variant="secondary"
-                className="w-full justify-center py-2.5 text-xs font-medium text-zinc-700 rounded-xl gap-2"
-              >
-                <ExternalLink className="size-3.5 text-zinc-500" />
-                Xem chi tiết booking #{booking.data?.reference || ""}
-              </LinkButton>
+              {booking.data && (
+                <LinkButton
+                  to={`${base}/bookings/${o.bookingId}`}
+                  variant="secondary"
+                  className="w-full justify-center py-2 text-xs font-medium text-zinc-700 rounded-lg gap-2 shadow-2xs"
+                >
+                  <ExternalLink className="size-3.5 text-zinc-500" />
+                  Xem chi tiết booking #{booking.data.reference}
+                </LinkButton>
+              )}
             </div>
-          </div>
-
-          {/* Operational Notes Card */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-              <Building2 className="size-3.5 text-zinc-500" />
-              Lưu ý vận hành cho lễ tân
-            </span>
-            <ul className="space-y-2 text-xs text-zinc-600">
-              <li className="flex items-start gap-2">
-                <span className="size-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
-                <span>Kiểm tra chính xác số <strong>Phòng {roomNum}</strong> trước khi giao đồ.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="size-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
-                <span>Đối với đưa đón sân bay hoặc ẩm thực, xác nhận yêu cầu đặc biệt của khách (nếu có).</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="size-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
-                <span>Sau khi hoàn thành, hệ thống tự động đồng bộ sang bảng kê chi phí lưu trú của phòng.</span>
-              </li>
-            </ul>
           </div>
         </div>
       </div>

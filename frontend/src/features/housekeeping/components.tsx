@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { AlertCircle, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  BedDouble,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  Layers,
+  Plus,
+  Sparkles,
+  User,
+} from 'lucide-react';
 import { Button, Dialog, EmptyState, StatusBadge, Table } from '../../components/ui';
 import { useAuth } from '../auth/auth-context';
 import { api } from '../../lib/api';
@@ -128,6 +139,19 @@ export function WorkAction({
   );
 }
 
+function cleanRoomTypeName(name: string) {
+  return name.replace(/^TEST[\s\-_]*\d{8}[\s\-_]*/i, '').trim() || name;
+}
+
+function formatTaskNotes(notes: string | null) {
+  if (!notes) return null;
+  const trimmed = notes.trim();
+  if (/^check-out cleaning$/i.test(trimmed)) return 'Dọn phòng trả (Check-out)';
+  if (/^stayover cleaning$/i.test(trimmed)) return 'Dọn phòng đang ở (Stayover)';
+  if (/^deep cleaning$/i.test(trimmed)) return 'Tổng vệ sinh (Deep clean)';
+  return trimmed;
+}
+
 export function RoomBoard({
   rooms,
   onCreate,
@@ -140,53 +164,101 @@ export function RoomBoard({
     <div className="hk-room-grid">
       {rooms.map((r) => (
         <article
-          className={`panel hk-room hk-room-${r.housekeepingStatus.toLowerCase()}`}
+          className={`hk-card hk-room hk-room-${r.housekeepingStatus.toLowerCase()} hk-card-${r.housekeepingStatus.toLowerCase()}`}
           key={r.id}
         >
-          <div className="guest-row">
-            <h2>Phòng {r.roomNumber}</h2>
-            <CleaningBadge status={r.housekeepingStatus} />
+          {/* Card Header: Room Number + Floor/Type + Status Badge */}
+          <div className="hk-card-header">
+            <div className="hk-card-room-info">
+              <div className="hk-card-room-number">
+                <h2>Phòng {r.roomNumber}</h2>
+              </div>
+              <div className="hk-card-tags">
+                <span className="hk-tag hk-tag-floor">
+                  <Layers className="size-3 text-zinc-400" />
+                  Tầng {r.floor}
+                </span>
+                <span className="hk-tag hk-tag-type">
+                  <BedDouble className="size-3 text-zinc-400" />
+                  {cleanRoomTypeName(r.roomType.name)}
+                </span>
+                {r.operationalStatus === 'OUT_OF_SERVICE' ? (
+                  <span className="hk-tag hk-tag-oos">
+                    <AlertTriangle className="size-3 text-rose-500" />
+                    Tạm ngừng
+                  </span>
+                ) : (
+                  <span className="sr-only">Hoạt động: Đang hoạt động</span>
+                )}
+              </div>
+            </div>
+            <div className="hk-card-status">
+              <CleaningBadge status={r.housekeepingStatus} />
+            </div>
           </div>
-          <p>
-            {r.roomType.name} · Tầng {r.floor}
-          </p>
-          <p>
-            Hoạt động:{' '}
-            {r.operationalStatus === 'ACTIVE'
-              ? 'Đang hoạt động'
-              : 'Tạm ngừng phục vụ'}
-          </p>
-          {r.openTask ? (
-            <div className="hk-open-task">
-              <TaskBadge status={r.openTask.status} />
-              <p>
-                Phân công:{' '}
-                {r.openTask.assignedStaff?.fullName ?? 'Chưa phân công'}
-              </p>
-              {r.openTask.notes && <p className="hk-notes">{r.openTask.notes}</p>}
+
+          {/* Card Body: Task details OR Ready state */}
+          <div className="hk-card-body">
+            {r.openTask ? (
+              <div className="hk-task-badge-box">
+                <div className="hk-task-header-row">
+                  <TaskBadge status={r.openTask.status} />
+                  {r.openTask.notes && (
+                    <span className="hk-task-note-pill">
+                      {formatTaskNotes(r.openTask.notes)}
+                    </span>
+                  )}
+                </div>
+                <div className="hk-task-staff-row">
+                  <User className="size-3.5 text-zinc-400 shrink-0" />
+                  <span className="hk-staff-label">Phân công:</span>
+                  {r.openTask.assignedStaff ? (
+                    <span className="hk-staff-name">
+                      {r.openTask.assignedStaff.fullName}
+                    </span>
+                  ) : (
+                    <span className="hk-staff-unassigned">Chưa phân công</span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="hk-ready-box">
+                <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                <span>Chưa có công việc đang mở.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Card Footer: Action Button & History Link */}
+          <div className="hk-card-footer">
+            {r.openTask ? (
               <Link
-                className="button button-secondary hk-open-task-btn"
+                className="button button-primary hk-btn-task"
                 to={`${base}/tasks/${r.openTask.id}`}
               >
+                <ClipboardList className="size-3.5" />
                 Xem công việc
               </Link>
-            </div>
-          ) : (
-            <>
-              <p>Chưa có công việc đang mở.</p>
-              {onCreate && (
-                <Button variant="secondary" onClick={() => onCreate(r)}>
-                  Tạo công việc
-                </Button>
-              )}
-            </>
-          )}
-          <Link
-            className="text-link hk-history"
-            to={`${base}/tasks?roomId=${r.id}`}
-          >
-            Lịch sử công việc →
-          </Link>
+            ) : onCreate ? (
+              <Button
+                variant="secondary"
+                className="hk-btn-create"
+                onClick={() => onCreate(r)}
+              >
+                <Plus className="size-3.5" />
+                Tạo công việc
+              </Button>
+            ) : (
+              <span className="hk-btn-placeholder" />
+            )}
+
+            <Link
+              className="hk-history-link text-link hk-history"
+              to={`${base}/tasks?roomId=${r.id}`}
+            >
+              Lịch sử công việc →
+            </Link>
+          </div>
         </article>
       ))}
     </div>

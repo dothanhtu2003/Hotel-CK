@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { ErrorState, Pagination, Table } from "../../components/ui";
-import { GuestBadge, Skeleton } from "../guest/components";
+import { Skeleton } from "../guest/components";
 import { money, type Order, type Page, type Preview } from "../guest/contracts";
 import { useDeskBase, useDeskGet, useDeskInvoice } from "./queries";
+import { serviceOrderLabel } from './service-order-label';
 
 export function ReservationPanels({ bookingId }: { bookingId: string }) {
   const [tab, setTab] = useState("charges"),
@@ -54,7 +55,7 @@ export function ReservationPanels({ bookingId }: { bookingId: string }) {
                 <dd>{money(preview.data!.roomAmount)}</dd>
               </div>
               <div>
-                <dt>Dịch vụ hoàn thành</dt>
+                <dt>Dịch vụ ghi vào phòng</dt>
                 <dd>{money(preview.data!.serviceAmount)}</dd>
               </div>
               <div>
@@ -62,6 +63,7 @@ export function ReservationPanels({ bookingId }: { bookingId: string }) {
                 <dd>{money(preview.data!.totalAmount)}</dd>
               </div>
             </dl>
+            {preview.data!.counterPaidAmount && <p>Dịch vụ đã thu riêng: {money(preview.data!.counterPaidAmount)} (không thu lại khi trả phòng).</p>}
             <p>{preview.data!.pendingOrderCount} đơn dịch vụ chờ xử lý.</p>
             <Link to={`${base}/bookings/${bookingId}/billing`}>
               Chi phí & hóa đơn →
@@ -95,7 +97,7 @@ export function ReservationPanels({ bookingId }: { bookingId: string }) {
                 },
                 {
                   title: "Trạng thái",
-                  render: (o) => <GuestBadge status={o.status} />,
+                  render: (o) => serviceOrderLabel(o),
                 },
                 { title: "Thành tiền", render: (o) => money(o.totalAmount) },
               ]}

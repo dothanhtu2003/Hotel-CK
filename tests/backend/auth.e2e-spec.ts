@@ -184,6 +184,15 @@ describe('Phase 3 authentication/profile/RBAC — hotel_test only', () => {
     const hash = await context.app.get(PasswordService).hash(password);
     await context.prisma.client.user.create({ data: { email: roleEmail, fullName: `Test ${role}`, passwordHash: hash, role } });
     const login = await api().post('/api/auth/login').send({ email: roleEmail, password }).expect(200);
+    const expectedTtl = role === 'GUEST' ? 900 : 86400;
+    expect(login.body.expiresIn).toBe(expectedTtl);
+    const jwt = context.app.get(JwtService);
+    const payload = await jwt.verifyAsync(login.body.accessToken);
+    expect(payload.exp - payload.iat).toBe(expectedTtl);
+    if (role !== 'GUEST') {
+      await expect(jwt.verifyAsync(login.body.accessToken, { clockTimestamp: payload.iat + 16 * 60 })).resolves.toMatchObject({ sub: payload.sub });
+      await expect(jwt.verifyAsync(login.body.accessToken, { clockTimestamp: payload.exp + 1 })).rejects.toThrow();
+    }
     for (const target of roles) await api().get(`/api/_test/roles/${target.toLowerCase()}`).auth(login.body.accessToken, { type: 'bearer' }).expect(target === role ? 200 : 403);
   });
 

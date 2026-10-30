@@ -136,7 +136,7 @@ Xem [API, chính sách và kết quả kiểm thử Phase 4](docs/backend/room-b
 
 ## Phase 3 — Authentication & User Profile
 
-Xem [báo cáo và hướng dẫn authentication](docs/backend/authentication.md). Có POST /api/auth/register, POST /api/auth/login, GET /api/auth/me, GET/PATCH /api/users/me. Tài khoản mới luôn GUEST; profile chỉ cho sửa fullName/phone. JWT mặc định 15 phút, role/trạng thái được đọc lại từ DB ở mỗi request. Không có logout server hoặc refresh token ở phase này.
+Xem [báo cáo và hướng dẫn authentication](docs/backend/authentication.md). Có POST /api/auth/register, POST /api/auth/login, GET /api/auth/me, GET/PATCH /api/users/me. Tài khoản mới luôn GUEST; profile chỉ cho sửa fullName/phone. JWT mặc định 24 giờ cho nhân viên (lễ tân/admin/buồng phòng), 15 phút cho khách; role/trạng thái được đọc lại từ DB ở mỗi request. Không có logout server hoặc refresh token ở phase này.
 
 ## Backend foundation
 

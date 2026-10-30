@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { OrderStatus } from '../../../generated/prisma/enums.js';
+import { OrderStatus, PaymentMethod } from '../../../generated/prisma/enums.js';
 import { PageMetaDto } from '../../common/dto/page-meta.dto.js';
 
 export class ServiceOrderItemResponseDto {
@@ -16,6 +16,9 @@ export class ServiceOrderResponseDto {
   @ApiProperty({ enum: OrderStatus }) status!: OrderStatus;
   @ApiProperty({ type: String, example: '90000.50', description: 'Sum of stored item subtotals, including retained cancelled orders' }) totalAmount!: string;
   @ApiProperty({ format: 'date-time' }) orderedAt!: Date;
+  @ApiProperty({ enum: PaymentMethod, nullable: true }) paymentMethod!: PaymentMethod | null;
+  @ApiProperty({ format: 'date-time', nullable: true }) paidAt!: Date | null;
+  @ApiProperty({ format: 'date-time', nullable: true }) refundedAt!: Date | null;
   @ApiProperty({ type: [ServiceOrderItemResponseDto] }) items!: ServiceOrderItemResponseDto[];
 }
 export class ServiceOrderPageDto {

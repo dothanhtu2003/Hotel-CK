@@ -8,6 +8,7 @@ import { CreateServiceOrderDto } from './dto/create-service-order.dto.js';
 import { ServiceOrderQueryDto } from './dto/service-order-query.dto.js';
 import { ServiceOrderPageDto, ServiceOrderResponseDto } from './dto/service-order-response.dto.js';
 import { ServiceOrdersService } from './service-orders.service.js';
+import { CancelServiceOrderDto, SettleServiceOrderDto } from './dto/settle-service-order.dto.js';
 
 @ApiTags('Service Orders') @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'Authentication required' })
@@ -19,7 +20,7 @@ import { ServiceOrdersService } from './service-orders.service.js';
 export class ServiceOrdersController {
   constructor(private readonly orders: ServiceOrdersService) {}
 
-  @Post() @Roles('GUEST') @Header('Cache-Control', 'no-store') @ApiCreatedResponse({ type: ServiceOrderResponseDto })
+  @Post() @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store') @ApiCreatedResponse({ type: ServiceOrderResponseDto })
   create(@CurrentUser() user: PublicUser, @Body() dto: CreateServiceOrderDto) { return this.orders.create(user, dto); }
 
   @Get('my') @Roles('GUEST') @Header('Cache-Control', 'no-store') @ApiOkResponse({ type: ServiceOrderPageDto })
@@ -35,7 +36,10 @@ export class ServiceOrdersController {
   @ApiBody({ required: false, schema: { type: 'object', additionalProperties: false } }) @ApiOkResponse({ type: ServiceOrderResponseDto })
   complete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body(new EmptyBodyPipe()) _body: unknown) { return this.orders.transition(id, user, 'complete'); }
 
+  @Patch(':id/settle') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store') @ApiOkResponse({ type: ServiceOrderResponseDto })
+  settle(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body() dto: SettleServiceOrderDto) { return this.orders.settle(id, user, dto); }
+
   @Patch(':id/cancel') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
-  @ApiBody({ required: false, schema: { type: 'object', additionalProperties: false } }) @ApiOkResponse({ type: ServiceOrderResponseDto })
-  cancel(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body(new EmptyBodyPipe()) _body: unknown) { return this.orders.transition(id, user, 'cancel'); }
+  @ApiBody({ required: false, type: CancelServiceOrderDto }) @ApiOkResponse({ type: ServiceOrderResponseDto })
+  cancel(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body() dto: CancelServiceOrderDto) { return this.orders.transition(id, user, 'cancel', dto?.refundConfirmed); }
 }

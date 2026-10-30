@@ -11,6 +11,7 @@ describe('Environment configuration', () => {
     expect(config.PORT).toBe(3000);
     expect(config.HOST).toBe('127.0.0.1');
     expect(config.CORS_ORIGINS).toContain('http://localhost:5173');
+    expect(config.JWT_STAFF_TTL_SECONDS).toBe(86400);
   });
 
   it('converts PORT and trims explicit CORS origins', () => {
@@ -53,5 +54,11 @@ describe('Environment configuration', () => {
     expect(() => validateEnvironment({ ...valid, JWT_SECRET: 'short' })).toThrow('JWT_SECRET');
     expect(() => validateEnvironment({ ...valid, JWT_ACCESS_TTL_SECONDS: '0' })).toThrow('JWT_ACCESS_TTL_SECONDS');
     expect(() => validateEnvironment({ ...valid, JWT_ACCESS_TTL_SECONDS: '3601' })).toThrow('JWT_ACCESS_TTL_SECONDS');
+  });
+  it('accepts staff session configuration from environment and rejects invalid lifetimes', () => {
+    expect(validateEnvironment({ ...valid, JWT_STAFF_TTL_SECONDS: '43200' }).JWT_STAFF_TTL_SECONDS).toBe(43200);
+    for (const value of ['0', '900', '86401', 'abc', '3600.5']) {
+      expect(() => validateEnvironment({ ...valid, JWT_STAFF_TTL_SECONDS: value })).toThrow('JWT_STAFF_TTL_SECONDS');
+    }
   });
 });

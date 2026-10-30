@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './auth-provider';
 import { useAuth } from './auth-context';
@@ -9,7 +9,7 @@ const key = 'an-nhien.auth-session';
 const user = { id: '00000000-0000-4000-8000-000000000001', fullName: 'Test', email: 'test@example.com', phone: null, role: 'RECEPTIONIST', status: 'ACTIVE', createdAt: '', updatedAt: '' };
 function Session() { const auth = useAuth(); return <><p>{auth.user?.fullName ?? 'Signed out'}</p><button onClick={auth.logout}>Logout</button><button onClick={() => void auth.login({ email: 'test@example.com', password: '1' })}>Login</button></>; }
 function mount() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AuthProvider><Session /></AuthProvider></QueryClientProvider>); }
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
 it('restores a saved token and validates the user before showing the workspace', async () => {
   localStorage.setItem(key, JSON.stringify({ accessToken: 'saved-token', expiresAt: Date.now() + 60000 }));
   const token = vi.spyOn(api, 'setToken');
@@ -30,4 +30,26 @@ it('persists the token after login without persisting the password', async () =>
   mount(); fireEvent.click(await screen.findByText('Login'));
   await waitFor(() => expect(screen.getByText('Test')).toBeTruthy());
   const saved = JSON.parse(localStorage.getItem(key)!); expect(saved.accessToken).toBe('new-token'); expect(saved.password).toBeUndefined();
+});
+
+it('keeps a staff session through idle time and reload, expiring only at the supplied 24-hour deadline', async () => {
+  vi.useFakeTimers();
+  vi.spyOn(api, 'request').mockResolvedValueOnce({ accessToken: 'staff-token', tokenType: 'Bearer', expiresIn: 86400 }).mockResolvedValue(user);
+  let view: ReturnType<typeof mount>;
+  await act(async () => { view = mount(); });
+  const startedAt = Date.now();
+  await act(async () => { fireEvent.click(screen.getByText('Login')); });
+  expect(screen.getByText('Test')).toBeTruthy();
+  const saved = JSON.parse(localStorage.getItem(key)!);
+  expect(saved.expiresAt).toBe(startedAt + 86400000);
+  await act(async () => { vi.advanceTimersByTime(16 * 60000); });
+  expect(screen.getByText('Test')).toBeTruthy();
+  view!.unmount();
+  await act(async () => { mount(); });
+  expect(screen.getByText('Test')).toBeTruthy();
+  await act(async () => { vi.advanceTimersByTime(86400000 - 16 * 60000 - 1); });
+  expect(screen.getByText('Test')).toBeTruthy();
+  await act(async () => { vi.advanceTimersByTime(1); });
+  expect(screen.getByText('Signed out')).toBeTruthy();
+  expect(localStorage.getItem(key)).toBeNull();
 });
