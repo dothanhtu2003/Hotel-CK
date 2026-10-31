@@ -4,7 +4,7 @@
 
 A comprehensive, full-stack, enterprise-grade hotel reservation and guest service management platform built with NestJS, React 19, and PostgreSQL.
 
-**🌐 Local Demo:** [http://localhost:5173](http://localhost:5173) • **Swagger Docs:** [http://127.0.0.1:3000/api/docs](http://127.0.0.1:3000/api/docs)
+**🌐 Live Demo:** [An Nhiên Hotel & Suites](https://hotel-ck-two.vercel.app/) • **Swagger Docs:** [http://127.0.0.1:3000/api/docs](http://127.0.0.1:3000/api/docs)
 
 [![React 19](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)](https://react.dev/)
 [![React Router 8](https://img.shields.io/badge/React_Router-8-CA4245?style=for-the-badge&logo=react-router)](https://reactrouter.com/)
@@ -483,6 +483,7 @@ npm.cmd --prefix frontend run test:e2e
 
 ## 🌐 Deployment Overview
 
+- **Live Demo**: [An Nhiên Hotel & Suites (hotel-ck-two.vercel.app)](https://hotel-ck-two.vercel.app/)
 - **Frontend App**: SPA optimized for static serverless deployment (Vercel, Netlify) with client-side routing fallback via `frontend/vercel.json`.
 - **Backend API**: Stateless NestJS container ready for Render, Railway, AWS ECS, or Google Cloud Run.
 - **PostgreSQL**: Cloud hosting via Supabase, Neon, or AWS RDS (requires `sslmode=verify-full` in production mode).
