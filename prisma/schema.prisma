@@ -158,6 +158,7 @@ model RoomImage {
 }
 
 model Booking {
+  checkoutRequestedAt DateTime? @map("checkout_requested_at") @db.Timestamptz(3)
   createdById     String?        @map("created_by_id") @db.Uuid
   id              String         @id @default(uuid()) @db.Uuid
   reference       String         @unique @default(uuid()) @db.VarChar(40)

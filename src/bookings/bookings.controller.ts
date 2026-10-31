@@ -28,6 +28,13 @@ export class BookingsController {
   @Get() @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store') @ApiOkResponse({ type: BookingPageDto })
   list(@Query() query: BookingQueryDto, @CurrentUser() user: PublicUser) { return this.bookings.list(query, user); }
 
+  @Get('checkout-requests') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  checkoutRequests() { return this.bookings.checkoutRequests(); }
+
+  @Patch(':id/request-checkout') @Roles('GUEST') @Header('Cache-Control', 'no-store')
+  @ApiBody({ required: false, schema: { type: 'object', additionalProperties: false } }) @ApiOkResponse({ type: BookingResponseDto })
+  requestCheckout(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body(new EmptyBodyPipe()) _body: unknown) { return this.bookings.requestCheckout(id, user); }
+
   @Get(':id') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store') @ApiOkResponse({ type: BookingResponseDto })
   get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.bookings.get(id, user); }
 

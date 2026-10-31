@@ -55,6 +55,30 @@ export class BookingsService {
     return bookingView(booking);
   }
 
+  async checkoutRequests() {
+    const bookings = await this.prisma.client.booking.findMany({
+      where: { status: 'CHECKED_IN', checkoutRequestedAt: { not: null } },
+      select: { ...bookingSelect, user: { select: { fullName: true } } },
+      orderBy: [{ checkoutRequestedAt: 'asc' }, { id: 'asc' }],
+    });
+    return bookings.map(({ user, ...booking }) => ({ ...bookingView(booking), customerName: user.fullName }));
+  }
+
+  async requestCheckout(id: string, actor: Actor) {
+    if (actor.role !== 'GUEST') throw new ForbiddenException('Only guests may request checkout');
+    return this.prisma.client.$transaction(async tx => {
+      const where = { id, userId: actor.id };
+      await tx.booking.updateMany({
+        where: { ...where, status: 'CHECKED_IN', checkoutRequestedAt: null },
+        data: { checkoutRequestedAt: new Date() },
+      });
+      const booking = await tx.booking.findFirst({ where, select: bookingSelect });
+      if (!booking) throw new NotFoundException('Booking not found');
+      if (booking.status !== 'CHECKED_IN') throw new ConflictException('Chỉ có thể yêu cầu trả phòng khi đang lưu trú.');
+      return bookingView(booking);
+    });
+  }
+
   async transition(id: string, actor: Actor, action: 'cancel' | 'confirm' | 'check-in') {
     if (action !== 'cancel' && actor.role !== 'RECEPTIONIST' && actor.role !== 'ADMIN') throw new ForbiddenException('Insufficient permissions');
     const transitions: Record<typeof action, { from: BookingStatus[]; to: BookingStatus }> = {

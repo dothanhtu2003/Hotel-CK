@@ -21,7 +21,7 @@ describe('Billing exact money, receipt keys and safe database errors', () => {
     const date = new Date('2026-01-01T00:00:00Z');
     const invoice: InvoiceRecord = {
       id: randomUUID(), bookingId: randomUUID(), roomAmount: new Prisma.Decimal('0.30'), serviceAmount: new Prisma.Decimal(0), totalAmount: new Prisma.Decimal('0.30'), status: 'ISSUED', issuedAt: date,
-      booking: { id: randomUUID(), reference: 'Test', userId: randomUUID(), roomId: randomUUID(), checkInDate: date, checkOutDate: new Date('2026-01-04T00:00:00Z'), guestCount: 1, status: 'CHECKED_IN', nightlyPrice: new Prisma.Decimal('0.10'), totalRoomAmount: new Prisma.Decimal('0.30'), createdAt: date, updatedAt: date, room: { roomNumber: '101' } },
+      booking: { checkoutRequestedAt: null, id: randomUUID(), reference: 'Test', userId: randomUUID(), roomId: randomUUID(), checkInDate: date, checkOutDate: new Date('2026-01-04T00:00:00Z'), guestCount: 1, status: 'CHECKED_IN', nightlyPrice: new Prisma.Decimal('0.10'), totalRoomAmount: new Prisma.Decimal('0.30'), createdAt: date, updatedAt: date, room: { roomNumber: '101' } },
       payments: ['COMPLETED', 'PENDING', 'FAILED'].map((status, i) => ({ id: randomUUID(), invoiceId: randomUUID(), amount: new Prisma.Decimal(i ? '0.20' : '0.10'), method: 'CASH', status: status as 'COMPLETED' | 'PENDING' | 'FAILED', paidAt: i ? null : date })),
     };
     const view = invoiceView(invoice); expect(view.paidAmount).toBe('0.10'); expect(view.balance).toBe('0.20');

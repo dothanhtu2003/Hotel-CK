@@ -323,7 +323,7 @@ export function ReceptionDashboard() {
                       )}
                     </div>
 
-                    {requests.error && <div role="alert" className="mb-3 text-xs text-rose-700">Chưa tải được thông báo dịch vụ. <button type="button" className="underline" onClick={() => void requests.refetch()}>Thử lại</button></div>}
+                    {requests.error && <div role="alert" className="mb-3 text-xs text-rose-700">Chưa tải được thông báo yêu cầu. <button type="button" className="underline" onClick={() => void requests.refetch()}>Thử lại</button></div>}
                     {/* Room Grid by Floor */}
                     {roomsQuery.isPending ? (
                       <div className="py-8">
@@ -559,7 +559,7 @@ export function ReceptionDashboard() {
                                       {room.roomType.name}
                                     </div>
                                   </button>
-                                  {roomOrders.length > 0 && <button type="button" onClick={() => setRequestRoom(room.roomNumber)} aria-label={`Phòng ${room.roomNumber}: ${roomOrders.length} đơn dịch vụ chờ xử lý`} title="Xem yêu cầu dịch vụ" className={`room-request-bell ${occupied ? "room-request-bell--occupied" : ""}`}>
+                                  {roomOrders.length > 0 && <button type="button" onClick={() => setRequestRoom(room.roomNumber)} aria-label={`Phòng ${room.roomNumber}: ${roomOrders.length} yêu cầu chờ xử lý`} title="Xem yêu cầu của khách" className={`room-request-bell ${occupied ? "room-request-bell--occupied" : ""}`}>
                                     <Bell size={16} strokeWidth={1.7} /><span className="room-request-bell__count">{roomOrders.length > 9 ? "9+" : roomOrders.length}</span>
                                   </button>}
                                   </div>

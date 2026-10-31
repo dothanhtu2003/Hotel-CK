@@ -183,6 +183,7 @@ export function BookingDetailPage() {
   const query = useGet<Booking>('/bookings/' + id);
   const billing = useGet<Preview>(`/bookings/${id}/billing-preview`);
   const [confirm, setConfirm] = useState(false);
+  const [checkoutConfirm, setCheckoutConfirm] = useState(false);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -197,6 +198,18 @@ export function BookingDetailPage() {
     onError: () => {
       void qc.invalidateQueries({ queryKey: ['guest'] });
     },
+  });
+
+  const requestCheckout = useMutation({
+    retry: false,
+    mutationFn: () => api.request<Booking>(`/bookings/${id}/request-checkout`, { method: 'PATCH' }),
+    onSuccess: () => {
+      setCheckoutConfirm(false);
+      toast('Đã gửi yêu cầu trả phòng đến lễ tân.');
+      void qc.invalidateQueries({ queryKey: ['guest'] });
+      void qc.invalidateQueries({ queryKey: ['reception'] });
+    },
+    onError: () => { void qc.invalidateQueries({ queryKey: ['guest'] }); },
   });
 
   if (query.isPending) return <Skeleton />;
@@ -363,6 +376,9 @@ export function BookingDetailPage() {
           </div>
         </div>
 
+        {b.status === 'CHECKED_IN' && b.checkoutRequestedAt && (
+          <p role="status" className="pending-orders-alert">Đã gửi yêu cầu trả phòng · Đang chờ lễ tân xử lý.</p>
+        )}
         {/* Action Buttons */}
         <div className="guest-actions detail-actions-bar">
           <LinkButton to={`/guest/bookings/${id}/billing`}>
@@ -375,6 +391,11 @@ export function BookingDetailPage() {
             </LinkButton>
           )}
 
+          {b.status === 'CHECKED_IN' && (
+            <Button variant="secondary" disabled={!!b.checkoutRequestedAt} onClick={() => { requestCheckout.reset(); setCheckoutConfirm(true); }}>
+              {b.checkoutRequestedAt ? 'Đang chờ trả phòng' : 'Yêu cầu trả phòng'}
+            </Button>
+          )}
           {['PENDING', 'CONFIRMED'].includes(b.status) && (
             <Button
               variant="secondary"
@@ -390,6 +411,15 @@ export function BookingDetailPage() {
         </div>
       </section>
 
+      <Dialog open={checkoutConfirm} onClose={() => { if (!requestCheckout.isPending) setCheckoutConfirm(false); }} title="Gửi yêu cầu trả phòng?">
+        <p>Lễ tân sẽ kiểm tra phòng, chốt chi phí và hỗ trợ thanh toán để hoàn tất trả phòng.</p>
+        {billing.data && <p>Chi phí phòng và dịch vụ tạm tính: <strong>{money(billing.data.totalAmount)}</strong></p>}
+        {requestCheckout.error && <p role="alert" className="form-error">{guestError(requestCheckout.error)}</p>}
+        <div className="dialog-actions">
+          <Button variant="secondary" disabled={requestCheckout.isPending} onClick={() => setCheckoutConfirm(false)}>Quay lại</Button>
+          <Button busy={requestCheckout.isPending} onClick={() => requestCheckout.mutate()}>Xác nhận gửi yêu cầu</Button>
+        </div>
+      </Dialog>
       {/* Cancellation Dialog */}
       <Dialog
         open={confirm}

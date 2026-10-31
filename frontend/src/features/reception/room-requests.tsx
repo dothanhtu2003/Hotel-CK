@@ -3,11 +3,11 @@ import { Link } from 'react-router';
 import { BellRing, CheckCircle2, Clock, ExternalLink, User } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Dialog } from '../../components/ui';
-import { money, type Order, type Page } from '../guest/contracts';
+import { money, type Booking, type Order, type Page } from '../guest/contracts';
 import { ServiceOrderActions } from './service-order-actions';
 import { useDeskBase } from './queries';
 
-type RoomOrder = Order & { roomNumber: string; customerName: string; reference: string; canProcess: boolean };
+type RoomOrder = Order & { roomNumber: string; customerName: string; reference: string; canProcess: boolean; checkoutBookingId?: string };
 
 export function useRoomRequests() {
   return useQuery({
@@ -22,6 +22,12 @@ export function useRoomRequests() {
         pages = result.meta.totalPages;
         page++;
       } while (page <= pages);
+      const checkouts = await api.request<(Booking & { customerName: string })[]>('/bookings/checkout-requests', { signal });
+      orders.push(...checkouts.map((booking): RoomOrder => ({
+        id: `checkout-${booking.id}`, bookingId: booking.id, checkoutBookingId: booking.id,
+        roomNumber: booking.roomNumber, customerName: booking.customerName, reference: booking.reference,
+        canProcess: false, status: 'PENDING', orderedAt: booking.checkoutRequestedAt!, items: [], totalAmount: '0',
+      })));
       return orders.sort((a, b) => a.orderedAt.localeCompare(b.orderedAt));
     },
     refetchInterval: 30000,
@@ -43,7 +49,7 @@ export function RoomRequestsDrawer({
     <Dialog
       open
       onClose={onClose}
-      title={`Phòng ${roomNumber} · Yêu cầu dịch vụ`}
+      title={`Phòng ${roomNumber} · Yêu cầu của khách`}
       className="desk-room-action-modal"
     >
       <div className="drawer-body p-4 sm:p-5 space-y-4">
@@ -81,7 +87,7 @@ export function RoomRequestsDrawer({
             </div>
             <h4 className="text-sm font-bold text-emerald-950">Đã xử lý hết yêu cầu</h4>
             <p className="text-xs text-emerald-700 max-w-sm mx-auto">
-              Hiện không còn đơn dịch vụ nào đang chờ xử lý cho phòng {roomNumber}.
+              Hiện không còn yêu cầu nào đang chờ xử lý cho phòng {roomNumber}.
             </p>
           </div>
         ) : (
@@ -126,6 +132,13 @@ export function RoomRequestsDrawer({
                   <strong className="text-zinc-900 font-semibold">{order.customerName}</strong>
                 </div>
 
+                {order.checkoutBookingId ? (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-3">
+                    <h4 className="font-bold text-amber-900">Yêu cầu trả phòng</h4>
+                    <p className="text-sm text-zinc-600">Khách đang chờ kiểm tra phòng và thanh toán. Yêu cầu được giữ đến khi hoàn tất trả phòng.</p>
+                    <Link className="text-link" to={`${base}/bookings/${order.checkoutBookingId}/billing`} onClick={onClose}>Xử lý trả phòng</Link>
+                  </div>
+                ) : <>
                 {/* Item details list */}
                 <div className="rounded-xl bg-zinc-50 border border-zinc-200/70 p-3 space-y-2">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -175,6 +188,7 @@ export function RoomRequestsDrawer({
                     Không thể ghi nhận khi khách chưa nhận phòng, đã trả phòng hoặc đã lập hóa đơn.
                   </div>
                 )}
+                </>}
               </article>
             ))}
           </div>

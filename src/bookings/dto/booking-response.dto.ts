@@ -10,6 +10,7 @@ export class BookingResponseDto {
   @ApiProperty() roomNumber!: string;
   @ApiProperty({ format: 'date' }) checkIn!: string;
   @ApiProperty({ format: 'date' }) checkOut!: string;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true }) checkoutRequestedAt!: Date | null;
   @ApiProperty() nights!: number;
   @ApiProperty() guestCount!: number;
   @ApiProperty({ enum: BookingStatus }) status!: BookingStatus;
