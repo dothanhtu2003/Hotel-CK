@@ -52,7 +52,8 @@ describe('Booking service trusted ownership and database pricing', () => {
     const create = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(record);
     const findFirst = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(null);
     const findRoom = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({ operationalStatus: 'ACTIVE', roomType: { maxGuests: 2 } });
-    const service = new BookingsService({ client: { booking: { create, findFirst }, room: { findUnique: findRoom } } } as unknown as PrismaService);
+    const tx = { booking: { create, findFirst }, $queryRaw: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue([{ next: 1 }]) };
+    const service = new BookingsService({ client: { ...tx, room: { findUnique: findRoom }, $transaction: async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx) } } as unknown as PrismaService);
     return { service, create, findFirst };
   }
   it('rejects a stale guest booking before writing to the database', async () => {
@@ -64,7 +65,7 @@ describe('Booking service trusted ownership and database pricing', () => {
     const f = fixture();
     const dto = { roomId: 'room-id', checkIn: '2099-01-01', checkOut: '2099-01-04', guests: 2, userId: 'attacker-selected-owner', nightlyPrice: 1, totalRoomAmount: 1 };
     const result = await f.service.create({ id: 'jwt-user', role: 'GUEST' }, dto);
-    expect(f.create).toHaveBeenCalledWith(expect.objectContaining({ data: { userId: 'jwt-user', roomId: 'room-id', checkInDate: new Date('2099-01-01T00:00:00Z'), checkOutDate: new Date('2099-01-04T00:00:00Z'), guestCount: 2 } }));
+    expect(f.create).toHaveBeenCalledWith(expect.objectContaining({ data: { reference: expect.stringMatching(/^CK-\d{6}-\d{4,}$/), userId: 'jwt-user', roomId: 'room-id', checkInDate: new Date('2099-01-01T00:00:00Z'), checkOutDate: new Date('2099-01-04T00:00:00Z'), guestCount: 2 } }));
     expect(result.nightlyPrice).toBe('100.25'); expect(result.totalRoomAmount).toBe('300.75');
   });
   it('scopes guest reads in SQL and fails closed for housekeeping at the service boundary', async () => {

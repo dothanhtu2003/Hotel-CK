@@ -2,7 +2,7 @@
 
 <div align="center">
 
-A comprehensive, full-stack, enterprise-grade hotel reservation and guest service management platform built with NestJS, React 19, and PostgreSQL.
+A full-stack hotel reservation and guest service management platform built with NestJS, React 19, and PostgreSQL.
 
 **🌐 Live Demo:** [An Nhiên Hotel & Suites](https://hotel-ck-two.vercel.app/)
 
@@ -27,7 +27,7 @@ A comprehensive, full-stack, enterprise-grade hotel reservation and guest servic
 
 ## 🚀 Overview
 
-**Hotel CK (An Nhiên Hotel)** is a production-ready, full-stack hospitality management system engineered with strict database integrity and operational efficiency. The platform bridges public guest experiences (multi-night reservations, live room service ordering, online checkout requests) with real-world hotel staff operations (reception dashboard, tape chart calendar, unified room board, cashier drawer, walk-in wizard, and automated housekeeping synchronization).
+**Hotel CK (An Nhiên Hotel)** is a full-stack hospitality management system engineered with strict database integrity and operational efficiency. The platform bridges public guest experiences (multi-night reservations, live room service ordering, online checkout requests) with real-world hotel staff operations (reception dashboard, tape chart calendar, unified room board, cashier drawer, walk-in wizard, and automated housekeeping synchronization).
 
 Unlike conventional web systems that rely solely on application-level checks, Hotel CK enforces business rules, overbooking prevention, and snapshot financial calculations at the **PostgreSQL database level** via GiST exclusion constraints, triggers, and transactional isolation.
 
@@ -38,6 +38,7 @@ Unlike conventional web systems that rely solely on application-level checks, Ho
 ### 🛎️ Guest Experience & Booking Engine
 
 - **Room Discovery & Availability Search**: Real-time room filtering based on hotel check-in/check-out dates `[checkIn, checkOut)` and guest capacity with instant price breakdown.
+- **Readable Booking References**: New guest and walk-in bookings use `CK-YYMMDD-NNNN` (hotel-local creation date and a daily sequence, e.g. `CK-261031-0042`). A shared PostgreSQL transaction lock serializes allocation; cancelled references are retained. Older references remain valid. Reception search also accepts customer phone numbers.
 - **Multi-Night Reservations**: Guaranteed booking engine preventing overbooking through PostgreSQL GiST exclusion constraints. Room prices and totals are calculated and snapshotted atomically.
 - **Dedicated Guest Portal (`/guest`)**:
   - **My Stays**: View upcoming, active, and completed stays with rich reservation vouchers.
@@ -75,9 +76,9 @@ Unlike conventional web systems that rely solely on application-level checks, Ho
 ### 🛡️ Platform Security & Session Management
 
 - **Role-Based Access Control (RBAC)**: Strict role barriers for `GUEST`, `RECEPTIONIST`, `HOUSEKEEPING`, and `ADMIN`. Global NestJS guards inspect roles against live database records on every request.
-- **In-Memory JWT Tokens**: Access tokens are kept strictly in browser memory (never written to `localStorage` or `sessionStorage`), mitigating XSS-based credential extraction.
+- **In-Memory JWT Tokens**: Access tokens are kept in browser memory (never written to `localStorage` or `sessionStorage`), limiting persistent token storage. Reloading requires login again; this does not prevent active XSS from accessing authenticated functionality.
 - **Argon2id Password Hashing**: State-of-the-art password security with memory-hardened parameters and timing-safe fallback comparison for legacy records.
-- **Ownership Scoping**: Tenant data isolation ensuring guests can never inspect or modify reservations, orders, or bills belonging to other users (enforced with strict 404 responses to avoid resource ID probing).
+- **Ownership Scoping**: Owner-based access checks restricting guests to their own reservations, orders, and bills (enforced with strict 404 responses to avoid resource ID probing).
 - **Brute-Force Rate Limiting**: In-memory IP/handler bucket limits protecting authentication and walk-in creation endpoints.
 
 ---
@@ -106,7 +107,7 @@ graph TD
     subgraph Database [PostgreSQL 14+ / Schema: hotel]
         Triggers[Business Integrity Triggers]
         Constraints[GiST Overlap & Partial Unique Indexes]
-        Tables[(11 Relational Tables)]
+        Tables[(12 Relational Tables)]
     end
 
     UI --> AuthContext
@@ -293,7 +294,7 @@ erDiagram
 ├── prisma/                   # Database schema, seeders, and migration history
 │   ├── schema.prisma         # Core PostgreSQL hotel schema definitions
 │   ├── seed.ts               # Base deterministic seeds
-│   └── migrations/           # Versioned migration track (10 applied migrations)
+│   └── migrations/           # Versioned migration track (10 migration directories; use db:status to check application)
 │
 ├── src/                      # Backend API (NestJS 12)
 │   ├── auth/                 # JWT, Argon2 hashing, RBAC guards, and policies
@@ -344,7 +345,7 @@ erDiagram
 
 ### 📋 Prerequisites
 
-- **Runtime**: Node.js `>=24.11.0` (Node.js 24 LTS recommended)
+- **Runtime**: Node.js `>=24.15.0` (satisfies both backend and frontend engine requirements) (Node.js 24 LTS recommended)
 - **Database**: PostgreSQL 14+ (Local port `55432` or standard `5432`)
 - **Shell**: PowerShell (Windows) or Bash (Linux / macOS)
 
@@ -413,7 +414,7 @@ npm.cmd ci
 
 Configure `frontend/.env.local`:
 ```env
-VITE_API_URL="http://127.0.0.1:3000/api"
+VITE_API_BASE_URL="http://127.0.0.1:3000/api"
 ```
 
 #### 5. Launch Frontend App
@@ -426,7 +427,7 @@ Open `http://localhost:5173` to explore the guest portal and staff workspaces.
 
 ## 🔌 API Endpoints
 
-All endpoints are mounted under `/api`. Paths below are relative to their module base.
+All endpoints are mounted under `/api`. Paths below are relative to their module base. Mixed-role modules apply endpoint-specific role checks and guest ownership checks; consult the controllers or Swagger for exact permissions.
 
 | Module | Base Path | Authentication | Implemented Endpoints |
 |---|---|---|---|
@@ -434,12 +435,12 @@ All endpoints are mounted under `/api`. Paths below are relative to their module
 | **Auth** | `/api/auth` | Mixed | `POST /register`, `POST /login`, `GET /me` |
 | **Users** | `/api/users` | User Session | `GET /me`, `PATCH /me` |
 | **Rooms** | `/api/rooms` | Public | `GET /`, `GET /available`, `GET /:id` |
-| **Bookings** | `/api/bookings` | Mixed (Guest / Staff) | `POST /`, `GET /`, `GET /checkout-requests`, `GET /:id`, `PATCH /:id/request-checkout`, `PATCH /:id/cancel`, `PATCH /:id/confirm`, `PATCH /:id/check-in` |
-| **Front Desk** | `/api/front-desk` | Reception / Admin | `GET /dashboard`, `GET /bookings`, `GET /bookings/:id`, `GET /customers`, `GET /available`, `POST /walk-in`, `GET /rooms`, `GET /room-filters`, `PATCH /rooms/:id/condition`, `GET /orders` |
+| **Bookings** | `/api/bookings` | Mixed (Guest / Staff) | `POST /`, `GET /my`, `GET /`, `GET /checkout-requests`, `GET /:id`, `PATCH /:id/request-checkout`, `PATCH /:id/cancel`, `PATCH /:id/confirm`, `PATCH /:id/check-in` |
+| **Front Desk** | `/api/front-desk` | Reception / Admin | `GET /dashboard`, `GET /booking-counts`, `GET /billing`, `GET /bookings`, `GET /bookings/:id`, `GET /customers`, `GET /available`, `POST /walk-in`, `GET /rooms`, `GET /room-filters`, `PATCH /rooms/:id/condition`, `GET /orders` |
 | **Services** | `/api/services` | Public | `GET /`, `GET /:id` |
-| **Service Orders** | `/api/service-orders` | Mixed | `POST /`, `GET /my`, `GET /:id`, `GET /`, `PATCH /:id/complete`, `PATCH /:id/cancel`, `POST /:id/settle` |
-| **Housekeeping**| `/api/housekeeping` | Staff Session | `GET /board`, `GET /tasks`, `GET /tasks/:id`, `POST /tasks`, `PATCH /tasks/:id/assign`, `PATCH /tasks/:id/start`, `PATCH /tasks/:id/complete` |
-| **Billing** | `/api/billing` | Reception / Admin | `GET /bookings/:id/preview`, `POST /bookings/:id/invoice`, `PATCH /bookings/:id/check-out` |
+| **Service Orders** | `/api/service-orders` | Mixed | `POST /`, `GET /my`, `GET /:id`, `GET /`, `PATCH /:id/complete`, `PATCH /:id/cancel`, `PATCH /:id/settle` |
+| **Housekeeping**| `/api/housekeeping` | Staff Session | `GET /staff`, `GET /board`, `GET /tasks`, `GET /tasks/:id`, `POST /tasks`, `PATCH /tasks/:id/assign`, `PATCH /tasks/:id/start`, `PATCH /tasks/:id/complete` |
+| **Billing** | `/api/bookings` | Guest / Reception / Admin for reads; Reception / Admin for writes | `GET /:id/billing-preview`, `GET /:id/invoice`, `POST /:id/invoice`, `PATCH /:id/check-out` |
 | **Invoices** | `/api/invoices` | Mixed | `GET /:id`, `POST /:id/payments` |
 
 ---
@@ -462,9 +463,11 @@ npm.cmd --prefix frontend test
 npm.cmd --prefix frontend run test:e2e
 ```
 
-### Verified Test Matrix
+### Previously Reported Test Matrix
 
-| Test Suite | Total Tests | Status | Focus Areas |
+These counts and PASS results were recorded in the existing documentation. They have not been re-run or independently verified in this documentation review, and no run date or commit was recorded. Use the commands above to establish current results.
+
+| Test Suite | Reported Total Tests | Reported Status | Focus Areas |
 |---|---|---|---|
 | **PostgreSQL Database** | 38 / 38 | ✅ PASS | GiST room exclusion, snapshot triggers, checkout rules, balance lock |
 | **Backend Integration & Unit** | 272 / 272 | ✅ PASS | JWT guards, RBAC, staged billing, walk-in locks, rate limiting |
@@ -485,5 +488,5 @@ npm.cmd --prefix frontend run test:e2e
 
 - **Live Demo**: [An Nhiên Hotel & Suites (hotel-ck-two.vercel.app)](https://hotel-ck-two.vercel.app/)
 - **Frontend App**: SPA optimized for static serverless deployment (Vercel, Netlify) with client-side routing fallback via `frontend/vercel.json`.
-- **Backend API**: Stateless NestJS container ready for Render, Railway, AWS ECS, or Google Cloud Run.
+- **Backend API**: Stateless NestJS API. Deployment to Render, Railway, AWS ECS, or Google Cloud Run requires the corresponding build/start configuration, secrets, database connectivity, and environment validation.
 - **PostgreSQL**: Cloud hosting via Supabase, Neon, or AWS RDS (requires `sslmode=verify-full` in production mode).

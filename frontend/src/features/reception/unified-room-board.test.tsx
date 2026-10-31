@@ -262,6 +262,8 @@ describe("Unified Room Board & Booking Flow", () => {
     // Click room 102 opens drawer with in-house guest info and operational actions
     fireEvent.click(screen.getByText("102"));
     expect(screen.getByText("THÔNG TIN KHÁCH ĐANG Ở")).toBeTruthy();
+    expect(screen.getByText("SĐT: 0912345678")).toBeTruthy();
+    expect(screen.getByText("Mã đặt phòng: CK-INHOUSE")).toBeTruthy();
     expect(screen.getAllByText("Trần Thị Khách").length).toBeGreaterThan(0);
     expect(screen.getByText("Trả phòng & Hóa đơn")).toBeTruthy();
     expect(screen.getAllByText("Chi tiết booking").length).toBeGreaterThan(0);

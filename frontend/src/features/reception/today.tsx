@@ -819,14 +819,14 @@ export function ReceptionDashboard() {
                       {/* 3. GUEST IN-HOUSE CARD IF OCCUPIED */}
                       {occupiedBooking && (
                         <div className="rounded-2xl border border-emerald-200/90 bg-white p-4 text-xs text-emerald-950 shadow-xs">
-                          <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-100">
                             <span className="font-bold uppercase tracking-wider text-[11px] text-emerald-900 flex items-center gap-1.5">
                               <Users className="size-3.5 text-emerald-700" />
                               THÔNG TIN KHÁCH ĐANG Ở
                             </span>
                             <div className="flex items-center gap-2">
                               <span className="font-mono text-xs font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200/80">
-                                #{occupiedBooking.reference}
+                                SĐT: {occupiedBooking.customer?.phone || "Chưa có SĐT"}
                               </span>
                               <GuestBadge status={occupiedBooking.status} />
                             </div>
@@ -843,7 +843,7 @@ export function ReceptionDashboard() {
                                 {occupiedBooking.customer?.fullName ?? "Khách lẻ tại quầy"}
                               </strong>
                               <span className="text-[11px] text-zinc-500">
-                                Khách lưu trú tại phòng
+                                Mã đặt phòng: {occupiedBooking.reference}
                               </span>
                             </div>
                           </div>

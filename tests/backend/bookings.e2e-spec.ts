@@ -45,6 +45,19 @@ describe('Phase 4 rooms and multi-night booking engine — hotel_test only', () 
     return (await api().get('/api/rooms/available').query({ checkIn: day(start), checkOut: day(end), guests, roomTypeId: typeId }).expect(200)).body;
   }
 
+  it('allocates distinct daily sequential references for simultaneous bookings', async () => {
+    const ids = await Promise.all([room(), room(), room()]);
+    const bookings = await Promise.all(ids.map(async (id, index) => index === 0
+      ? (await api().post('/api/front-desk/walk-in').auth(actors.receptionist.token, { type: 'bearer' })
+        .send({ ...payload(id, 40, 41), customerId: actors.guest.id, receiveNow: false }).expect(201)).body
+      : create(id, 40, 41)));
+    const prefix = `CK-${today.slice(2).replaceAll('-', '')}-`;
+    for (const booking of bookings) expect(booking.reference).toMatch(new RegExp(`^${prefix}\\d{4,}$`));
+    const numbers = bookings.map(b => Number(b.reference.slice(prefix.length))).sort((a, b) => a - b);
+    expect(new Set(numbers).size).toBe(3);
+    expect(numbers[2] - numbers[0]).toBe(2);
+  });
+
   it('01 public room list/detail include type and separate housekeeping/operational state, no guest data', async () => {
     const id = await room({ dirty: true });
     const list = await api().get('/api/rooms').query({ pageSize: 100 }).expect(200);

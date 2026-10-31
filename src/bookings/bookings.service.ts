@@ -1,3 +1,4 @@
+import { nextBookingReference } from './booking-reference.js';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
 import type { BookingStatus } from '../../generated/prisma/enums.js';
@@ -33,9 +34,9 @@ export class BookingsService {
     try {
       // Do not pre-SELECT availability or send any prices/status/user-supplied userId.
       // PostgreSQL trigger snapshots price and exclusion constraint arbitrates races.
-      return bookingView(await this.prisma.client.booking.create({
-        data: { userId: actor.id, roomId: dto.roomId, checkInDate: start, checkOutDate: end, guestCount: dto.guests }, select: bookingSelect,
-      }));
+      return await this.prisma.client.$transaction(async tx => bookingView(await tx.booking.create({
+        data: { reference: await nextBookingReference(tx), userId: actor.id, roomId: dto.roomId, checkInDate: start, checkOutDate: end, guestCount: dto.guests }, select: bookingSelect,
+      })));
     } catch (error) { throwBookingError(error); }
   }
 

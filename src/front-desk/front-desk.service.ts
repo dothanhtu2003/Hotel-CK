@@ -1,3 +1,4 @@
+import { nextBookingReference } from '../bookings/booking-reference.js';
 import {
   BadRequestException,
   ConflictException,
@@ -5,7 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { hash } from "argon2";
 import { Prisma } from "../../generated/prisma/client.js";
 import { PrismaService } from "../database/prisma.service.js";
@@ -548,9 +549,7 @@ export class FrontDeskService {
             checkInDate: start,
             checkOutDate: end,
             guestCount: dto.guests,
-            reference:
-              "CK-" +
-              randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase(),
+            reference: await nextBookingReference(tx),
           },
           select: bookingSelect,
         });
