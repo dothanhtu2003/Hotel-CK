@@ -4,7 +4,7 @@
 
 A comprehensive, full-stack, enterprise-grade hotel reservation and guest service management platform built with NestJS, React 19, and PostgreSQL.
 
-**🌐 Live Demo:** [An Nhiên Hotel & Suites](https://hotel-ck-two.vercel.app/) • **Swagger Docs:** [http://127.0.0.1:3000/api/docs](http://127.0.0.1:3000/api/docs)
+**🌐 Live Demo:** [An Nhiên Hotel & Suites](https://hotel-ck-two.vercel.app/)
 
 [![React 19](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)](https://react.dev/)
 [![React Router 8](https://img.shields.io/badge/React_Router-8-CA4245?style=for-the-badge&logo=react-router)](https://reactrouter.com/)
