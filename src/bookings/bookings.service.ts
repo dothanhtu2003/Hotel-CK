@@ -4,7 +4,7 @@ import type { BookingStatus } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { PublicUser } from '../users/public-user.js';
 import { paginationMeta } from '../common/dto/pagination-query.dto.js';
-import { parseStay } from '../common/validation/stay-dates.js';
+import { hotelDay, parseStay } from '../common/validation/stay-dates.js';
 import { bookingSelect, bookingView } from './booking-view.js';
 import { throwBookingError } from './booking-errors.js';
 import type { CreateBookingDto } from './dto/create-booking.dto.js';
@@ -25,6 +25,7 @@ export class BookingsService {
   async create(actor: Actor, dto: CreateBookingDto) {
     if (actor.role !== 'GUEST') throw new ForbiddenException('Only guests may create their own bookings');
     const { start, end } = parseStay(dto.checkIn, dto.checkOut);
+    if (dto.checkIn < hotelDay()) throw new BadRequestException('Ngày nhận phòng không được trước hôm nay. Vui lòng chọn lại ngày lưu trú.');
     const room = await this.prisma.client.room.findUnique({ where: { id: dto.roomId }, select: { operationalStatus: true, roomType: { select: { maxGuests: true } } } });
     if (!room) throw new NotFoundException('Room not found');
     if (room.operationalStatus !== 'ACTIVE') throw new ConflictException('Room is out of service');

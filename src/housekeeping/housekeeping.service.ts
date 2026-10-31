@@ -43,7 +43,7 @@ export class HousekeepingService {
     const where: Prisma.RoomWhereInput = {
       ...(query.roomId ? { id: query.roomId } : {}),
       ...(query.roomTypeId ? { roomTypeId: query.roomTypeId } : {}),
-      ...(query.housekeepingStatus ? { housekeepingStatus: query.housekeepingStatus } : {}),
+      housekeepingStatus: query.housekeepingStatus ?? { in: ['DIRTY', 'CLEANING'] },
       ...(query.operationalStatus ? { operationalStatus: query.operationalStatus } : {}),
       ...(actor.role === 'HOUSEKEEPING' || query.assignedStaffId ? { tasks: { some: { ...scope, status: { not: 'DONE' } } } } : {}),
     };

@@ -17,5 +17,5 @@ export function SearchForm({ initial, roomTypes = [], compact = false }: { initi
     <div className="planner-action"><Button type="submit">Tìm phòng</Button></div>
   </form>;
 }
-export function GuestBadge({ status }: { status: string }) { return <StatusBadge tone={['CHECKED_IN', 'CONFIRMED', 'PAID', 'COMPLETED'].includes(status) ? 'success' : status === 'PENDING' ? 'gold' : 'muted'}>{statusLabels[status] ?? status}</StatusBadge>; }
+export function GuestBadge({ status, label }: { status: string; label?: string }) { return <StatusBadge tone={['CHECKED_IN', 'CONFIRMED', 'PAID', 'COMPLETED'].includes(status) ? 'success' : status === 'PENDING' ? 'gold' : 'muted'}>{label ?? statusLabels[status] ?? status}</StatusBadge>; }
 export function Skeleton() { return <div role="status" aria-label="Đang tải thông tin" className="guest-skeleton"><div /><div /><div /><span className="sr-only">Đang tải thông tin…</span></div>; }

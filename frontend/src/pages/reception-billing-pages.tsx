@@ -160,12 +160,7 @@ export function ReceptionBillingPage() {
               </div>
             </div>
 
-            {!i && (
-              <p className="billing-help mt-3 pt-3 border-t border-zinc-100 text-xs text-zinc-500 flex items-center gap-1.5">
-                <span className="inline-block size-1.5 rounded-full bg-zinc-400" />
-                Các khoản đã thu tại quầy không tính vào hóa đơn này.
-              </p>
-            )}
+            
           </section>
 
           {/* Counter Paid Services Notice */}
@@ -190,7 +185,7 @@ export function ReceptionBillingPage() {
                 </div>
                 <div>
                   <h2>Cần xử lý {p.pendingOrderCount} đơn dịch vụ</h2>
-                  <p>Chọn cách thanh toán để ghi nhận, hoặc hủy yêu cầu từ khách trước khi phát hành hóa đơn.</p>
+                  
                 </div>
               </div>
               <PendingServiceQueue bookingId={id} />
@@ -316,9 +311,7 @@ export function ReceptionBillingPage() {
               <div className="space-y-3 pt-1">
                 {canIssue(p.booking, p.pendingOrderCount, null) ? (
                   <>
-                    <p className="billing-help">
-                      Các dịch vụ đã xử lý xong. Phát hành hóa đơn để chốt chi phí và bắt đầu thu tiền.
-                    </p>
+                    
                     <DeskAction
                       path={`/bookings/${id}/invoice`}
                       action="invoice"
@@ -338,9 +331,7 @@ export function ReceptionBillingPage() {
                     </p>
                   </div>
                 )}
-                <p className="billing-help text-[11px] text-zinc-400">
-                  Sau khi phát hành, không thể thêm hoặc sửa chi phí.
-                </p>
+                
               </div>
             ) : (
               <div className="space-y-3 pt-1">

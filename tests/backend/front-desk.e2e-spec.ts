@@ -74,6 +74,24 @@ describe("Front desk API — isolated local hotel_test", () => {
     guests: 2,
     customerId: actors.guest.id,
   });
+  it('keeps two bookings for the same guest visible and exposes unresolved expired stays separately', async () => {
+    const firstRoom = await room(), secondRoom = await room();
+    const bookings: { id: string }[] = [];
+    for (const r of [firstRoom, secondRoom]) {
+      const created = await api().post('/api/bookings').set(auth('guest')).send({ roomId: r.id, checkIn: today, checkOut: tomorrow, guests: 2 }).expect(201);
+      bookings.push(created.body);
+    }
+    const list = await api().get('/api/front-desk/bookings').set(auth()).query({ q: actors.guest.email, status: 'PENDING', pageSize: 100 }).expect(200);
+    for (const b of bookings) expect(list.body.data.some((row: { id: string }) => row.id === b.id)).toBe(true);
+    await api().patch(`/api/bookings/${bookings[1].id}/confirm`).set(auth()).send({}).expect(200);
+    const overdue = await api().get('/api/front-desk/bookings').set(auth()).query({ view: 'overdue', date: tomorrow, q: actors.guest.email, pageSize: 100 }).expect(200);
+    for (const b of bookings) expect(overdue.body.data.some((row: { id: string }) => row.id === b.id)).toBe(true);
+    const arrivals = await api().get('/api/front-desk/bookings').set(auth()).query({ view: 'arrivals', date: tomorrow, q: actors.guest.email }).expect(200);
+    expect(arrivals.body.data.some((row: { id: string }) => bookings.some(b => b.id === row.id))).toBe(false);
+    for (const b of bookings) await api().patch(`/api/bookings/${b.id}/cancel`).set(auth('guest')).send({}).expect(200);
+    const resolved = await api().get('/api/front-desk/bookings').set(auth()).query({ view: 'overdue', date: tomorrow, q: actors.guest.email }).expect(200);
+    expect(resolved.body.data.some((row: { id: string }) => bookings.some(b => b.id === row.id))).toBe(false);
+  });
   it('registers a walk-in today as checked in without a separate reception action', async () => {
     const r = await room();
     const result = await api().post('/api/front-desk/walk-in').set(auth()).send(body(r.id)).expect(201);

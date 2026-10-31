@@ -5,17 +5,16 @@ import {
   Brush,
   CalendarDays,
   ChevronDown,
+  ClipboardList,
   ConciergeBell,
   LayoutDashboard,
   LayoutGrid,
   LogOut,
   Menu,
-  Moon,
   Plus,
   ReceiptText,
   Search,
   ShieldCheck,
-  Sun,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -37,7 +36,6 @@ export function WorkspaceLayout() {
     [logoutOpen, setLogoutOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [dark, setDark] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isMac = typeof navigator !== "undefined" && /Mac|iP(hone|ad|od)/.test(navigator.platform);
@@ -387,6 +385,136 @@ export function WorkspaceLayout() {
               </p>
             </div>
           </>
+        ) : user.role === 'HOUSEKEEPING' ? (
+          <div className="hk-topbar-wrapper flex items-center justify-between w-full h-full px-2">
+            {/* Left: Brand + Role Badge */}
+            <div className="flex items-center gap-3">
+              <Link to={home} className="flex items-center gap-2 group outline-none">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-600/30 border border-emerald-500/40 text-amber-200 font-bold text-sm shadow-xs">
+                  A
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold tracking-wider text-white">
+                    AN NHIÊN
+                  </span>
+                  <span className="text-[9px] tracking-widest text-emerald-300/80 uppercase font-medium">
+                    Hotel & Suites
+                  </span>
+                </div>
+              </Link>
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-950/70 text-emerald-200 border border-emerald-700/50 shadow-2xs">
+                <Brush className="size-3 text-emerald-300" />
+                Nhân viên buồng phòng
+              </span>
+            </div>
+
+            {/* Center: Main Navigation Tabs */}
+            <nav className="flex items-center gap-1 sm:gap-1.5" aria-label="Điều hướng buồng phòng">
+              <NavLink
+                to={home}
+                end
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    isActive
+                      ? 'bg-white/20 text-white font-semibold shadow-2xs border border-white/20'
+                      : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                <LayoutDashboard className="size-3.5" />
+                <span>Tổng quan</span>
+              </NavLink>
+              <NavLink
+                to={`${home}/board`}
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    isActive
+                      ? 'bg-white/20 text-white font-semibold shadow-2xs border border-white/20'
+                      : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                <Brush className="size-3.5" />
+                <span>Sơ đồ phòng</span>
+              </NavLink>
+              <NavLink
+                to={`${home}/tasks`}
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    isActive
+                      ? 'bg-white/20 text-white font-semibold shadow-2xs border border-white/20'
+                      : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                <ClipboardList className="size-3.5" />
+                <span>Công việc</span>
+              </NavLink>
+            </nav>
+
+            {/* Right: Live Shift Badge & User Menu */}
+            <div className="flex items-center gap-2">
+              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-900/60 border border-emerald-700/40 text-[11px] text-emerald-200">
+                <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Đang trong ca trực</span>
+              </div>
+
+              <div className="sidebar-user-container relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserDropdownOpen((prev) => !prev)}
+                  className="flex items-center gap-2 rounded-lg bg-white/10 hover:bg-white/15 px-2.5 py-1.5 text-xs font-medium text-white transition-colors cursor-pointer border border-white/10"
+                >
+                  <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/30 text-amber-200 font-bold text-xs">
+                    {user.fullName.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="hidden sm:inline font-semibold max-w-[120px] truncate">
+                    {user.fullName}
+                  </span>
+                  <ChevronDown className={`size-3.5 opacity-70 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {userDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl z-50 text-zinc-800 animate-fade-in">
+                    <div className="px-3 py-2 border-b border-zinc-100">
+                      <p className="font-semibold text-xs text-zinc-900 truncate">
+                        {user.fullName}
+                      </p>
+                      <p className="text-[10px] text-zinc-400 truncate">
+                        {user.email}
+                      </p>
+                      <span className="mt-1 inline-block text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">
+                        Nhân viên buồng phòng
+                      </span>
+                    </div>
+                    <div className="py-1">
+                      <NavLink
+                        to={`${home}/profile`}
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100 transition-colors"
+                      >
+                        <UserRound className="size-3.5 text-zinc-400" />
+                        Hồ sơ cá nhân
+                      </NavLink>
+                    </div>
+                    <div className="border-t border-zinc-100 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setLogoutOpen(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      >
+                        <LogOut className="size-3.5" />
+                        Đăng xuất
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
           <>
             <Brand light={true} />
@@ -466,16 +594,6 @@ export function WorkspaceLayout() {
           <div className="flex items-center gap-2 sm:gap-3">
             {isReception && (
               <>
-                <button
-                  type="button"
-                  onClick={() => setDark((d) => !d)}
-                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 cursor-pointer"
-                  title="Chế độ giao diện"
-                  aria-label="Chế độ giao diện"
-                >
-                  {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-                </button>
-                <span className="hidden text-xs text-zinc-500 xl:inline">{user.fullName}</span>
                 <Link
                   to={`${home}?mode=booking`}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 shadow-xs transition-colors"
@@ -484,14 +602,6 @@ export function WorkspaceLayout() {
                   <Plus className="size-3.5" />
                   <span>Đặt phòng mới</span>
                 </Link>
-                <button
-                  onClick={() => setLogoutOpen(true)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-zinc-700 cursor-pointer p-1"
-                  title="Đăng xuất"
-                  aria-label="Đăng xuất"
-                >
-                  <LogOut className="size-4" />
-                </button>
               </>
             )}
 
@@ -535,7 +645,7 @@ export function WorkspaceLayout() {
       <Dialog
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        title="Menu lễ tân"
+        title={isReception ? "Menu lễ tân" : "Menu buồng phòng"}
         className="workspace-mobile-dialog"
       >
         {isReception ? receptionNavigation : defaultNavigation}

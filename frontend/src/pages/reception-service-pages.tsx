@@ -99,9 +99,7 @@ export function ReceptionOrdersPage() {
               Room Service
             </span>
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Ghi nhận dịch vụ, thu tiền tại quầy hoặc ghi vào hóa đơn phòng.
-          </p>
+          
         </div>
 
         <div>
@@ -680,6 +678,7 @@ export function ReceptionOrderDetailPage() {
 
             {/* Utility Quick Links */}
             <div className="pt-3 border-t border-zinc-100 space-y-2 service-order-no-print">
+              {o.status === "COMPLETED" && (
               <Button
                 variant="secondary"
                 onClick={() => window.print()}
@@ -688,6 +687,7 @@ export function ReceptionOrderDetailPage() {
                 <Printer className="size-3.5 text-zinc-500" />
                 In phiếu dịch vụ phòng (Ticket)
               </Button>
+              )}
 
               {booking.data && (
                 <LinkButton

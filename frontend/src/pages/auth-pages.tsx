@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../features/auth/auth-context';
-import { homeForRole, loginSchema, registerSchema, safeDestination, type LoginInput, type RegisterInput } from '../features/auth/contracts';
+import { loginSchema, registerSchema, safeDestination, type LoginInput, type RegisterInput } from '../features/auth/contracts';
 import { ApiError } from '../lib/api-client';
 import { api } from '../lib/api';
 import { Brand } from '../layouts/public-layout';
@@ -35,7 +35,7 @@ export function RegisterPage() {
   const auth = useAuth(), location = useLocation(), navigate = useNavigate(), toast = useToast();
   const form = useForm<RegisterInput>({ resolver: zodResolver(registerSchema), defaultValues: { fullName: '', email: '', phone: '', password: '', confirmPassword: '' } });
   const mutation = useMutation({ mutationFn: (values: RegisterInput) => api.request('/auth/register', { method: 'POST', authenticated: false, body: { fullName: values.fullName, email: values.email, password: values.password, ...(values.phone ? { phone: values.phone } : {}) } }), onSuccess: (_data, values) => { toast('Tạo tài khoản thành công. Bạn có thể đăng nhập ngay.'); navigate('/login', { replace: true, state: { registeredEmail: values.email, from: location.state?.from } }); } });
-  if (auth.user) return <Navigate to={homeForRole[auth.user.role]} replace />;
+  if (auth.user) return <Navigate to={safeDestination(location.state?.from, auth.user.role)} replace />;
   return <AuthFrame register><p className="eyebrow">BẮT ĐẦU HÀNH TRÌNH</p><h1>Chào bạn, <em>khách quý.</em></h1><p className="auth-subtitle">Tạo tài khoản khách lưu trú tại An Nhiên.</p><form noValidate onSubmit={form.handleSubmit(values => mutation.mutate(values))} className="auth-form register-form">
     <FormField name="fullName" label="Họ và tên" error={form.formState.errors.fullName?.message}><Input id="fullName" autoComplete="name" placeholder="Nguyễn An Nhiên" aria-invalid={!!form.formState.errors.fullName} aria-describedby={form.formState.errors.fullName ? 'fullName-error' : undefined} {...form.register('fullName')} /></FormField>
     <FormField name="email" label="Địa chỉ email" error={form.formState.errors.email?.message}><Input id="email" type="email" autoComplete="username" placeholder="ban@email.com" aria-invalid={!!form.formState.errors.email} aria-describedby={form.formState.errors.email ? 'email-error' : undefined} {...form.register('email')} /></FormField>

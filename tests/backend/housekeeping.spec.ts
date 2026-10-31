@@ -71,7 +71,7 @@ describe('Housekeeping service trust and atomic updates', () => {
   it('board scopes housekeeping to self-assigned open tasks and rejects a forged staff filter', async () => {
     const f = fixture();
     await f.service.board({ page: 1, pageSize: 20 }, { id: 'own-id', role: 'HOUSEKEEPING' });
-    expect(f.roomMany).toHaveBeenCalledWith(expect.objectContaining({ where: { tasks: { some: { assignedStaffId: 'own-id', status: { not: 'DONE' } } } } }));
+    expect(f.roomMany).toHaveBeenCalledWith(expect.objectContaining({ where: { housekeepingStatus: { in: ['DIRTY', 'CLEANING'] }, tasks: { some: { assignedStaffId: 'own-id', status: { not: 'DONE' } } } } }));
     await expect(f.service.board({ page: 1, pageSize: 20, assignedStaffId: 'another-id' }, { id: 'own-id', role: 'HOUSEKEEPING' })).rejects.toBeInstanceOf(ForbiddenException);
   });
   it('scopes task reads/updates by current assignee in the database predicate', async () => {

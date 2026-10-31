@@ -24,9 +24,10 @@ export type ProfileInput = z.infer<typeof profileSchema>;
 export const roleLabel: Record<Role, string> = { GUEST: 'Khách lưu trú', RECEPTIONIST: 'Lễ tân', HOUSEKEEPING: 'Nhân viên buồng phòng', ADMIN: 'Quản trị viên' };
 export const homeForRole: Record<Role, string> = { GUEST: '/guest', RECEPTIONIST: '/reception', HOUSEKEEPING: '/housekeeping', ADMIN: '/admin' };
 export function safeDestination(value: unknown, role: Role) {
+  if (role === 'GUEST' && value === '/guest') return '/';
   if (role === 'GUEST' && typeof value === 'string' && /^\/rooms\/[a-f0-9-]{36}(?:\?[^#]*)?$/i.test(value)) return value;
   if (role === 'ADMIN' && typeof value === 'string' && /^\/reception(?:\/[a-z0-9-]+)*$/.test(value)) return value;
   // Deliberately allow only the authenticated role's local workspace (no open redirect).
   const home = homeForRole[role];
-  return typeof value === 'string' && /^\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/.test(value) && (value === home || value.startsWith(home + '/')) ? value : home;
+  return typeof value === 'string' && /^\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/.test(value) && (value === home || value.startsWith(home + '/')) ? value : role === 'GUEST' ? '/' : home;
 }

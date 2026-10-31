@@ -1,0 +1,203 @@
+/* ========================================================
+   MODERN HOUSEKEEPING PORTAL & DASHBOARD STYLES
+   An Nhiên Hotel & Suites - Operational Experience
+   ======================================================== */
+
+.hk-page-container {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+}
+
+@media (min-width: 768px) {
+  .hk-page-container {
+    padding: 28px 24px 64px;
+  }
+}
+
+/* Header & Welcome Banner */
+.hk-welcome-card {
+  position: relative;
+  background: linear-gradient(135deg, #0d382d 0%, #154538 50%, #1b5646 100%);
+  border-radius: 18px;
+  padding: 24px 28px;
+  color: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(13, 56, 45, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hk-welcome-card::after {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(230, 204, 140, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* KPI Stat Cards */
+.hk-stat-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 18px 20px;
+  border: 1px solid #e4e7eb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.hk-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  border-color: #cbd5e1;
+}
+
+.hk-stat-card.active {
+  border-color: #0f6b54;
+  box-shadow: 0 0 0 2px #0f6b54, 0 8px 20px rgba(15, 107, 84, 0.1);
+  background: #fbfdfc;
+}
+
+/* Hero Action Room Card */
+.hk-task-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e4e7eb;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  overflow: hidden;
+}
+
+.hk-task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
+}
+
+.hk-task-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+.hk-task-card.status-todo::before {
+  background: #f59e0b;
+}
+
+.hk-task-card.status-progress::before {
+  background: #0284c7;
+}
+
+.hk-task-card.status-done::before {
+  background: #10b981;
+}
+
+/* Touch Action Buttons for Housekeepers */
+.hk-btn-work-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(180deg, #d97706 0%, #b45309 100%);
+  border: 1px solid #b45309;
+  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.25);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hk-btn-work-start:hover:not(:disabled) {
+  background: linear-gradient(180deg, #b45309 0%, #92400e 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(180, 83, 9, 0.35);
+}
+
+.hk-btn-work-complete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(180deg, #059669 0%, #047857 100%);
+  border: 1px solid #047857;
+  box-shadow: 0 2px 6px rgba(4, 120, 87, 0.25);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hk-btn-work-complete:hover:not(:disabled) {
+  background: linear-gradient(180deg, #047857 0%, #065f46 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(4, 120, 87, 0.35);
+}
+
+/* Floor Filter Pills */
+.hk-floor-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hk-floor-pill:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.hk-floor-pill.active {
+  background: #0f6b54;
+  color: #ffffff;
+  border-color: #0f6b54;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(15, 107, 84, 0.2);
+}
+
+/* Notes callout box */
+.hk-note-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.hk-note-box.priority {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}

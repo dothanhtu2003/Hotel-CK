@@ -34,3 +34,12 @@ export function housekeepingError(error: Error, action = '') {
   return error.message;
 }
 export function workTime(value: string) { return new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Bangkok' }); }
+export function cleanRoomTypeName(name: string) { return name.replace(/^TEST[\s\-_]*\d{8}[\s\-_]*/i, '').trim() || name; }
+export function formatTaskNotes(notes: string | null) {
+  if (!notes) return null;
+  const trimmed = notes.trim();
+  if (/^check-out cleaning$/i.test(trimmed)) return 'Dọn phòng trả (Check-out)';
+  if (/^stayover cleaning$/i.test(trimmed)) return 'Dọn phòng đang ở (Stayover)';
+  if (/^deep cleaning$/i.test(trimmed)) return 'Tổng vệ sinh (Deep clean)';
+  return trimmed;
+}

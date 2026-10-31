@@ -41,9 +41,9 @@ export class DeskQuery extends BookingQueryDto {
   @IsOptional()
   @IsStayDate()
   checkOut?: string;
-  @ApiPropertyOptional({ enum: ["arrivals", "departures", "staying"] })
+  @ApiPropertyOptional({ enum: ["arrivals", "departures", "staying", "overdue"] })
   @IsOptional()
-  @IsIn(["arrivals", "departures", "staying"])
+  @IsIn(["arrivals", "departures", "staying", "overdue"])
   view?: string;
 }
 export class RoomQuery extends PaginationQueryDto {

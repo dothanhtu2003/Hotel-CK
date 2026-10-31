@@ -55,6 +55,11 @@ describe('Booking service trusted ownership and database pricing', () => {
     const service = new BookingsService({ client: { booking: { create, findFirst }, room: { findUnique: findRoom } } } as unknown as PrismaService);
     return { service, create, findFirst };
   }
+  it('rejects a stale guest booking before writing to the database', async () => {
+    const f = fixture();
+    await expect(f.service.create({ id: 'jwt-user', role: 'GUEST' }, { roomId: 'room-id', checkIn: '2000-01-01', checkOut: '2000-01-02', guests: 2 })).rejects.toThrow(BadRequestException);
+    expect(f.create).not.toHaveBeenCalled();
+  });
   it('ignores forged owner/price fields even without the HTTP validation pipe', async () => {
     const f = fixture();
     const dto = { roomId: 'room-id', checkIn: '2099-01-01', checkOut: '2099-01-04', guests: 2, userId: 'attacker-selected-owner', nightlyPrice: 1, totalRoomAmount: 1 };

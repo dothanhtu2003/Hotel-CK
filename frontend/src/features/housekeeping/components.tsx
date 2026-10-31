@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router';
 import {
   AlertCircle,
@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Clock,
   Layers,
+  Play,
   Plus,
   Sparkles,
   User,
@@ -18,6 +19,8 @@ import { api } from '../../lib/api';
 import {
   canWork,
   cleaningLabels,
+  cleanRoomTypeName,
+  formatTaskNotes,
   housekeepingError,
   taskLabels,
   workTime,
@@ -27,6 +30,7 @@ import {
   type TaskStatus,
 } from './contracts';
 import { useHousekeepingBase, useWorkMutation } from './queries';
+import './housekeeping.css';
 
 export function CleaningBadge({ status }: { status: CleaningStatus }) {
   const tone =
@@ -67,13 +71,21 @@ export function TaskBadge({ status }: { status: TaskStatus }) {
 export function WorkAction({
   task,
   action,
+  customLabel,
+  className,
+  variant,
+  icon,
 }: {
   task: Task;
   action: 'start' | 'complete';
+  customLabel?: string;
+  className?: string;
+  variant?: 'primary' | 'secondary' | 'light' | 'ghost';
+  icon?: React.ReactNode;
 }) {
   const { user } = useAuth(),
     [open, setOpen] = useState(false),
-    label = action === 'start' ? 'Bắt đầu dọn phòng' : 'Hoàn thành dọn phòng';
+    label = customLabel || (action === 'start' ? 'Bắt đầu dọn phòng' : 'Hoàn thành dọn phòng');
   const mutation = useWorkMutation(
     action,
     action === 'start'
@@ -89,13 +101,15 @@ export function WorkAction({
   return (
     <>
       <Button
+        variant={variant}
         busy={mutation.isPending}
         onClick={() => {
           mutation.reset();
           setOpen(true);
         }}
-        className="hk-action-btn"
+        className={className || 'hk-action-btn'}
       >
+        {icon}
         {label}
       </Button>
       <Dialog
@@ -103,22 +117,29 @@ export function WorkAction({
         onClose={() => {
           if (!mutation.locked()) setOpen(false);
         }}
-        title={label + '?'}
+        title={(customLabel || (action === 'start' ? 'Bắt đầu dọn phòng' : 'Hoàn thành dọn phòng')) + '?'}
       >
-        <p>
-          Phòng {task.room.roomNumber} · {task.room.roomType.name}
-        </p>
-        <p>
-          {action === 'start'
-            ? 'Xác nhận bạn bắt đầu công việc được giao. Hệ thống sẽ cập nhật phòng sang đang dọn khi thành công.'
-            : 'Xác nhận đã hoàn tất vệ sinh phòng. Hệ thống sẽ lưu thời điểm hoàn thành và cập nhật phòng sạch.'}
-        </p>
+        <div className="space-y-3">
+          <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-3 flex items-center justify-between">
+            <span className="font-bold text-zinc-900 text-sm">
+              Phòng {task.room.roomNumber}
+            </span>
+            <span className="text-xs text-zinc-500">
+              {cleanRoomTypeName(task.room.roomType.name)} · Tầng {task.room.floor}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            {action === 'start'
+              ? 'Xác nhận bạn bắt đầu ca vệ sinh căn phòng này. Hệ thống sẽ cập nhật trạng thái phòng sang "Đang dọn" để Lễ tân nắm thông tin.'
+              : 'Xác nhận bạn đã vệ sinh sạch sẽ, thay đồ dùng và kiểm tra đầy đủ. Hệ thống sẽ cập nhật phòng sang "Phòng sạch" sẵn sàng đón khách.'}
+          </p>
+        </div>
         {mutation.error && (
-          <p className="form-error" role="alert">
+          <p className="form-error mt-3" role="alert">
             {housekeepingError(mutation.error, action)}
           </p>
         )}
-        <div className="dialog-actions">
+        <div className="dialog-actions mt-4">
           <Button
             variant="secondary"
             disabled={mutation.isPending}
@@ -139,19 +160,6 @@ export function WorkAction({
   );
 }
 
-function cleanRoomTypeName(name: string) {
-  return name.replace(/^TEST[\s\-_]*\d{8}[\s\-_]*/i, '').trim() || name;
-}
-
-function formatTaskNotes(notes: string | null) {
-  if (!notes) return null;
-  const trimmed = notes.trim();
-  if (/^check-out cleaning$/i.test(trimmed)) return 'Dọn phòng trả (Check-out)';
-  if (/^stayover cleaning$/i.test(trimmed)) return 'Dọn phòng đang ở (Stayover)';
-  if (/^deep cleaning$/i.test(trimmed)) return 'Tổng vệ sinh (Deep clean)';
-  return trimmed;
-}
-
 export function RoomBoard({
   rooms,
   onCreate,
@@ -162,105 +170,128 @@ export function RoomBoard({
   const base = useHousekeepingBase();
   return rooms.length ? (
     <div className="hk-room-grid">
-      {rooms.map((r) => (
-        <article
-          className={`hk-card hk-room hk-room-${r.housekeepingStatus.toLowerCase()} hk-card-${r.housekeepingStatus.toLowerCase()}`}
-          key={r.id}
-        >
-          {/* Card Header: Room Number + Floor/Type + Status Badge */}
-          <div className="hk-card-header">
-            <div className="hk-card-room-info">
-              <div className="hk-card-room-number">
-                <h2>Phòng {r.roomNumber}</h2>
-              </div>
-              <div className="hk-card-tags">
-                <span className="hk-tag hk-tag-floor">
-                  <Layers className="size-3 text-zinc-400" />
-                  Tầng {r.floor}
-                </span>
-                <span className="hk-tag hk-tag-type">
-                  <BedDouble className="size-3 text-zinc-400" />
-                  {cleanRoomTypeName(r.roomType.name)}
-                </span>
-                {r.operationalStatus === 'OUT_OF_SERVICE' ? (
-                  <span className="hk-tag hk-tag-oos">
-                    <AlertTriangle className="size-3 text-rose-500" />
-                    Tạm ngừng
-                  </span>
-                ) : (
-                  <span className="sr-only">Hoạt động: Đang hoạt động</span>
-                )}
-              </div>
-            </div>
-            <div className="hk-card-status">
-              <CleaningBadge status={r.housekeepingStatus} />
-            </div>
-          </div>
-
-          {/* Card Body: Task details OR Ready state */}
-          <div className="hk-card-body">
-            {r.openTask ? (
-              <div className="hk-task-badge-box">
-                <div className="hk-task-header-row">
-                  <TaskBadge status={r.openTask.status} />
-                  {r.openTask.notes && (
-                    <span className="hk-task-note-pill">
-                      {formatTaskNotes(r.openTask.notes)}
-                    </span>
-                  )}
+      {rooms.map((r) => {
+        const fullTask: Task | null = r.openTask ? { ...r.openTask, room: r } : null;
+        return (
+          <article
+            className={`hk-card hk-room hk-room-${r.housekeepingStatus.toLowerCase()} hk-card-${r.housekeepingStatus.toLowerCase()}`}
+            key={r.id}
+          >
+            {/* Card Header: Room Number + Floor/Type + Status Badge */}
+            <div className="hk-card-header">
+              <div className="hk-card-room-info">
+                <div className="hk-card-room-number">
+                  <h2>Phòng {r.roomNumber}</h2>
                 </div>
-                <div className="hk-task-staff-row">
-                  <User className="size-3.5 text-zinc-400 shrink-0" />
-                  <span className="hk-staff-label">Phân công:</span>
-                  {r.openTask.assignedStaff ? (
-                    <span className="hk-staff-name">
-                      {r.openTask.assignedStaff.fullName}
+                <div className="hk-card-tags">
+                  <span className="hk-tag hk-tag-floor">
+                    <Layers className="size-3 text-zinc-400" />
+                    Tầng {r.floor}
+                  </span>
+                  <span className="hk-tag hk-tag-type">
+                    <BedDouble className="size-3 text-zinc-400" />
+                    {cleanRoomTypeName(r.roomType.name)}
+                  </span>
+                  {r.operationalStatus === 'OUT_OF_SERVICE' ? (
+                    <span className="hk-tag hk-tag-oos">
+                      <AlertTriangle className="size-3 text-rose-500" />
+                      Tạm ngừng
                     </span>
                   ) : (
-                    <span className="hk-staff-unassigned">Chưa phân công</span>
+                    <span className="sr-only">Hoạt động: Đang hoạt động</span>
                   )}
                 </div>
               </div>
-            ) : (
-              <div className="hk-ready-box">
-                <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                <span>Chưa có công việc đang mở.</span>
+              <div className="hk-card-status">
+                <CleaningBadge status={r.housekeepingStatus} />
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Card Footer: Action Button & History Link */}
-          <div className="hk-card-footer">
-            {r.openTask ? (
+            {/* Card Body: Task details OR Ready state */}
+            <div className="hk-card-body">
+              {r.openTask ? (
+                <div className="hk-task-badge-box">
+                  <div className="hk-task-header-row">
+                    <TaskBadge status={r.openTask.status} />
+                    {r.openTask.notes && (
+                      <span className="hk-task-note-pill">
+                        {formatTaskNotes(r.openTask.notes)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="hk-task-staff-row">
+                    <User className="size-3.5 text-zinc-400 shrink-0" />
+                    <span className="hk-staff-label">Phân công:</span>
+                    {r.openTask.assignedStaff ? (
+                      <span className="hk-staff-name">
+                        {r.openTask.assignedStaff.fullName}
+                      </span>
+                    ) : (
+                      <span className="hk-staff-unassigned">Chưa phân công</span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="hk-ready-box">
+                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                  <span>Chưa có công việc đang mở.</span>
+                </div>
+              )}
+            </div>
+
+            {/* Card Footer: Action Button & History Link */}
+            <div className="hk-card-footer">
+              {fullTask ? (
+                <div className="flex flex-col gap-2 w-full">
+                  {fullTask.status === 'TODO' && (
+                    <WorkAction
+                      task={fullTask}
+                      action="start"
+                      customLabel="Bắt đầu dọn phòng"
+                      className="hk-btn-work-start"
+                      icon={<Play className="size-3.5 fill-current" />}
+                    />
+                  )}
+                  {fullTask.status === 'IN_PROGRESS' && (
+                    <WorkAction
+                      task={fullTask}
+                      action="complete"
+                      customLabel="Hoàn tất dọn phòng"
+                      className="hk-btn-work-complete"
+                      icon={<CheckCircle2 className="size-3.5" />}
+                    />
+                  )}
+                  <Link
+                    className="button button-secondary hk-btn-task"
+                    to={`${base}/tasks/${r.openTask!.id}`}
+                  >
+                    <ClipboardList className="size-3.5" />
+                    Chi tiết công việc
+                  </Link>
+                </div>
+              ) : onCreate ? (
+                <Button
+                  variant="secondary"
+                  className="hk-btn-create"
+                  onClick={() => onCreate(r)}
+                >
+                  <Plus className="size-3.5" />
+                  Tạo công việc
+                </Button>
+              ) : (
+                <span className="hk-btn-placeholder" />
+              )}
+
               <Link
-                className="button button-primary hk-btn-task"
-                to={`${base}/tasks/${r.openTask.id}`}
+                className="hk-history-link text-link hk-history"
+                to={`${base}/tasks?roomId=${r.id}`}
               >
-                <ClipboardList className="size-3.5" />
-                Xem công việc
+                Lịch sử công việc →
               </Link>
-            ) : onCreate ? (
-              <Button
-                variant="secondary"
-                className="hk-btn-create"
-                onClick={() => onCreate(r)}
-              >
-                <Plus className="size-3.5" />
-                Tạo công việc
-              </Button>
-            ) : (
-              <span className="hk-btn-placeholder" />
-            )}
-
-            <Link
-              className="hk-history-link text-link hk-history"
-              to={`${base}/tasks?roomId=${r.id}`}
-            >
-              Lịch sử công việc →
-            </Link>
-          </div>
-        </article>
-      ))}
+            </div>
+          </article>
+        );
+      })}
     </div>
   ) : (
     <EmptyState
@@ -287,15 +318,20 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
         {
           title: 'PHÒNG',
           render: (t) => (
-            <Link className="text-link" to={`${base}/tasks/${t.id}`}>
+            <Link className="text-link font-bold text-zinc-900" to={`${base}/tasks/${t.id}`}>
               Phòng {t.room.roomNumber}
+              <span className="block text-[11px] font-normal text-zinc-500">
+                Tầng {t.room.floor} · {cleanRoomTypeName(t.room.roomType.name)}
+              </span>
             </Link>
           ),
         },
         {
-          title: 'GHI CHÚ',
+          title: 'LOẠI CÔNG VIỆC / GHI CHÚ',
           render: (t) => (
-            <span className="hk-notes">{t.notes || 'Không có ghi chú'}</span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700">
+              {formatTaskNotes(t.notes) || 'Dọn phòng định kỳ'}
+            </span>
           ),
         },
         {
@@ -313,11 +349,43 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
         {
           title: 'HOÀN THÀNH LÚC',
           render: (t) =>
-            t.completedAt ? workTime(t.completedAt) : 'Chưa hoàn thành',
+            t.completedAt ? (
+              <span className="text-emerald-700 font-medium inline-flex items-center gap-1">
+                <CheckCircle2 className="size-3.5 text-emerald-600" />
+                {workTime(t.completedAt)}
+              </span>
+            ) : (
+              <span className="text-zinc-400 italic">Chưa hoàn thành</span>
+            ),
         },
         {
-          title: 'CHI TIẾT',
-          render: (t) => <Link to={`${base}/tasks/${t.id}`}>Xem công việc</Link>,
+          title: 'THAO TÁC',
+          render: (t) => (
+            <div className="flex items-center gap-2">
+              {t.status === 'TODO' && (
+                <WorkAction
+                  task={t}
+                  action="start"
+                  customLabel="Bắt đầu"
+                  className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-amber-600 hover:!bg-amber-700 !text-white !rounded-md"
+                />
+              )}
+              {t.status === 'IN_PROGRESS' && (
+                <WorkAction
+                  task={t}
+                  action="complete"
+                  customLabel="Hoàn tất"
+                  className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-emerald-600 hover:!bg-emerald-700 !text-white !rounded-md"
+                />
+              )}
+              <Link
+                className="text-xs text-brand-700 hover:underline font-medium px-1.5 py-1"
+                to={`${base}/tasks/${t.id}`}
+              >
+                Chi tiết →
+              </Link>
+            </div>
+          ),
         },
       ]}
     />

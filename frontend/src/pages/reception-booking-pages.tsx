@@ -240,7 +240,7 @@ export function ReceptionBookingDetailPage() {
             <CardContent className="space-y-4 text-sm">
               <div className="rounded-xl bg-brand-50 p-4 text-brand-900">
                 <p className="font-semibold">Chờ nhận phòng</p>
-                <p className="mt-1 text-xs">Khi khách đến, chọn Nhận phòng để làm thủ tục nhận phòng.</p>
+                
               </div>
               <dl className="grid grid-cols-2 gap-4">
                 <div><dt className="text-xs text-zinc-500">Khách hàng</dt><dd className="mt-1 font-semibold">{guestName}</dd></div>

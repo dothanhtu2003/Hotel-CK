@@ -70,9 +70,7 @@ export function StickyBookingBar({
             </div>
           )}
           <div className="sticky-action-wrap">
-            <a href="#dat-phong" className="button button-primary">
-              Giữ phòng ngay
-            </a>
+            <a href="#dat-phong" className="button button-primary">Xem thông tin đặt phòng</a>
           </div>
         </div>
       </div>

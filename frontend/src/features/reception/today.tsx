@@ -27,10 +27,9 @@ import {
 import { Button, Dialog, ErrorState, LinkButton } from "../../components/ui";
 import { GuestBadge, Skeleton } from "../guest/components";
 import { money, type Page } from "../guest/contracts";
-import type { Dashboard, DeskRoom } from "./contracts";
+import type { Dashboard, DeskRoom, DeskBooking } from "./contracts";
 import { useDeskBase, useDeskGet, useRefreshDesk } from "./queries";
 
-import { useAuth } from "../auth/auth-context";
 import {
   cleaningLabels,
   formatStayDateDisplay,
@@ -49,8 +48,7 @@ export function ReceptionDashboard() {
   const location = useLocation();
   const bookingOrigin = { returnTo: location.pathname + location.search, returnLabel: 'Trở lại Hôm nay' };
   const base = useDeskBase(),
-    refresh = useRefreshDesk(),
-    { user } = useAuth();
+    refresh = useRefreshDesk();
   const [params, setParams] = useSearchParams();
 
   const requests = useRoomRequests();
@@ -78,6 +76,7 @@ export function ReceptionDashboard() {
 
   const query = useDeskGet<Dashboard>("/front-desk/dashboard");
   const todayStr = query.data?.today ?? hotelToday();
+  const overdue = useDeskGet<Page<DeskBooking>>(`/front-desk/bookings?view=overdue&date=${todayStr}&pageSize=5`);
 
   // Facets for complete floor list
   const facets = useDeskGet<{
@@ -160,24 +159,6 @@ export function ReceptionDashboard() {
   const shownFloors =
     floor === "All" ? floorList : [Number(floor)];
 
-  const hh = new Date().getHours();
-  const greeting =
-    hh < 12
-      ? "Chào buổi sáng"
-      : hh < 18
-      ? "Chào buổi chiều"
-      : "Chào buổi tối";
-
-  const todayPretty = d?.today
-    ? new Date(d.today + "T00:00:00Z").toLocaleDateString("vi-VN", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      })
-    : "";
-
   const handleRoomClick = (room: DeskRoom) => {
     if (isBookingMode) {
       setBookingRoom(room);
@@ -187,16 +168,13 @@ export function ReceptionDashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Top Greeting Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
             Tổng quan lễ tân
           </h1>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            {greeting}, <strong className="font-medium text-zinc-800">{user?.fullName}</strong>. Dưới đây là tình hình vận hành hôm nay: {todayPretty}.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -224,9 +202,14 @@ export function ReceptionDashboard() {
         d && (
           <>
             {/* Quick Alert Bar for pending operations */}
-            {(d.counts.pending > 0 || d.counts.orders > 0) && (
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
+            {((overdue.data?.meta.total ?? 0) > 0 || d.counts.pending > 0 || d.counts.orders > 0) && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
                 <span className="font-semibold uppercase tracking-wider">Cần lưu ý:</span>
+                {(overdue.data?.meta.total ?? 0) > 0 && (
+                  <Link to={`${base}/bookings?view=overdue`} className="font-medium hover:underline text-amber-800">
+                    {overdue.data!.meta.total} booking quá ngày nhận chưa xử lý →
+                  </Link>
+                )}
                 {d.counts.pending > 0 && (
                   <Link
                     to={`${base}/bookings?status=PENDING`}
@@ -252,10 +235,7 @@ export function ReceptionDashboard() {
             <Card className="w-full">
                   <CardHeader>
                     <div>
-                      <CardTitle>Bảng trạng thái phòng (Room Board)</CardTitle>
-                      <p className="text-xs text-zinc-400 mt-0.5">
-                        Phân bố theo tầng · Click vào phòng để xem hoặc thao tác nhanh
-                      </p>
+                      <CardTitle>Bảng trạng thái phòng</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -598,13 +578,8 @@ export function ReceptionDashboard() {
                     </div>
                   )}
 
-                    {roomsQuery.data?.meta && (
-                      <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-xs text-zinc-600 flex items-center justify-between">
-                        <span>
-                          Đang hiển thị {shownRooms.length} phòng{" "}
-                          {floor !== "All" ? `tại tầng ${floor}` : "toàn khách sạn"}.
-                        </span>
-                        {stateParam && (
+                    {stateParam && (
+                      <div className="mt-3 text-xs">
                           <button
                             type="button"
                             onClick={() => {
@@ -616,7 +591,6 @@ export function ReceptionDashboard() {
                           >
                             Xem tất cả trạng thái
                           </button>
-                        )}
                       </div>
                     )}
 

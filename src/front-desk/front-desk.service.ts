@@ -53,7 +53,9 @@ export function deskWhere(
       q.status ? { status: q.status === "PENDING" ? { in: ["PENDING", "CONFIRMED"] } : q.status } : {},
       q.checkIn ? { checkInDate: new Date(q.checkIn + "T00:00:00Z") } : {},
       q.checkOut ? { checkOutDate: new Date(q.checkOut + "T00:00:00Z") } : {},
-      q.view === "arrivals"
+      q.view === "overdue"
+        ? { checkInDate: { lt: date }, status: { in: ["PENDING", "CONFIRMED"] } }
+        : q.view === "arrivals"
         ? { checkInDate: date, status: { in: ["PENDING", "CONFIRMED"] } }
         : q.view === "departures"
           ? { checkOutDate: date, status: "CHECKED_IN" }

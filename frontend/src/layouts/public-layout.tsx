@@ -45,13 +45,11 @@ export function PublicHeader() {
         <nav className="desktop-nav" aria-label="Điều hướng chính">
           <NavLink to="/" end>Trang chủ</NavLink>
           <NavLink to="/rooms">Phòng & đặt phòng</NavLink>
-          <a href="/#trai-nghiem">Trải nghiệm</a>
-          <a href="/#ve-an-nhien">Về An Nhiên</a>
         </nav>
         <div className="header-actions">
           <span className="language-label">VI <span>/ EN</span></span>
           <LinkButton
-            to={user ? homeForRole[user.role] : '/login'}
+            to={user ? (user.role === 'GUEST' ? '/guest/bookings' : homeForRole[user.role]) : '/login'}
             variant={isLight && !scrolled ? 'light' : 'secondary'}
             className="header-login"
           >
@@ -76,9 +74,7 @@ export function PublicHeader() {
         <nav onClick={() => setMenu(false)}>
           <Link to="/">Trang chủ</Link>
           <NavLink to="/rooms">Phòng & đặt phòng</NavLink>
-          <a href="/#trai-nghiem">Trải nghiệm</a>
-          <a href="/#ve-an-nhien">Về An Nhiên</a>
-          <Link to={user ? homeForRole[user.role] : '/login'}>{user ? (user.fullName || 'Không gian của bạn') : 'Đăng nhập'}</Link>
+          <Link to={user ? (user.role === 'GUEST' ? '/guest/bookings' : homeForRole[user.role]) : '/login'}>{user ? (user.fullName || 'Không gian của bạn') : 'Đăng nhập'}</Link>
         </nav>
       </Dialog>
     </header>

@@ -109,11 +109,7 @@ function ReceptionBookingList() {
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
             {billing ? "Tra cứu chi phí & hóa đơn" : "Quản lý booking"}
           </h1>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            {billing
-              ? "Đối chiếu thanh toán, chi phí dịch vụ và tiền phòng theo booking."
-              : "Khách đến, khách đang lưu trú và khách đi, trên một màn hình vận hành."}
-          </p>
+          
         </div>
 
         <div className="flex items-center gap-2">
@@ -180,7 +176,7 @@ function ReceptionBookingList() {
             <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-800 tabular-nums">
               {countValue("arrivals")}
             </span>
-            <span className="text-[11px] text-zinc-400">Dự kiến nhận phòng</span>
+            
           </div>
         </button>
 
@@ -209,7 +205,7 @@ function ReceptionBookingList() {
             <span className="text-xl sm:text-2xl font-bold tracking-tight text-sky-800 tabular-nums">
               {countValue("staying")}
             </span>
-            <span className="text-[11px] text-zinc-400">Đang ở khách sạn</span>
+            
           </div>
         </button>
 
@@ -238,7 +234,7 @@ function ReceptionBookingList() {
             <span className="text-xl sm:text-2xl font-bold tracking-tight text-amber-800 tabular-nums">
               {countValue("departures")}
             </span>
-            <span className="text-[11px] text-zinc-400">Dự kiến trả phòng</span>
+            
           </div>
         </button>
       </div>
@@ -279,6 +275,9 @@ function ReceptionBookingList() {
               >
                 <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
                 Chờ nhận phòng
+              </button>
+              <button type="button" onClick={() => setTab('overdue')} className={`px-3 py-1.5 text-xs rounded-lg border ${currentView === 'overdue' ? 'bg-amber-100 text-amber-900 border-amber-300' : 'border-transparent text-zinc-600'}`}>
+                Quá ngày nhận chưa xử lý
               </button>
             </div>
 

@@ -4,6 +4,7 @@ import { useAuth } from './features/auth/auth-context';
 import { homeForRole, type Role } from './features/auth/contracts';
 import { PublicLayout } from './layouts/public-layout';
 import { WorkspaceLayout } from './layouts/workspace-layout';
+import { GuestPortalLayout } from './layouts/guest-portal-layout';
 import { RoomsPage, RoomDetailPage } from './pages/room-pages';
 import { MyBookingsPage, BookingDetailPage } from './pages/booking-pages';
 import { ServicesPage, MyServiceOrdersPage } from './pages/service-pages';
@@ -25,7 +26,7 @@ const HousekeepingTaskDetailPage = lazy(async () => ({ default: (await import('.
 import { HomePage } from './pages/home-page';
 import { LoginPage, RegisterPage } from './pages/auth-pages';
 import { ProfilePage, EditProfilePage } from './pages/profile-pages';
-import { ComingSoonPage, OverviewPage } from './pages/workspace-pages';
+import { ComingSoonPage } from './pages/workspace-pages';
 import { NotFoundPage } from './pages/not-found-page';
 import { LinkButton, LoadingState } from './components/ui';
 
@@ -41,5 +42,91 @@ function RouteEffects() {
   return null;
 }
 export function App() {
-  return <BrowserRouter><RouteEffects /><Suspense fallback={<LoadingState />}><Routes><Route element={<PublicLayout />}><Route index element={<HomePage />} /><Route path="rooms" element={<RoomsPage />} /><Route path="rooms/:id" element={<RoomDetailPage />} /><Route path="*" element={<NotFoundPage />} /></Route><Route path="login" element={<LoginPage />} /><Route path="register" element={<RegisterPage />} />{(Object.entries(homeForRole) as [Role, string][]).map(([role, home]) => <Route key={role} element={<RoleGuard role={role} />}><Route path={home} element={<WorkspaceLayout />}><Route index element={role === 'RECEPTIONIST' || role === 'ADMIN' ? <ReceptionDashboard /> : role === 'HOUSEKEEPING' ? <HousekeepingDashboard /> : <OverviewPage />} /><Route path="profile" element={<ProfilePage />} /><Route path="profile/edit" element={<EditProfilePage />} />{role === 'GUEST' && <><Route path="bookings" element={<MyBookingsPage />} /><Route path="bookings/:id" element={<BookingDetailPage />} /><Route path="bookings/:id/billing" element={<BookingBillingPage />} /><Route path="services" element={<ServicesPage />} /><Route path="service-orders" element={<MyServiceOrdersPage />} /><Route path="billing" element={<MyBookingsPage billing />} /><Route path="invoices/:id" element={<InvoicePage />} /></>}{(role === 'RECEPTIONIST' || role === 'ADMIN') && <><Route path="bookings" element={<ReceptionBookingsPage />} /><Route path="rooms" element={<ReceptionRoomBoard />} /><Route path="tape-chart" element={<ReceptionTapeChartPage />} /><Route path="walk-in" element={<ReceptionWalkIn />} /><Route path="bookings/:id" element={<ReceptionBookingDetailPage />} /><Route path="bookings/:id/billing" element={<ReceptionBillingPage />} /><Route path="service-orders" element={<ReceptionOrdersPage />} /><Route path="service-orders/:id" element={<ReceptionOrderDetailPage />} /><Route path="billing" element={<ReceptionBookingsPage billing />} /><Route path="invoices/:id" element={<ReceptionInvoicePage />} /><Route path="housekeeping" element={<HousekeepingBoardPage />} /><Route path="housekeeping/tasks" element={<HousekeepingTasksPage />} /><Route path="housekeeping/tasks/:id" element={<HousekeepingTaskDetailPage />} /></>}{role === 'HOUSEKEEPING' && <><Route path="board" element={<HousekeepingBoardPage />} /><Route path="tasks" element={<HousekeepingTasksPage />} /><Route path="tasks/:id" element={<HousekeepingTaskDetailPage />} /></>}<Route path=":feature" element={<ComingSoonPage />} /></Route></Route>)}</Routes></Suspense></BrowserRouter>;
+  const staffRoles: Role[] = ['RECEPTIONIST', 'ADMIN', 'HOUSEKEEPING'];
+
+  return (
+    <BrowserRouter>
+      <RouteEffects />
+      <Suspense fallback={<LoadingState />}>
+        <Routes>
+          {/* Public Website */}
+          <Route element={<PublicLayout />}>
+            <Route index element={<HomePage />} />
+            <Route path="rooms" element={<RoomsPage />} />
+            <Route path="rooms/:id" element={<RoomDetailPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+
+          {/* Auth Pages */}
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+
+          {/* Dedicated Guest Portal */}
+          <Route element={<RoleGuard role="GUEST" />}>
+            <Route path={homeForRole.GUEST} element={<GuestPortalLayout />}>
+              <Route index element={<Navigate to="/" replace />} />
+              <Route path="bookings" element={<MyBookingsPage />} />
+              <Route path="bookings/:id" element={<BookingDetailPage />} />
+              <Route path="bookings/:id/billing" element={<BookingBillingPage />} />
+              <Route path="services" element={<ServicesPage />} />
+              <Route path="service-orders" element={<MyServiceOrdersPage />} />
+              <Route path="billing" element={<MyBookingsPage billing />} />
+              <Route path="invoices/:id" element={<InvoicePage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="profile/edit" element={<EditProfilePage />} />
+              <Route path=":feature" element={<ComingSoonPage />} />
+            </Route>
+          </Route>
+
+          {/* Staff Workspace (Reception, Housekeeping, Admin) */}
+          {staffRoles.map((role) => {
+            const home = homeForRole[role];
+            return (
+              <Route key={role} element={<RoleGuard role={role} />}>
+                <Route path={home} element={<WorkspaceLayout />}>
+                  <Route
+                    index
+                    element={
+                      role === 'RECEPTIONIST' || role === 'ADMIN' ? (
+                        <ReceptionDashboard />
+                      ) : (
+                        <HousekeepingDashboard />
+                      )
+                    }
+                  />
+                  <Route path="profile" element={<ProfilePage />} />
+                  <Route path="profile/edit" element={<EditProfilePage />} />
+                  {(role === 'RECEPTIONIST' || role === 'ADMIN') && (
+                    <>
+                      <Route path="bookings" element={<ReceptionBookingsPage />} />
+                      <Route path="rooms" element={<ReceptionRoomBoard />} />
+                      <Route path="tape-chart" element={<ReceptionTapeChartPage />} />
+                      <Route path="walk-in" element={<ReceptionWalkIn />} />
+                      <Route path="bookings/:id" element={<ReceptionBookingDetailPage />} />
+                      <Route path="bookings/:id/billing" element={<ReceptionBillingPage />} />
+                      <Route path="service-orders" element={<ReceptionOrdersPage />} />
+                      <Route path="service-orders/:id" element={<ReceptionOrderDetailPage />} />
+                      <Route path="billing" element={<ReceptionBookingsPage billing />} />
+                      <Route path="invoices/:id" element={<ReceptionInvoicePage />} />
+                      <Route path="housekeeping" element={<HousekeepingBoardPage />} />
+                      <Route path="housekeeping/tasks" element={<HousekeepingTasksPage />} />
+                      <Route path="housekeeping/tasks/:id" element={<HousekeepingTaskDetailPage />} />
+                    </>
+                  )}
+                  {role === 'HOUSEKEEPING' && (
+                    <>
+                      <Route path="board" element={<HousekeepingBoardPage />} />
+                      <Route path="tasks" element={<HousekeepingTasksPage />} />
+                      <Route path="tasks/:id" element={<HousekeepingTaskDetailPage />} />
+                    </>
+                  )}
+                  <Route path=":feature" element={<ComingSoonPage />} />
+                </Route>
+              </Route>
+            );
+          })}
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
 }
