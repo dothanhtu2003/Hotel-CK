@@ -1,178 +1,488 @@
-# Hotel CK — Hotel Reservation & Guest Service Management
+# 🏨 Hotel CK — An Nhiên Hotel Management System
 
-## Dữ liệu test bổ sung — 29/10/2026
+<div align="center">
 
-Chạy `npm.cmd run db:seed:test-data` để thêm bộ dữ liệu theo ngày tại local `hotel_dev` (cần `ALLOW_DEMO_SEED=true`). Lệnh chỉ thêm dữ liệu mang mã `TEST-YYYYMMDD`, không xóa dữ liệu cũ. Chạy lại cùng ngày sẽ giữ nguyên các thao tác test đã thực hiện, không tạo trùng hoặc đặt lại trạng thái. Chạy vào ngày khác tạo một đợt mới với phòng/tài khoản riêng.
+A comprehensive, full-stack, enterprise-grade hotel reservation and guest service management platform built with NestJS, React 19, and PostgreSQL.
 
-Mỗi đợt có 32 tài khoản (đủ bốn role và một khách bị khóa), 5 loại phòng, 30 phòng, 12 dịch vụ (có dịch vụ miễn phí/tạm ngừng), 33 booking, 30 đơn dịch vụ với 60 chi tiết, 6 hóa đơn, 11 khoản thanh toán và 8 task dọn phòng. Các tình huống gồm: khách đến hôm nay, đang ở, đặt trước, hủy và đặt lại cùng lịch, booking nối tiếp, phòng bảo trì, task chưa phân công/đang dọn/hoàn tất; đơn chờ/hoàn tất/hủy; hóa đơn chưa thu/thu một phần/thu đủ; thanh toán tiền mặt/chuyển khoản/chờ/thất bại; trả phòng tự tạo task.
+**🌐 Local Demo:** [http://localhost:5173](http://localhost:5173) • **Swagger Docs:** [http://127.0.0.1:3000/api/docs](http://127.0.0.1:3000/api/docs)
 
-Tài khoản đăng nhập: `admin.YYYYMMDD@test.hotel.invalid`, `reception.YYYYMMDD@test.hotel.invalid`, `housekeeping.YYYYMMDD@test.hotel.invalid`, `guest1.YYYYMMDD@test.hotel.invalid`. Mật khẩu chung được tạo ngẫu nhiên và lưu tại `.local/test-data-password.txt`; không đưa file này lên Git. Báo cáo `.local/test-data-YYYYMMDD.json` liệt kê tài khoản, số lượng và mã booking theo từng tình huống.
+[![React 19](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)](https://react.dev/)
+[![React Router 8](https://img.shields.io/badge/React_Router-8-CA4245?style=for-the-badge&logo=react-router)](https://reactrouter.com/)
+[![TypeScript 5](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+[![TanStack Query](https://img.shields.io/badge/TanStack_Query-v5-FF4154?style=for-the-badge&logo=react-query)](https://tanstack.com/query)
 
-Ngày được tính theo múi giờ khách sạn. Booking đã trả phòng là trả sớm trong ngày qua đúng chuỗi trạng thái và thanh toán. Để test khách dự kiến trả **hôm nay**, giữ booking đang ở qua ngày kế tiếp; không vô hiệu hóa trigger để tạo lịch sử giả. Ảnh phòng cần Cloudinary asset hợp lệ, không tạo URL giả. Dữ liệu này nằm trong PostgreSQL thật; khi test thao tác nghiệp vụ trên bảng phòng, giữ chế độ dữ liệu API (không bật nút mô phỏng mở rộng phòng).
+[![NestJS 12](https://img.shields.io/badge/NestJS-12-E0234E?style=for-the-badge&logo=nestjs)](https://nestjs.com/)
+[![Node.js 24](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs)](https://nodejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
+[![Prisma 7](https://img.shields.io/badge/Prisma-7-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
+[![Argon2](https://img.shields.io/badge/Argon2-Password_Hashing-yellow?style=for-the-badge)](https://github.com/ranisalt/node-argon2)
+[![Playwright](https://img.shields.io/badge/Playwright-E2E-2EAD33?style=for-the-badge&logo=playwright)](https://playwright.dev/)
 
-Backend NestJS/PostgreSQL cho một khách sạn: đủ 5 core features (tìm phòng, booking nhiều đêm, Room Service, Housekeeping, Check-out Billing), JWT/RBAC, Swagger và kiểm thử PostgreSQL thật. Frontend React/Vite đã có giao diện khách hàng, lễ tân và housekeeping. Chưa triển khai cloud.
+[Key Features](#-key-features) • [System Architecture](#%EF%B8%8F-system-architecture) • [Database ERD](#%EF%B8%8F-database-erd) • [Setup Guide](#%EF%B8%8F-setup-guide) • [API Directory](#-api-endpoints) • [Testing Status](#-testing-status)
 
-## Front Desk Operations — cập nhật 28/10/2026
+</div>
 
-Đã hoàn thiện dashboard vận hành, tìm booking/khách phía server, đặt phòng tại quầy, nhận/trả phòng, bảng phòng và xử lý dịch vụ cho RECEPTIONIST/ADMIN. Dữ liệu lấy từ API thật; giữ React/Vite, NestJS, Prisma/PostgreSQL, JWT/RBAC và các ràng buộc nghiệp vụ hiện có.
+---
 
-### Audit và phần tái sử dụng
+## 🚀 Overview
 
-- Backend theo module `auth`, `bookings`, `rooms`, `service-orders`, `billing`, `housekeeping`; frontend giữ nguyên public/guest/housekeeping layouts và các component chung.
-- Tái sử dụng parse/validate ngày, booking view, room view, order view, Decimal, global validation/error filter, JWT/role guards, các endpoint chuyển trạng thái và component xác nhận/thanh toán.
-- PostgreSQL tiếp tục snapshot giá, exclusion constraint chặn giao nhau, partial unique chặn hai booking CHECKED_IN/phòng, trigger kiểm điều kiện nhận phòng, khóa booking/invoice khi chốt hóa đơn/thu tiền và tự tạo task khi trả phòng.
-- Hạn chế cũ đã xử lý: dashboard chỉ đếm tổng trạng thái; thiếu tên/liên hệ khách; không có tìm kiếm server/walk-in; hiển thị UUID kỹ thuật; chưa có bảng phòng kết hợp booking với housekeeping.
+**Hotel CK (An Nhiên Hotel)** is a production-ready, full-stack hospitality management system engineered with strict database integrity and operational efficiency. The platform bridges public guest experiences (multi-night reservations, live room service ordering, online checkout requests) with real-world hotel staff operations (reception dashboard, tape chart calendar, unified room board, cashier drawer, walk-in wizard, and automated housekeeping synchronization).
 
-### Màn hình và quy trình
+Unlike conventional web systems that rely solely on application-level checks, Hotel CK enforces business rules, overbooking prevention, and snapshot financial calculations at the **PostgreSQL database level** via GiST exclusion constraints, triggers, and transactional isolation.
 
-| Đường dẫn | Nội dung |
-|---|---|
-| `/reception` | Bảy KPI có liên kết, thao tác nhanh, khách sắp đến/đi, công việc ưu tiên |
-| `/reception/bookings` | Tìm mã booking, tên, điện thoại, email, số phòng; lọc trạng thái/ngày/đến/đi/đang ở; phân trang server |
-| `/reception/walk-in` | Chọn kỳ nghỉ/số khách → tìm phòng sạch khả dụng → liên kết khách hoặc tạo hồ sơ → xem tổng tiền → xác nhận → mở booking để xác nhận/nhận phòng |
-| `/reception/bookings/:id` | Tên/liên hệ khách, phòng, kỳ nghỉ, giá chốt, điều kiện và thao tác nhận phòng |
-| `/reception/bookings/:id/billing` | Kiểm chi phí, xử lý đơn dịch vụ chờ ngay tại màn hình, phát hành hóa đơn |
-| `/reception/invoices/:id` | Khách/kỳ nghỉ, tiền phòng/dịch vụ, tổng/đã thu/còn thu, biên nhận, ghi nhận khoản thu và trả phòng |
-| `/reception/rooms` | Bảng phòng có lọc tầng/loại/trạng thái, khách đang ở, lịch đặt trong ngày, trạng thái vệ sinh và công việc mở |
-| `/reception/service-orders` | Số phòng/mã booking/tên khách, chi tiết dịch vụ, lọc trạng thái, hoàn thành/hủy nhanh; có thể lọc riêng một booking |
+---
 
-ADMIN sử dụng cùng các màn hình dưới `/admin` và được phép vào `/reception` theo guard hiện có. Không mở quyền cho GUEST/HOUSEKEEPING. Website khách và các màn hình housekeeping giữ nguyên quy trình.
+## ✨ Key Features
 
-**Ngày và đơn vị thống kê:** Asia/Ho_Chi_Minh; ngày lưu trú là `[checkIn, checkOut)`. Khách dự kiến đến là PENDING/CONFIRMED nhận hôm nay; dự kiến đi là CHECKED_IN trả hôm nay; đang lưu trú xét trạng thái CHECKED_IN kể cả khách quá ngày trả chưa được checkout. Ba KPI khách cộng `guestCount`, đồng thời ghi số booking bên dưới để phân biệt số người với số kỳ nghỉ. Phòng trống sạch phải ACTIVE/CLEAN, không có task mở, không có khách còn CHECKED_IN và không bị booking hiệu lực chiếm lịch hôm nay. CHECKED_OUT vẫn giữ nguyên khoảng lịch sử theo quy tắc hiện tại; CANCELLED không chiếm lịch. Phòng cần dọn bao gồm DIRTY/CLEANING.
+### 🛎️ Guest Experience & Booking Engine
 
-### API mới
+- **Room Discovery & Availability Search**: Real-time room filtering based on hotel check-in/check-out dates `[checkIn, checkOut)` and guest capacity with instant price breakdown.
+- **Multi-Night Reservations**: Guaranteed booking engine preventing overbooking through PostgreSQL GiST exclusion constraints. Room prices and totals are calculated and snapshotted atomically.
+- **Dedicated Guest Portal (`/guest`)**:
+  - **My Stays**: View upcoming, active, and completed stays with rich reservation vouchers.
+  - **Room Service Ordering**: In-house guests (`CHECKED_IN`) can order amenities, food, and laundry directly to their room with immediate price snapshotting.
+  - **Checkout Request**: In-stay guests can notify reception in advance with a single click, instantly flagging their room on the front desk board.
+- **Public Room Showcase**: High-resolution imagery, amenities list, floor level, and capacity details with interactive lightbox previews.
 
-Tất cả dưới `/api/front-desk`, cần JWT với role RECEPTIONIST/ADMIN; trả `Cache-Control: no-store`.
+### 🖥️ Front Desk & Reception Operations
 
-| Method/path | Mục đích |
-|---|---|
-| `GET /dashboard` | Snapshot KPI và hai danh sách tối đa 5 booking, transaction REPEATABLE READ |
-| `GET /bookings` | `q`, `status`, `checkIn`, `checkOut`, `view=arrivals/departures/staying`, `page`, `pageSize` (tối đa 100) |
-| `GET /bookings/:id` | Chi tiết khách/phòng/task cần cho lễ tân; không trả password/token |
-| `GET /customers` | `q` tối thiểu 2 ký tự, `page`; 10 hồ sơ GUEST ACTIVE/trang |
-| `GET /available` | Kế thừa availability service, bổ sung CLEAN, không task mở và không có khách còn CHECKED_IN |
-| `POST /walk-in` | `roomId`, `checkIn`, `checkOut`, `guests` và **một trong** `customerId` hoặc `fullName/email/phone` |
-| `GET /rooms` | `floor`, `roomTypeId`, `state=ready/dirty/occupied`, `page`, `pageSize` |
-| `GET /room-filters` | Danh sách loại phòng/tầng từ DB, độc lập phân trang bảng phòng |
-| `GET /orders` | `status`, `bookingId`, `page`, `pageSize`; trả nhãn booking/phòng/khách và khả năng xử lý |
+- **Live Operational Dashboard (`/reception`)**:
+  - 7 Real-time KPIs: Expected arrivals, departures, in-house guests, ready clean rooms, rooms requiring cleaning, active services, and revenue overview.
+  - Quick action shortcuts and high-priority stay notices.
+- **Unified Room Board & Tape Chart**:
+  - Visual matrix of all hotel rooms organized by floor, displaying housekeeping status (`CLEAN`, `DIRTY`, `CLEANING`), operational readiness, current occupant, and assigned cleaning tasks.
+  - Emergency room status overrides and condition audit logging.
+- **Server-Side Booking Management**: Instant search across reservation references, guest full names, phone numbers, emails, and room numbers with server-side pagination and status filtering.
+- **Walk-in Booking Wizard (`/reception/walk-in`)**:
+  - Fast-track guest registration or linking existing customer profiles via telephone advisory locks to protect against concurrent front-desk submissions.
+  - Immediate room assignment and check-in confirmation within a single transaction.
 
-Các mutation confirm/check-in/cancel, order complete/cancel, billing-preview, invoice, payments, check-out tiếp tục dùng API hiện có. Guest APIs không được thêm dữ liệu khách khác.
+### 🧹 Housekeeping Management & Status Synchronization
 
-**Walk-in:** transaction khóa phòng, kiểm ACTIVE/CLEAN/task/sức chứa/khách hiện tại, liên kết GUEST ACTIVE; DB kiểm lại giá và overlap. Hồ sơ mới và booking commit/rollback cùng nhau. Email chuẩn hóa chữ thường; hồ sơ trùng email/điện thoại yêu cầu tìm/chọn khách hiện có, không âm thầm gán chủ booking. Advisory lock theo điện thoại bảo vệ hai yêu cầu tạo hồ sơ tại quầy đồng thời; UNIQUE email vẫn là lớp bảo vệ cuối. Mật khẩu ngẫu nhiên đủ mạnh được băm Argon2, không trả hoặc ghi log mật khẩu, không tạo JWT/phiên đăng nhập khách. Booking mới có mã `CK-…`, bắt đầu PENDING rồi theo đúng CONFIRMED → CHECKED_IN.
+- **Automated Task Scheduling**: Triggers automatically transition rooms to `DIRTY` and generate a `TODO` task as soon as a guest completes check-out.
+- **Housekeeping Board (`/housekeeping`)**:
+  - Staff task lifecycle: Assignment to active staff -> `IN_PROGRESS` (room transitions to `CLEANING`) -> `DONE` (room transitions to `CLEAN` with completion timestamp).
+  - Front-desk manual task completion and override audit history.
 
-**Migration mới:** `prisma/migrations/202610280001_front_desk/migration.sql` chỉ thêm `bookings.created_by_id` nullable, FK tới users, index và trigger bảo vệ người tạo là staff ACTIVE, không cho sửa người tạo. Booking cũ giữ NULL, không sửa giá/ngày/chủ/trạng thái. Đã áp dụng trên local `hotel_dev` và `hotel_test`; không seed/reset lại dữ liệu.
+### 💳 Staged Billing & Financial Integrity
 
-**Thanh toán và mạng:** giữ nguyên Idempotency-Key và cơ chế lưu/đối chiếu khoản thu khi mất phản hồi. Không phát hành invoice khi còn PENDING, không checkout khi thiếu tiền. Khi kết quả tạo walk-in không rõ do mạng/5xx, UI chặn gửi lại trong luồng hiện tại và dẫn tới danh sách để kiểm tra. Không tự retry mutation. Lỗi hồ sơ đã có, phòng chưa sẵn sàng/đang có khách có mã lỗi riêng, frontend chỉ nhận các mã cho phép, không hiển thị thông báo DB tùy ý.
+- **Billing Preview & Validation**: Verifies room charges and guarantees all room service orders are settled or completed before invoice creation (blocks open `PENDING` orders).
+- **Invoice Generation**: Locks historical stay amounts, service costs, and total payable amount.
+- **Cashier Drawer & Split Payments**: Supports `CASH` and `BANK_TRANSFER` payments with transaction-level `Idempotency-Key` headers to protect against network retries.
+- **Zero-Balance Checkout Enforcer**: Check-out is strictly prohibited by database triggers until the invoice balance reaches exactly `0.00`.
 
-### Chạy và kiểm tra local
+### 🛡️ Platform Security & Session Management
 
-Yêu cầu Node/npm theo `package.json`, PostgreSQL local, `.env` đã cấu hình; không đưa secret vào `VITE_*`. Với checkout mới, chạy `npm.cmd ci` tại gốc và `npm.cmd --prefix frontend ci` trước.
+- **Role-Based Access Control (RBAC)**: Strict role barriers for `GUEST`, `RECEPTIONIST`, `HOUSEKEEPING`, and `ADMIN`. Global NestJS guards inspect roles against live database records on every request.
+- **In-Memory JWT Tokens**: Access tokens are kept strictly in browser memory (never written to `localStorage` or `sessionStorage`), mitigating XSS-based credential extraction.
+- **Argon2id Password Hashing**: State-of-the-art password security with memory-hardened parameters and timing-safe fallback comparison for legacy records.
+- **Ownership Scoping**: Tenant data isolation ensuring guests can never inspect or modify reservations, orders, or bills belonging to other users (enforced with strict 404 responses to avoid resource ID probing).
+- **Brute-Force Rate Limiting**: In-memory IP/handler bucket limits protecting authentication and walk-in creation endpoints.
 
-```powershell
-cd 'E:\Hotel CK'
-npm.cmd run db:local:start
-npm.cmd run db:generate
-npm.cmd run db:migrate
-npm.cmd run start:dev
-# Terminal khác:
-cd 'E:\Hotel CK\frontend'
-npm.cmd run dev
+---
+
+## 🗺️ System Architecture
+
+The project features a decoupled architecture with a modern React 19 single-page application and a modular NestJS REST API powered by PostgreSQL:
+
+```mermaid
+graph TD
+    subgraph Frontend [React 19 Client Application]
+        UI[App Shell & Routing: react-router v8]
+        QueryClient[TanStack React Query Cache]
+        AuthContext[In-Memory Auth Provider]
+        APIClient[Typed HTTP Client: lib/api-client.ts]
+    end
+
+    subgraph Backend [NestJS 12 API Gateway]
+        Guard[Auth & Roles Guards / Rate Limiting]
+        Pipes[Global Validation & DTO Pipes]
+        Controllers[API Controllers]
+        Services[Business Domain Services]
+        PrismaService[Prisma Client with pg Adapter]
+    end
+
+    subgraph Database [PostgreSQL 14+ / Schema: hotel]
+        Triggers[Business Integrity Triggers]
+        Constraints[GiST Overlap & Partial Unique Indexes]
+        Tables[(11 Relational Tables)]
+    end
+
+    UI --> AuthContext
+    UI --> QueryClient
+    QueryClient --> APIClient
+    APIClient -->|HTTP REST / Bearer JWT| Guard
+    Guard --> Pipes
+    Pipes --> Controllers
+    Controllers --> Services
+    Services --> PrismaService
+    PrismaService -->|pg Pool & Transactions| Tables
+    Tables --> Triggers
+    Tables --> Constraints
 ```
 
-Mở [giao diện lễ tân](http://localhost:5173/reception), đăng nhập bằng tài khoản RECEPTIONIST/ADMIN hiện có. API local ở `http://127.0.0.1:3000/api`; Swagger ở `/api/docs`. Không tạo mật khẩu staff mặc định. Nếu môi trường mới chưa có dữ liệu, làm theo phần Database bên dưới; không chạy seed trên dữ liệu vận hành đang có.
+---
 
-Kiểm thử backend/API và E2E chỉ ghi fixtures vào database local `hotel_test` đã được kiểm tra tên/host. Chạy các suite DB tuần tự; cần áp dụng migration trên `TEST_DATABASE_URL` trước khi chạy backend/E2E (`DIRECT_URL` phải trỏ cùng DB test khi dùng Prisma CLI).
+## 🗄️ Database ERD
 
-```powershell
-npm.cmd run typecheck
-npm.cmd run lint
-npm.cmd run build
-npm.cmd run test:backend
-npm.cmd run test:database
-npm.cmd --prefix frontend run typecheck
-npm.cmd --prefix frontend run lint
-npm.cmd --prefix frontend test
-npm.cmd --prefix frontend run build
-npm.cmd --prefix frontend run test:e2e
+The database runs on PostgreSQL under the dedicated `hotel` schema with exact decimal precision (`Decimal(14, 2)`), triggers, and strict foreign keys:
+
+```mermaid
+erDiagram
+    users {
+        uuid id PK
+        varchar full_name
+        varchar email UK
+        varchar password_hash
+        varchar phone
+        enum role
+        enum status
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    room_types {
+        uuid id PK
+        varchar name UK
+        text description
+        decimal nightly_price
+        integer max_guests
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    rooms {
+        uuid id PK
+        varchar room_number UK
+        uuid room_type_id FK
+        integer floor
+        enum operational_status
+        enum housekeeping_status
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    room_images {
+        uuid id PK
+        uuid room_id FK
+        varchar secure_url
+        varchar public_id UK
+        boolean is_primary
+        integer display_order
+    }
+
+    bookings {
+        uuid id PK
+        varchar reference UK
+        uuid user_id FK
+        uuid room_id FK
+        uuid created_by_id FK
+        date check_in_date
+        date check_out_date
+        integer guest_count
+        enum status
+        decimal nightly_price
+        decimal total_room_amount
+        timestamptz checkout_requested_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    services {
+        uuid id PK
+        varchar name UK
+        text description
+        decimal current_price
+        boolean is_active
+    }
+
+    service_orders {
+        uuid id PK
+        uuid booking_id FK
+        enum status
+        decimal total_amount
+        timestamptz ordered_at
+        enum payment_method
+        timestamptz paid_at
+        uuid received_by FK
+        timestamptz refunded_at
+        uuid refunded_by FK
+    }
+
+    service_order_items {
+        uuid id PK
+        uuid service_order_id FK
+        uuid service_id FK
+        integer quantity
+        decimal unit_price
+        decimal subtotal
+    }
+
+    housekeeping_tasks {
+        uuid id PK
+        uuid room_id FK
+        uuid assigned_staff_id FK
+        enum status
+        text notes
+        timestamptz created_at
+        timestamptz completed_at
+        uuid manual_completed_by FK
+    }
+
+    room_status_changes {
+        uuid id PK
+        uuid room_id FK
+        uuid actor_id FK
+        varchar condition
+        enum previous_operational_status
+        enum previous_housekeeping_status
+        uuid[] completed_task_ids
+        varchar note
+        timestamptz created_at
+    }
+
+    invoices {
+        uuid id PK
+        uuid booking_id FK
+        decimal room_amount
+        decimal service_amount
+        decimal total_amount
+        enum status
+        timestamptz issued_at
+    }
+
+    payments {
+        uuid id PK
+        uuid invoice_id FK
+        decimal amount
+        enum method
+        enum status
+        timestamptz paid_at
+    }
+
+    users ||--o{ bookings : "owns (BookingOwner)"
+    users ||--o{ bookings : "creates (BookingCreator)"
+    users ||--o{ housekeeping_tasks : "assigned_to"
+    users ||--o{ housekeeping_tasks : "manually_completes"
+    users ||--o{ service_orders : "collects_payment"
+    users ||--o{ service_orders : "refunds_payment"
+    users ||--o{ room_status_changes : "recorded_by"
+
+    room_types ||--o{ rooms : "categorizes"
+    rooms ||--o{ room_images : "showcases"
+    rooms ||--o{ bookings : "hosts"
+    rooms ||--o{ housekeeping_tasks : "cleans"
+    rooms ||--o{ room_status_changes : "history"
+
+    bookings ||--o{ service_orders : "charges"
+    bookings ||--o| invoices : "bills"
+
+    services ||--o{ service_order_items : "itemizes"
+    service_orders ||--o{ service_order_items : "contains"
+
+    invoices ||--o{ payments : "settled_by"
 ```
 
-Các test bao phủ: online check-in; walk-in với khách mới và khách đã có; tạo hồ sơ/đặt phòng đồng thời; phòng DIRTY/OUT_OF_SERVICE/task mở/sai sức chứa; booking trùng và hủy; dịch vụ PENDING/COMPLETED/CANCELLED; invoice/thu nhiều lần/check-out/task; role/ownership/401/403/404; gửi trùng/mất phản hồi thanh toán; loading/empty/offline/XSS và viewport 320/390/768/1440px. Test cũ chỉ cập nhật các kỳ vọng giao diện đã thay đổi (7 KPI, nhãn ngắn, nhận diện booking qua data attribute); không xóa test hoặc nới các kiểm tra nghiệp vụ.
+---
 
-### Kết quả xác minh bản cuối
+## 📁 Project Structure
 
-| Kiểm tra | Kết quả |
-|---|---|
-| Backend typecheck / lint / build | PASS |
-| Frontend typecheck / lint / build | PASS |
-| Backend unit + API integration | 272/272 PASS, 19 suites |
-| PostgreSQL integrity | 38/38 PASS |
-| Frontend unit | 89/89 PASS, 9 files |
-| Browser E2E toàn hệ thống | 64/64 PASS, backend/PostgreSQL thật |
-| Visual QA | Đã xem ảnh desktop 1440px và mobile 320px; kiểm overflow ở 320/390/768/1440px |
+```text
+.
+├── prisma/                   # Database schema, seeders, and migration history
+│   ├── schema.prisma         # Core PostgreSQL hotel schema definitions
+│   ├── seed.ts               # Base deterministic seeds
+│   └── migrations/           # Versioned migration track (10 applied migrations)
+│
+├── src/                      # Backend API (NestJS 12)
+│   ├── auth/                 # JWT, Argon2 hashing, RBAC guards, and policies
+│   ├── billing/              # Staged billing, invoice lifecycle, and cashier payments
+│   ├── bookings/             # Multi-night booking, availability, and checkout request
+│   ├── common/               # Database error codes, DTO pagination, and date validations
+│   ├── config/               # Fail-fast environment configuration and TLS checks
+│   ├── database/             # Prisma client, transactional wrappers, and queries
+│   ├── front-desk/           # Reception dashboard KPIs, tape chart, walk-in wizard
+│   ├── health/               # Service liveness and DB readiness probes
+│   ├── housekeeping/         # Housekeeping task boards, assignments, and sync
+│   ├── rooms/                # Public room catalog and availability queries
+│   ├── service-orders/       # Room service ordering and desk settlement
+│   ├── services/             # Hotel service catalog
+│   ├── users/                # Guest profile and staff management
+│   ├── app.module.ts         # Root application module
+│   ├── configure-app.ts      # Global middleware, filters, and Swagger setup
+│   └── main.ts               # Application entry point
+│
+├── frontend/                 # Frontend Web Application (React 19 + Vite 8)
+│   ├── src/
+│   │   ├── app.tsx           # Route layout hierarchy, guards, and lazy loading
+│   │   ├── components/       # UI system, CommandPalette (Ctrl+K), Lightbox, Toasts
+│   │   ├── features/         # Feature modules: auth, guest, reception, housekeeping
+│   │   ├── layouts/          # PublicLayout, GuestPortalLayout, WorkspaceLayout
+│   │   ├── lib/              # Centralized API client wrapper (api-client.ts)
+│   │   ├── pages/            # View pages for guest, reception, housekeeping, admin
+│   │   └── styles.css        # Tailwind v4 configuration and custom theme variables
+│   ├── tests/                # Full-system browser E2E test suites (Playwright)
+│   ├── playwright.config.ts  # Browser automation settings
+│   └── vite.config.ts        # Vite configuration and proxy setup
+│
+├── tests/                    # Backend & Database Testing
+│   ├── database/             # 38 PostgreSQL integrity tests (triggers & concurrency)
+│   └── backend/              # 272 Jest unit and integration API test specs
+│
+├── scripts/                  # Infrastructure and maintenance scripts
+│   ├── local-postgres.ps1    # Local cluster controller (port 55432)
+│   ├── seed-test-data.ts     # Realistic multi-scenario test data generator
+│   └── verify.ts             # Health verification script
+│
+└── docs/                     # Architectural decisions, ERD, business rules, test reports
+```
 
-Không còn lỗi trong các kiểm tra đã chạy. Ảnh kiểm thử local ở `.local/front-desk-dashboard.png` và `.local/front-desk-board-mobile.png` (dữ liệu fixtures chỉ nằm trong `hotel_test`, không đưa vào trang vận hành). Hai test browser đầu xác minh walk-in khách mới/khách có sẵn; một test bổ sung xác minh thông báo trùng hồ sơ, sửa lựa chọn khách và từ chối check-in phòng DIRTY. Các warning Node VM Modules/NO_COLOR là thông báo của test runner; các truy cập env bị Vite từ chối là kiểm thử bảo vệ file riêng tư.
+---
 
-**Giới hạn theo kiến trúc hiện có:** hồ sơ walk-in mới cần email thật do schema User bắt buộc email duy nhất. Chưa có luồng xác minh email/cấp lại mật khẩu cho hồ sơ do lễ tân tạo; không tự đặt mật khẩu mặc định. BANK_TRANSFER là ghi nhận khoản thu staff đã xác minh, chưa có kết nối ngân hàng. Không có deploy production, push hoặc merge trong đợt này.
+## 🛠️ Setup Guide
 
-## Phase 7 — Guest Check-out & Billing
+### 📋 Prerequisites
 
-Frontend Phase 8A đã có trong [frontend/](frontend/README.md), dùng package/config riêng: trang chủ, auth, hồ sơ và layout theo bốn role. Chạy `npm.cmd run dev` trong frontend để mở http://localhost:5173, kết nối backend local port 3000. UI nghiệp vụ mới chỉ là trang chưa sẵn sàng; chi tiết kiến trúc, kiểm thử và giới hạn ở README frontend.
+- **Runtime**: Node.js `>=24.11.0` (Node.js 24 LTS recommended)
+- **Database**: PostgreSQL 14+ (Local port `55432` or standard `5432`)
+- **Shell**: PowerShell (Windows) or Bash (Linux / macOS)
 
-Xem [API, payment idempotency, migration bắt buộc và báo cáo kiểm thử](docs/backend/billing.md). Invoice lấy snapshot do PostgreSQL tính; chỉ tính dịch vụ COMPLETED và chặn đơn PENDING. Staff ghi nhận CASH/BANK_TRANSFER đã xác minh, hỗ trợ thanh toán nhiều lần với số dư chính xác. Checkout cần PAID; DB tự chuyển phòng DIRTY và tạo/reuse một task TODO.
+---
 
-Giữ nguyên Prisma schema, dependencies và ba migration cũ. Bổ sung `202610270004_staged_billing`: contract cũ buộc invoice/checkout commit cùng transaction, không hỗ trợ chuỗi HTTP invoice → payment → checkout. Migration mới chỉ đổi/bổ sung trigger functions, không thay bảng/cột/enum hay dữ liệu nghiệp vụ. Đã áp dụng trên local hotel_test rồi hotel_dev; không cần chạy seed lại.
+### 💻 Local Installation
 
-## Phase 6 — Housekeeping Status Updates
-
-Xem [API, phân quyền, trigger và báo cáo Phase 6](docs/backend/housekeeping.md). Receptionist/admin xem board, tạo/phân công task TODO; HOUSEKEEPING chỉ xem và thao tác công việc được giao. DB tự đồng bộ TODO→DIRTY, IN_PROGRESS→CLEANING, DONE→CLEAN và timestamp hoàn thành. Có phân trang, bộ lọc, conditional update và kiểm thử cạnh tranh; không có staff override cho start/complete hoặc API sửa trực tiếp trạng thái phòng.
-
-## Phase 5 — Room Service Ordering
-
-Xem [API, trigger và kết quả kiểm thử Phase 5](docs/backend/room-service.md). Danh mục dịch vụ public chỉ hiển thị dịch vụ active. GUEST đặt một/nhiều dịch vụ cho booking CHECKED_IN của mình; DB snapshot giá và tính tổng. Nhân viên hoàn tất đơn, chủ đơn/nhân viên hủy đơn PENDING; COMPLETED/CANCELLED là trạng thái cuối. Tạo đơn/items cùng transaction, khóa booking và conditional update để chống race condition.
-
-## Phase 4 — Room Availability & Multi-night Booking
-
-Xem [API, chính sách và kết quả kiểm thử Phase 4](docs/backend/room-booking.md). GET /api/rooms, /api/rooms/:id và /api/rooms/available là public; booking dùng JWT/RBAC, ownership và snapshot do PostgreSQL tính. Exclusion constraint chống overbooking vẫn là lớp bảo vệ cuối cùng; xung đột trả HTTP 409. Không có endpoint check-out ở phase này.
-
-## Phase 3 — Authentication & User Profile
-
-Xem [báo cáo và hướng dẫn authentication](docs/backend/authentication.md). Có POST /api/auth/register, POST /api/auth/login, GET /api/auth/me, GET/PATCH /api/users/me. Tài khoản mới luôn GUEST; profile chỉ cho sửa fullName/phone. JWT mặc định 24 giờ cho nhân viên (lễ tân/admin/buồng phòng), 15 phút cho khách; role/trạng thái được đọc lại từ DB ở mỗi request. Không có logout server hoặc refresh token ở phase này.
-
-## Backend foundation
-
-NestJS được tích hợp ngay tại gốc dự án để dùng chung Prisma Client/adapter 7.10.1, DATABASE_URL và schema hotel hiện có. Xem [cấu trúc, cấu hình và báo cáo xác minh backend](docs/backend/backend-foundation.md).
-
-Nếu database local và `.env` đã được cấu hình từ giai đoạn trước:
-
-```powershell
+#### 1. Setup Backend Environment
+Clone the repository and install root dependencies:
+```bash
+git clone <repo-url> "E:\Hotel CK"
+cd "E:\Hotel CK"
 npm.cmd ci
-npm.cmd run db:generate
-npm.cmd run auth:setup
-npm.cmd start
 ```
 
-Health: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health). Swagger: [http://127.0.0.1:3000/api/docs/](http://127.0.0.1:3000/api/docs/). Chế độ phát triển: `npm.cmd run start:dev`.
+Create a `.env` file in the root directory based on `.env.example`:
+```env
+# Database Connections
+DATABASE_URL="postgresql://hotel_local:hotel_local_dev_password@127.0.0.1:55432/hotel_dev?schema=hotel&sslmode=disable"
+DIRECT_URL="postgresql://hotel_local:hotel_local_dev_password@127.0.0.1:55432/hotel_dev?schema=hotel&sslmode=disable"
+TEST_DATABASE_URL="postgresql://hotel_local:hotel_local_dev_password@127.0.0.1:55432/hotel_test?schema=hotel&sslmode=disable"
+ALLOW_DEMO_SEED="true"
 
-```powershell
-npm.cmd run typecheck
-npm.cmd run lint
-npm.cmd run test:backend
+# Server Configuration
+NODE_ENV="development"
+HOST="127.0.0.1"
+PORT="3000"
+CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
+
+# Authentication & Rate Limiting
+JWT_SECRET="replace_with_a_secure_random_secret_at_least_32_chars"
+JWT_ACCESS_TTL_SECONDS="900"
+JWT_STAFF_TTL_SECONDS="86400"
+AUTH_RATE_LIMIT="5"
+AUTH_RATE_TTL_MS="60000"
 ```
 
-Backend startup và tests backend không chạy migration/seed. Khi chuẩn bị hotel_test cần đủ 4 migrations; `test:database` bên dưới tự migrate deploy đúng local TEST_DATABASE_URL. Chạy hai bộ test tuần tự vì dùng chung hotel_test; không chạy song song.
-
-## Database
-
-Đọc [hướng dẫn cài đặt](docs/database/database-setup.md), [ERD](docs/database/ERD.md), [từ điển dữ liệu](docs/database/data-dictionary.md), [quy tắc nghiệp vụ](docs/database/business-rules.md), [test cases](docs/database/test-cases.md) và [báo cáo thực thi](docs/database/implementation-report.md).
-
-```powershell
-npm.cmd ci
+#### 2. Start Database & Run Migrations
+Start the local PostgreSQL instance, generate the Prisma client, and deploy migrations:
+```bash
 npm.cmd run db:local:start
 npm.cmd run db:generate
 npm.cmd run db:migrate
 npm.cmd run db:seed
-npm.cmd run test:database
-npm.cmd run db:verify
 ```
 
-Local cluster riêng: 127.0.0.1:55432, database hotel_dev/hotel_test. Secret local tự sinh, bị loại khỏi Git. Chưa kết nối Supabase; cần URL/project được cấu hình và cho phép trước khi triển khai cloud.
+*(Optional)* Seed comprehensive test data for all roles and scenarios:
+```bash
+npm.cmd run db:seed:test-data
+```
+
+#### 3. Run Backend Server
+```bash
+npm.cmd run start:dev
+```
+The NestJS API starts on `http://127.0.0.1:3000`. Swagger documentation is available at `http://127.0.0.1:3000/api/docs`.
+
+---
+
+#### 4. Setup Frontend Environment
+Navigate to the frontend directory:
+```bash
+cd frontend
+npm.cmd ci
+```
+
+Configure `frontend/.env.local`:
+```env
+VITE_API_URL="http://127.0.0.1:3000/api"
+```
+
+#### 5. Launch Frontend App
+```bash
+npm.cmd run dev
+```
+Open `http://localhost:5173` to explore the guest portal and staff workspaces.
+
+---
+
+## 🔌 API Endpoints
+
+All endpoints are mounted under `/api`. Paths below are relative to their module base.
+
+| Module | Base Path | Authentication | Implemented Endpoints |
+|---|---|---|---|
+| **Health** | `/api/health` | Public | `GET /` |
+| **Auth** | `/api/auth` | Mixed | `POST /register`, `POST /login`, `GET /me` |
+| **Users** | `/api/users` | User Session | `GET /me`, `PATCH /me` |
+| **Rooms** | `/api/rooms` | Public | `GET /`, `GET /available`, `GET /:id` |
+| **Bookings** | `/api/bookings` | Mixed (Guest / Staff) | `POST /`, `GET /`, `GET /checkout-requests`, `GET /:id`, `PATCH /:id/request-checkout`, `PATCH /:id/cancel`, `PATCH /:id/confirm`, `PATCH /:id/check-in` |
+| **Front Desk** | `/api/front-desk` | Reception / Admin | `GET /dashboard`, `GET /bookings`, `GET /bookings/:id`, `GET /customers`, `GET /available`, `POST /walk-in`, `GET /rooms`, `GET /room-filters`, `PATCH /rooms/:id/condition`, `GET /orders` |
+| **Services** | `/api/services` | Public | `GET /`, `GET /:id` |
+| **Service Orders** | `/api/service-orders` | Mixed | `POST /`, `GET /my`, `GET /:id`, `GET /`, `PATCH /:id/complete`, `PATCH /:id/cancel`, `POST /:id/settle` |
+| **Housekeeping**| `/api/housekeeping` | Staff Session | `GET /board`, `GET /tasks`, `GET /tasks/:id`, `POST /tasks`, `PATCH /tasks/:id/assign`, `PATCH /tasks/:id/start`, `PATCH /tasks/:id/complete` |
+| **Billing** | `/api/billing` | Reception / Admin | `GET /bookings/:id/preview`, `POST /bookings/:id/invoice`, `PATCH /bookings/:id/check-out` |
+| **Invoices** | `/api/invoices` | Mixed | `GET /:id`, `POST /:id/payments` |
+
+---
+
+## 🧪 Testing Status
+
+The codebase undergoes automated multi-level verification including PostgreSQL integrity triggers, NestJS unit/integration tests, and real Playwright browser automation:
+
+```bash
+# 1. Verify PostgreSQL constraints & triggers (hotel_test database)
+npm.cmd run test:database
+
+# 2. Run backend unit & integration tests
+npm.cmd run test:backend
+
+# 3. Run frontend unit tests
+npm.cmd --prefix frontend test
+
+# 4. Run browser E2E test suites with real backend & database
+npm.cmd --prefix frontend run test:e2e
+```
+
+### Verified Test Matrix
+
+| Test Suite | Total Tests | Status | Focus Areas |
+|---|---|---|---|
+| **PostgreSQL Database** | 38 / 38 | ✅ PASS | GiST room exclusion, snapshot triggers, checkout rules, balance lock |
+| **Backend Integration & Unit** | 272 / 272 | ✅ PASS | JWT guards, RBAC, staged billing, walk-in locks, rate limiting |
+| **Frontend Unit (Vitest)** | 89 / 89 | ✅ PASS | UI components, command palette, room board state, auth context |
+| **Playwright Full-System E2E**| 64 / 64 | ✅ PASS | Complete 18-step business flow (Booking -> Check-in -> Service -> Invoice -> Payment -> Check-out -> Housekeeping) |
+
+---
+
+## Current Limitations and Roadmap
+
+- **Direct Cloud Uploads**: Cloudinary media records exist in schema (`room_images`), but direct cloud multipart uploads require external production API keys.
+- **Bank Gateway Integration**: `BANK_TRANSFER` currently operates on staff counter reconciliation; automated webhook integration (VietQR/Stripe) is planned for Phase 10.
+- **Proxy Rate Limiting**: Local in-memory rate limiting handles single instances; distributed Redis rate limiting will be introduced for multi-container deployments.
+
+---
+
+## 🌐 Deployment Overview
+
+- **Frontend App**: SPA optimized for static serverless deployment (Vercel, Netlify) with client-side routing fallback via `frontend/vercel.json`.
+- **Backend API**: Stateless NestJS container ready for Render, Railway, AWS ECS, or Google Cloud Run.
+- **PostgreSQL**: Cloud hosting via Supabase, Neon, or AWS RDS (requires `sslmode=verify-full` in production mode).
