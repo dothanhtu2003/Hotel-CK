@@ -520,7 +520,21 @@ export function ReceptionDashboard() {
                                       <div className="my-1.5 space-y-0.5">
                                         <div className="text-xs font-semibold">{reservedBooking.customer?.fullName ?? 'Khách đặt phòng'}</div>
                                         <div className="text-xs">{formatStayDateDisplay(reservedBooking.checkIn, todayStr)} → {formatStayDateDisplay(reservedBooking.checkOut, todayStr)}</div>
-                                        <div className="text-xs">{awaitingOnlinePayment(reservedBooking) ? "Chưa thanh toán tiền phòng" : "Chưa nhận phòng"}</div>
+                                        {reservedBooking.roomPaidAmount !== undefined ? (
+                                          <div className={`inline-flex rounded-md border px-1.5 py-1 text-[11px] font-semibold ${
+                                            Number(reservedBooking.roomPaidAmount) >= Number(reservedBooking.totalRoomAmount)
+                                              ? "border-emerald-300 bg-emerald-100 text-emerald-900"
+                                              : "border-amber-300 bg-amber-50 text-amber-900"
+                                          }`}>
+                                            {Number(reservedBooking.roomPaidAmount) >= Number(reservedBooking.totalRoomAmount)
+                                              ? "✓ Đã thanh toán tiền phòng"
+                                              : Number(reservedBooking.roomPaidAmount) > 0
+                                              ? "Đã thanh toán một phần"
+                                              : "Chưa thanh toán tiền phòng"}
+                                          </div>
+                                        ) : awaitingOnlinePayment(reservedBooking) ? (
+                                          <div className="text-xs">Chưa thanh toán tiền phòng</div>
+                                        ) : null}
                                       </div>
                                     ) : isClean ? (
                                       <div className="my-1.5 space-y-0.5">

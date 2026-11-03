@@ -627,13 +627,17 @@ describe("Unified Room Board & Booking Flow", () => {
 });
 
 
-it.each([['PENDING', 'CHỜ XÁC NHẬN'], ['CONFIRMED', 'CHỜ NHẬN PHÒNG']])('room board shows %s reservations instead of vacant rooms', async (status, label) => {
+it.each([
+  ['PENDING', 'CHỜ XÁC NHẬN', '0', 'Chưa thanh toán tiền phòng'],
+  ['CONFIRMED', 'CHỜ NHẬN PHÒNG', '650000', 'Đã thanh toán tiền phòng'],
+  ['CONFIRMED', 'CHỜ NHẬN PHÒNG', '200000', 'Đã thanh toán một phần'],
+])('room board shows %s reservations and payment %s / %s', async (status, label, roomPaidAmount, paymentLabel) => {
   setupDialog();
   const today = hotelToday();
   vi.spyOn(api, 'request').mockImplementation(async path => {
     if (path.includes('/front-desk/dashboard')) return { today, totalRooms: 1, occupiedRooms: 0, openTasks: 0, counts: { pending: 0, orders: 0, arrivals: 0, departures: 0, staying: 0, ready: 0, dirty: 0 }, arrivals: [], departures: [], staying: [] };
     if (path.includes('/front-desk/room-filters')) return { types: [], floors: [1] };
-    if (path.includes('/front-desk/rooms')) return { data: [{ id: 'reserved-room', roomNumber: '111', floor: 1, operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN', openTaskCount: 0, roomType: { id: 'type', name: 'Standard', nightlyPrice: '650000', maxGuests: 2 }, bookings: [{ id: 'reserved-booking', status, checkIn: today, checkOut: shiftDate(today, 1), customer: { fullName: 'Khách vừa đặt' } }] }], meta: { page: 1, pageSize: 200, total: 1, totalPages: 1 } };
+    if (path.includes('/front-desk/rooms')) return { data: [{ id: 'reserved-room', roomNumber: '111', floor: 1, operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN', openTaskCount: 0, roomType: { id: 'type', name: 'Standard', nightlyPrice: '650000', maxGuests: 2 }, bookings: [{ id: 'reserved-booking', status, roomPaidAmount, totalRoomAmount: '650000', checkIn: today, checkOut: shiftDate(today, 1), customer: { fullName: 'Khách vừa đặt' } }] }], meta: { page: 1, pageSize: 200, total: 1, totalPages: 1 } };
     return { data: [], meta: { page: 1, pageSize: 8, total: 0, totalPages: 1 } };
   });
   render(<MemoryRouter initialEntries={['/reception']}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastContext.Provider value={() => {}}><AuthContext.Provider value={{ user: mockStaffUser, notice: null, login: async () => mockStaffUser, logout: () => {}, updateUser: () => true }}><ReceptionDashboard /></AuthContext.Provider></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
@@ -641,6 +645,7 @@ it.each([['PENDING', 'CHỜ XÁC NHẬN'], ['CONFIRMED', 'CHỜ NHẬN PHÒNG']]
   const card = statusText.closest('button')!;
   expect(card.textContent).not.toContain('TRỐNG SẠCH');
   expect(card.textContent).toContain('Khách vừa đặt');
+  expect(card.textContent).toContain(paymentLabel);
   fireEvent.click(card);
   expect(screen.getByRole('link', { name: 'Xem booking · Nhận phòng' }).getAttribute('href')).toBe('/reception/bookings/reserved-booking');
   expect(screen.queryByRole('button', { name: /Đặt phòng này/ })).toBeNull();

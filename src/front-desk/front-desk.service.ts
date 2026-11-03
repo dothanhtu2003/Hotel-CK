@@ -379,7 +379,7 @@ export class FrontDeskService {
                   },
                 ],
               },
-              select: deskSelect,
+              select: { ...deskSelect, bookingPayments: { where: { status: 'COMPLETED' }, select: { amount: true } } },
             },
           },
           skip: (q.page - 1) * q.pageSize,
@@ -390,8 +390,9 @@ export class FrontDeskService {
           data: rows.map(({ bookings, tasks, ...r }) => ({
             ...roomView(r),
             openTaskCount: tasks.length,
-            bookings: bookings.map(({ user, ...b }) => ({
+            bookings: bookings.map(({ user, bookingPayments, ...b }) => ({
               ...bookingView(b),
+              roomPaidAmount: bookingPayments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0)).toFixed(2),
               customer: user,
             })),
           })),
