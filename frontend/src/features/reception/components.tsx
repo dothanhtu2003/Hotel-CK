@@ -316,7 +316,7 @@ function cleanServiceName(name: string) {
 export function OrderItems({ order }: { order: Order }) {
   return (
     <Table
-      caption="Chi tiết dịch vụ và giá snapshot"
+      caption="Chi tiết dịch vụ"
       rows={order.items}
       rowKey={(i) => i.id}
       columns={[

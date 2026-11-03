@@ -454,7 +454,7 @@ export function RoomDetailPage() {
               <strong>{money(roomData.roomType.nightlyPrice)}</strong>
               <span>/ đêm</span>
             </div>
-            <p className="booking-tax-note">Giá tiền phòng mỗi đêm theo hệ thống</p>
+
           </div>
 
           <div className="booking-form-controls">
@@ -594,7 +594,7 @@ export function RoomDetailPage() {
           <div className="dialog-guarantee-note">
             <ShieldCheck size={16} />
             <p>
-              Booking chỉ được xác nhận sau khi thanh toán đủ tiền phòng. Dịch vụ phát sinh được tính riêng khi trả phòng.
+              Thanh toán tiền phòng để xác nhận đặt phòng.
             </p>
           </div>
         </div>

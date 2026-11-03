@@ -256,7 +256,7 @@ export function BookingBillingPage() {
               <div><dt>Đã thanh toán</dt><dd>{money(preview.data.paidAmount ?? '0')}</dd></div>
               <div><dt>Còn phải thanh toán{invoice.data ? '' : ' · tạm tính'}</dt><dd><strong>{money(preview.data.balance ?? preview.data.totalAmount)}</strong></dd></div>
             </dl>
-            {Number(preview.data.counterPaidAmount ?? 0) > 0 && <p className="notice">Dịch vụ đã thu riêng tại quầy: {money(preview.data.counterPaidAmount!)}. Khoản này không nằm trong tổng trên và không thu lại khi trả phòng.</p>}
+            {Number(preview.data.counterPaidAmount ?? 0) > 0 && <p className="notice">Dịch vụ đã thanh toán riêng: {money(preview.data.counterPaidAmount!)}.</p>}
 
             {preview.data.pendingOrderCount > 0 ? (
               <div className="pending-orders-alert">

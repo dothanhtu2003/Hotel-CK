@@ -229,7 +229,7 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
         description={
           billing
             ? 'Chọn booking để xem chi phí dự kiến hoặc hóa đơn đã phát hành.'
-            : 'Thông tin lưu trú và giá đã được xác nhận từ hệ thống.'
+            : 'Chi tiết kỳ nghỉ của bạn.'
         }
         action={<LinkButton to="/rooms">Tìm phòng</LinkButton>}
       />
@@ -499,7 +499,7 @@ export function BookingDetailPage() {
               </div>
               {billing.data.counterPaidAmount && (
                 <div>
-                  <dt>Dịch vụ đã thanh toán tại quầy · không thu lại</dt>
+                  <dt>Dịch vụ đã thanh toán riêng</dt>
                   <dd>{money(billing.data.counterPaidAmount)}</dd>
                 </div>
               )}

@@ -557,7 +557,7 @@ export function ReceptionOrderDetailPage() {
                 Chi tiết dịch vụ ({o.items.length} món)
               </span>
               <span className="text-xs text-zinc-400">
-                Đơn giá snapshot chốt khi đặt
+                Đơn giá
               </span>
             </div>
 
@@ -627,17 +627,17 @@ export function ReceptionOrderDetailPage() {
               </span>
               <p className="text-xs text-zinc-600 leading-relaxed">
                 {o.status === 'CANCELLED'
-                  ? (o.refundedAt ? 'Đơn đã hủy và đã ghi nhận hoàn đủ tiền cho khách.' : 'Đơn đã hủy, không tính phí.')
+                  ? (o.refundedAt ? 'Đã hủy và hoàn tiền.' : 'Đơn đã hủy, không tính phí.')
                   : o.requestedPaymentMethod && o.paymentMethod
                   ? (o.deliveredAt ? 'Đã thanh toán và đã giao dịch vụ cho khách.' : `Đã thanh toán. Cần mang dịch vụ lên phòng ${roomNum}.`)
                   : o.requestedPaymentMethod === 'CASH'
-                  ? 'Khách chọn tiền mặt. Bấm “Nhận tiền và giao hàng” sau khi đã nhận đủ tiền và giao dịch vụ cho khách.'
+                  ? 'Thanh toán tiền mặt khi giao hàng.'
                   : o.requestedPaymentMethod === 'BANK_TRANSFER'
-                  ? 'Khách chọn chuyển khoản. Đang chờ xác nhận thanh toán payOS.'
+                  ? 'Chờ thanh toán chuyển khoản.'
                   : o.paymentMethod
-                  ? 'Đã thu tại quầy. Khoản này không cộng vào hóa đơn phòng và không thu lại khi trả phòng.'
+                  ? 'Đã thanh toán riêng.'
                   : o.status === 'PENDING'
-                  ? 'Yêu cầu từ khách, chưa ghi nhận phí. Tiếp nhận đơn bên dưới.'
+                  ? 'Yêu cầu mới từ khách.'
                   : `Đã ghi vào hóa đơn phòng ${roomNum}, thanh toán khi trả phòng.`}
               </p>
               {o.paidAt && (

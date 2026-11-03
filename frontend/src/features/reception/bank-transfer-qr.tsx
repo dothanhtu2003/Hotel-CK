@@ -21,13 +21,12 @@ export function BankTransferQr({ orderId, amount, onPaid, onClosed, guest = fals
     {link.isPending && <p role="status">Đang tạo mã QR payOS…</p>}
     {image.data && !sync.data?.closed && <img src={image.data} alt={`Mã QR payOS thanh toán ${money(amount)}`} className="mx-auto w-56 max-w-full rounded-lg" />}
     {link.data?.checkoutUrl && !sync.data?.closed && <a href={link.data.checkoutUrl} target="_blank" rel="noopener noreferrer" className="underline text-brand-700">Mở trang thanh toán payOS</a>}
-    {sync.data?.closed ? <p role="status">Liên kết đã kết thúc, chưa thu tiền. Có thể chọn cách thanh toán khác.</p> : <p className="text-xs text-zinc-500">{guest ? 'Sau khi chuyển khoản thành công, trạng thái thanh toán sẽ tự cập nhật.' : 'Hệ thống tự ghi nhận khi payOS xác nhận đã nhận đủ tiền. Không cần lưu thanh toán thủ công.'}</p>}
+    {sync.data?.closed && <p role="status">Mã QR đã hết hiệu lực.</p>}
     {(link.error || sync.error || cancel.error || image.error) && <p role="alert">Chưa thể tải hoặc kiểm tra thanh toán payOS. Vui lòng thử lại.</p>}
     <div className="flex flex-wrap gap-2">
       {(link.error || sync.data?.closed) && <Button type="button" variant="secondary" onClick={() => void link.refetch()}>{sync.data?.closed ? 'Tạo QR mới' : 'Tải lại QR'}</Button>}
       {link.data && !paid && <Button type="button" variant="secondary" busy={sync.isFetching} onClick={() => void sync.refetch()}>Kiểm tra thanh toán</Button>}
       {!guest && !link.isPending && !paid && !sync.data?.closed && <Button type="button" variant="secondary" busy={cancel.isPending} onClick={() => cancel.mutate()}>Đổi cách thanh toán</Button>}
     </div>
-    {!guest && !link.isPending && !paid && !sync.data?.closed && <p className="text-xs text-zinc-500">Đổi cách thanh toán sẽ ngừng mã QR này để chọn tiền mặt hoặc ghi vào hóa đơn phòng.</p>}
   </section>;
 }

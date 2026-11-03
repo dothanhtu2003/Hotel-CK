@@ -113,7 +113,6 @@ export function ServicesPage() {
       <PageHeading
         eyebrow="CHĂM CHÚT KỲ NGHỈ"
         title="Dịch vụ phòng"
-        description="Giá hiển thị là giá hiện tại. Đơn thành công sẽ lưu giá do hệ thống xác nhận."
         action={
           <LinkButton to="/guest/service-orders" variant="secondary">
             Đơn dịch vụ của tôi
@@ -260,7 +259,7 @@ export function ServicesPage() {
             </div>
 
             <p className="cart-summary-note">
-              Chọn tối đa 50 dịch vụ. Số lượng được chọn phải là số nguyên dương.
+              Tối đa 50 dịch vụ mỗi đơn.
             </p>
 
             <div className="cart-summary-action">
@@ -342,9 +341,7 @@ export function ServicesPage() {
               <option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản qua QR payOS</option>
             </select>
           </label>
-          <p className="order-review-disclaimer">
-            Tổng dự kiến: {money(decimal(total))}. Giá chính thức được chốt khi gửi đơn.
-          </p>
+
         </div>
 
         {create.error && (
@@ -405,7 +402,7 @@ function OrderContents({ order: o, showPayment = true }: { order: Order; showPay
       </div>
 
       <div className="order-locked-total-row">
-        <span>Tổng giá đã chốt:</span>
+        <span>Tổng tiền:</span>
         <strong>{money(o.totalAmount)}</strong>
       </div>
     </div>

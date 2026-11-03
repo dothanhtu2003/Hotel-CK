@@ -246,7 +246,7 @@ export function ReceptionBookingDetailPage() {
             <CardContent className="space-y-4 text-sm">
               <div className="rounded-xl bg-brand-50 p-4 text-brand-900">
                 <p className="font-semibold">{deskBookingStatusLabel(b)}</p>{awaitingOnlinePayment(b) && <p className="mt-1 text-sm">Khách chưa thanh toán tiền phòng qua payOS. Booking chỉ được xác nhận và nhận phòng sau khi thanh toán đủ.</p>}
-                
+
               </div>
               <dl className="grid grid-cols-2 gap-4">
                 <div><dt className="text-xs text-zinc-500">Khách hàng</dt><dd className="mt-1 font-semibold">{guestName}</dd></div>
@@ -456,7 +456,7 @@ export function ReceptionBookingDetailPage() {
               </div>
               {onlineReceipts.length > 0 && <div className="space-y-1 text-xs text-emerald-800" aria-label="Biên nhận payOS">
                 {onlineReceipts.map(receipt => <p key={receipt.id}>Đã nhận qua payOS: <strong>{money(receipt.amount)}</strong>{receipt.paidAt ? ` · ${new Date(receipt.paidAt).toLocaleString('vi-VN')}` : ''}</p>)}
-                <p>Tiền phòng đã trả được trừ vào hóa đơn, không thu lại.</p>
+
               </div>}
             </div>
 

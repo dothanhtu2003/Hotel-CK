@@ -63,7 +63,7 @@ export function ReservationPanels({ bookingId }: { bookingId: string }) {
                 <dd>{money(preview.data!.totalAmount)}</dd>
               </div>
             </dl>
-            {preview.data!.counterPaidAmount && <p>Dịch vụ đã thu riêng: {money(preview.data!.counterPaidAmount)} (không thu lại khi trả phòng).</p>}
+            {preview.data!.counterPaidAmount && <p>Dịch vụ đã thu riêng: {money(preview.data!.counterPaidAmount)}.</p>}
             <p>{preview.data!.pendingOrderCount} đơn dịch vụ chờ xử lý.</p>
             <Link to={`${base}/bookings/${bookingId}/billing`}>
               Chi phí & hóa đơn →

@@ -171,7 +171,7 @@ export function ReceptionBillingPage() {
                 Dịch vụ đã thu riêng tại quầy
               </h2>
               <p className="text-xs text-emerald-800">
-                <strong>{money(p.counterPaidAmount!)}</strong> · Không nằm trong tổng hóa đơn phòng và không thu lại khi trả phòng.
+                <strong>{money(p.counterPaidAmount!)}</strong>
               </p>
             </section>
           )}

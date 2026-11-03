@@ -40,9 +40,8 @@ export function BookingPayment({ booking }: { booking: Booking }) {
     <h2>Thanh toán toàn bộ tiền phòng</h2>
     {state.data?.paymentReview && <p role="alert">Đã nhận {money(state.data.receivedAmount ?? '0')} nhưng cần đối soát/hoàn tiền. Lễ tân đã có thông tin để xử lý. Vui lòng không thanh toán thêm.</p>}
     {expired ? <p role="status">Đã hết hạn thanh toán, phòng đã được giải phóng. Vui lòng đặt lại nếu bạn vẫn muốn lưu trú.</p> : !state.data?.paid && booking.status === 'PENDING' && <p role="status">{checking ? 'Đã hết thời gian thanh toán. Hệ thống đang đối soát trước khi giải phóng phòng.' : remaining !== null ? `Thời gian giữ phòng còn lại: ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}` : 'Đang tải hạn giữ phòng…'}</p>}
-    {state.data?.paid ? <p role="status">Đã thanh toán {money(state.data.paidAmount)} tiền phòng. Khoản này được trừ vào hóa đơn cuối kỳ. Dịch vụ phát sinh thanh toán riêng.</p> : <>
-      <p>Thanh toán <strong>{money(booking.totalRoomAmount)}</strong> qua payOS để xác nhận đặt phòng. Booking chỉ được xác nhận sau khi nhận đủ tiền phòng.</p>
-      <p>Dịch vụ phát sinh được tính riêng khi trả phòng.</p>
+    {state.data?.paid ? <p role="status">Đã thanh toán tiền phòng: {money(state.data.paidAmount)}.</p> : <>
+      <p>Thanh toán <strong>{money(booking.totalRoomAmount)}</strong> để xác nhận đặt phòng.</p>
       {booking.status === 'PENDING' && !expired && <div className="guest-actions">
         <Button busy={start.isPending} disabled={sync.isFetching || checking || !!state.data?.paymentReview || state.isPending} onClick={() => start.mutate()}>Thanh toán ngay qua payOS</Button>
         <Button variant="secondary" busy={sync.isFetching} disabled={start.isPending} onClick={() => void sync.refetch()}>Kiểm tra thanh toán</Button>

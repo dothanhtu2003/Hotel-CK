@@ -71,7 +71,7 @@ export function RoomRequestsDrawer({
               </div>
               <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
                 <span className="inline-block size-2 rounded-full bg-emerald-500 animate-pulse" />
-                Tự động đồng bộ mỗi 5s · Ưu tiên đơn gửi trước
+                Yêu cầu mới nhất từ khách
               </p>
             </div>
           </div>

@@ -583,7 +583,7 @@ export function CreateServiceOrder({
                   <option value="BANK_TRANSFER">Thanh toán ngay · Chuyển khoản</option>
                 </select>
               </label>
-              {settlement !== 'ROOM' ? <label className="flex items-start gap-2 text-xs text-zinc-600"><input type="checkbox" required disabled={busy} checked={paymentVerified} onChange={event => setVerifiedReceipt(event.target.checked ? receiptFingerprint : '')} />Tôi đã nhận và kiểm tra đủ {totalDisplay}. Khoản này không thu lại khi trả phòng.</label> : <p className="text-xs text-zinc-500">Ghi nhận ngay vào hóa đơn phòng, không cần xác nhận hoàn thành.</p>}
+              {settlement !== 'ROOM' ? <label className="flex items-start gap-2 text-xs text-zinc-600"><input type="checkbox" required disabled={busy} checked={paymentVerified} onChange={event => setVerifiedReceipt(event.target.checked ? receiptFingerprint : '')} />Đã nhận đủ {totalDisplay}.</label> : <p className="text-xs text-zinc-500">Thanh toán cùng hóa đơn phòng.</p>}
               <div className="flex items-baseline justify-between pt-1">
                 <div>
                   <span className="text-xs sm:text-sm text-zinc-500 font-medium">Tổng tiền dự kiến:</span>
