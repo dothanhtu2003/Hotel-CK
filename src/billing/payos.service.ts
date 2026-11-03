@@ -217,9 +217,13 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async serviceOrder(id: string, actor?: PublicUser) {
-    if (actor && !['RECEPTIONIST', 'ADMIN'].includes(actor.role)) throw new BadRequestException('Staff required');
+    if (actor && !['GUEST', 'RECEPTIONIST', 'ADMIN'].includes(actor.role)) throw new BadRequestException('Staff required');
     const order = await this.prisma.client.serviceOrder.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('Service order not found');
+    if (actor?.role === 'GUEST') {
+      const owned = await this.prisma.client.booking.findFirst({ where: { id: order.bookingId, userId: actor.id } });
+      if (!owned || !order.requestedPaymentMethod) throw new NotFoundException('Service order not found');
+    }
     return order;
   }
 
@@ -244,7 +248,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       const booking = await tx.booking.findUniqueOrThrow({ where: { id: target.bookingId }, select: { status: true, invoice: { select: { id: true } } } });
       const order = await tx.serviceOrder.findUniqueOrThrow({ where: { id } });
       if (order.paymentMethod) return;
-      if (booking.status !== 'CHECKED_IN' || booking.invoice || order.status === 'CANCELLED') throw new ConflictException('Đơn dịch vụ không còn được thanh toán riêng');
+      if (booking.status !== 'CHECKED_IN' || (booking.invoice && !order.requestedPaymentMethod) || order.status === 'CANCELLED') throw new ConflictException('Đơn dịch vụ không còn được thanh toán riêng');
       if (order.payosStatus === 'CLOSED' && order.payosOrderCode !== renewableCode) throw new ConflictException('Giao dịch đã thay đổi. Vui lòng tải lại');
       if (!order.totalAmount.isInteger() || !Number.isSafeInteger(order.totalAmount.toNumber()) || order.totalAmount.lte(0)) throw new ConflictException('payOS yêu cầu số tiền nguyên VND dương');
       if (!order.payosOrderCode || order.payosStatus === 'CLOSED') await tx.serviceOrder.update({ where: { id }, data: { payosCheckoutUrl: null, payosQrCode: null, payosOrderCode: (2n << 48n) + BigInt(randomBytes(6).readUIntBE(0, 6)), payosStatus: 'PENDING', payosCreatedBy: actor.id } });
@@ -257,7 +261,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       if (!order.payosOrderCode || order.payosStatus !== 'PENDING') throw new ConflictException('Giao dịch đã thay đổi');
       if (order.payosCheckoutUrl) return { paid: false, checkoutUrl: order.payosCheckoutUrl, qrCode: order.payosQrCode ?? order.payosCheckoutUrl };
       let qrCode: string | undefined;
-      const checkoutUrl = await this.createLink(Number(order.payosOrderCode), order.totalAmount.toNumber(), `/reception/service-orders/${id}`, undefined, qr => { qrCode = qr; });
+      const checkoutUrl = await this.createLink(Number(order.payosOrderCode), order.totalAmount.toNumber(), actor.role === 'GUEST' ? '/guest/service-orders' : `/reception/service-orders/${id}`, undefined, qr => { qrCode = qr; });
       await tx.serviceOrder.update({ where: { id }, data: { payosCheckoutUrl: checkoutUrl, payosQrCode: qrCode ?? checkoutUrl } });
       return { paid: false, checkoutUrl, qrCode: qrCode ?? checkoutUrl };
     }, { timeout: 25000 });

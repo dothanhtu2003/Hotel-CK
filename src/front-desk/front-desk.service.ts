@@ -26,6 +26,10 @@ import type {
   WalkInDto,
 } from "./desk.dto.js";
 
+const serviceRequestsWhere: Prisma.ServiceOrderWhereInput = { OR: [
+  { status: 'PENDING' },
+  { status: 'COMPLETED', requestedPaymentMethod: { not: null }, deliveredAt: null },
+] };
 export function hotelDay(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -223,7 +227,7 @@ export class FrontDeskService {
           tx.room.count({
             where: { housekeepingStatus: { in: ["DIRTY", "CLEANING"] } },
           }),
-          tx.serviceOrder.count({ where: { status: "PENDING" } }),
+          tx.serviceOrder.count({ where: serviceRequestsWhere }),
           tx.booking.count({ where: { status: "PENDING" } }),
           tx.booking.findMany({
             where: deskWhere({ view: "arrivals" } as DeskQuery, today),
@@ -410,7 +414,7 @@ export class FrontDeskService {
         { user: { fullName: { contains: q.q.trim(), mode: 'insensitive' } } },
       ] } } : {}),
       ...(q.date ? { orderedAt: { gte: new Date(`${q.date}T00:00:00+07:00`), lt: new Date(new Date(`${q.date}T00:00:00+07:00`).getTime() + 86400000) } } : {}),
-      ...(q.status ? { status: q.status } : {}),
+      ...(q.status === "PENDING" ? serviceRequestsWhere : q.status ? { status: q.status } : {}),
       ...(q.bookingId ? { bookingId: q.bookingId } : {}),
     };
     return this.prisma.client.$transaction(
@@ -427,15 +431,15 @@ export class FrontDeskService {
           take: q.pageSize,
           skip: (q.page - 1) * q.pageSize,
         });
-        const counts = await tx.serviceOrder.groupBy({ by: ['status'], where: { ...where, status: undefined }, _count: { _all: true } });
+        const counts = await tx.serviceOrder.groupBy({ by: ['status'], where: { ...where, status: undefined, OR: undefined }, _count: { _all: true } });
         return {
-          counts: Object.fromEntries(counts.map(row => [row.status, row._count._all])),
+          counts: { ...Object.fromEntries(counts.map(row => [row.status, row._count._all])), PENDING: await tx.serviceOrder.count({ where: { ...where, status: undefined, ...serviceRequestsWhere } }) },
           data: rows.map(({ booking, ...o }) => ({
             ...orderView(o),
             reference: booking.reference,
             roomNumber: booking.room.roomNumber,
             customerName: booking.user.fullName,
-            canProcess: booking.status === "CHECKED_IN" && !booking.invoice,
+            canProcess: booking.status === "CHECKED_IN" && (!booking.invoice || !!o.requestedPaymentMethod),
           })),
           meta: paginationMeta(q, await tx.serviceOrder.count({ where })),
         };

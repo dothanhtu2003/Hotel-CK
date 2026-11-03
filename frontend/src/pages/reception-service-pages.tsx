@@ -136,7 +136,7 @@ export function ReceptionOrdersPage() {
             }`}
             onClick={() => update("status", "PENDING")}
           >
-            Yêu cầu từ khách ({query.data?.counts.PENDING ?? "…"})
+            Cần xử lý ({query.data?.counts.PENDING ?? "…"})
           </button>
           <button
             type="button"
@@ -428,7 +428,7 @@ export function ReceptionOrderDetailPage() {
     o.status !== "CANCELLED" &&
     booking.data?.status === "CHECKED_IN" &&
     invoice.isSuccess &&
-    invoice.data === null;
+    (invoice.data === null || !!o.requestedPaymentMethod);
 
   const roomNum = booking.data?.roomNumber ?? "—";
   const customer = booking.data?.customer;
@@ -628,6 +628,12 @@ export function ReceptionOrderDetailPage() {
               <p className="text-xs text-zinc-600 leading-relaxed">
                 {o.status === 'CANCELLED'
                   ? (o.refundedAt ? 'Đơn đã hủy và đã ghi nhận hoàn đủ tiền cho khách.' : 'Đơn đã hủy, không tính phí.')
+                  : o.requestedPaymentMethod && o.paymentMethod
+                  ? (o.deliveredAt ? 'Đã thanh toán và đã giao dịch vụ cho khách.' : `Đã thanh toán. Cần mang dịch vụ lên phòng ${roomNum}.`)
+                  : o.requestedPaymentMethod === 'CASH'
+                  ? 'Khách chọn tiền mặt. Bấm “Nhận tiền và giao hàng” sau khi đã nhận đủ tiền và giao dịch vụ cho khách.'
+                  : o.requestedPaymentMethod === 'BANK_TRANSFER'
+                  ? 'Khách chọn chuyển khoản. Đang chờ xác nhận thanh toán payOS.'
                   : o.paymentMethod
                   ? 'Đã thu tại quầy. Khoản này không cộng vào hóa đơn phòng và không thu lại khi trả phòng.'
                   : o.status === 'PENDING'

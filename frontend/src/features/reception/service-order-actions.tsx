@@ -7,6 +7,7 @@ import { deskError } from './contracts';
 import { useRefreshDesk } from './queries';
 
 export function ServiceOrderActions({ order }: { order: Order }) {
+  const [delivering, setDelivering] = useState(false);
   const [action, setAction] = useState<'settle' | 'cancel' | null>(null);
   const [settlement, setSettlement] = useState<'ROOM' | 'CASH' | 'BANK_TRANSFER'>('ROOM');
   const [verified, setVerified] = useState(false);
@@ -18,7 +19,24 @@ export function ServiceOrderActions({ order }: { order: Order }) {
   const refund = action === 'cancel' && !!order.paymentMethod;
   const verificationRequired = refund || (action === 'settle' && settlement === 'CASH');
   return <>
-    {!order.paymentMethod && <Button variant={order.status === 'PENDING' ? 'primary' : 'secondary'} className="text-xs px-3 py-1.5 rounded-lg shadow-2xs" onClick={() => { setAction('settle'); setSettlement(order.payosStatus === 'PENDING' ? 'BANK_TRANSFER' : order.status === 'PENDING' ? 'ROOM' : 'CASH'); setVerified(false); setError(''); }}>{order.status === 'PENDING' ? 'Ghi nhận đơn' : 'Thu tiền ngay'}</Button>}
+    {order.requestedPaymentMethod && (order.paymentMethod || (order.requestedPaymentMethod === 'CASH' && order.payosStatus !== 'PENDING')) && !order.deliveredAt && <>
+      <span className="text-sm font-semibold text-amber-800">{order.paymentMethod ? "Cần giao dịch vụ cho khách" : ""}</span>
+      <Button busy={delivering} onClick={async () => {
+        if (lock.current) return; lock.current = true; setDelivering(true); setError('');
+        try {
+          const cash = !order.paymentMethod;
+          await api.request(`/service-orders/${order.id}/${cash ? 'collect-and-deliver' : 'deliver'}`, { method: 'PATCH', ...(cash ? { body: { settlement: 'CASH', paymentVerified: true, expectedAmount: order.totalAmount } } : {}) });
+          await refresh();
+        }
+        catch (caught) { setError(deskError(caught instanceof Error ? caught : new Error('Không thể xác nhận giao dịch vụ.'))); }
+        finally { lock.current = false; setDelivering(false); }
+      }}>{order.paymentMethod ? 'Giao hàng' : 'Nhận tiền và giao hàng'}</Button>
+    </>}
+    {order.deliveredAt && <span className="text-sm text-emerald-700">Đã giao dịch vụ</span>}
+    {error && action === null && <p role="alert">{error}</p>}
+
+    {order.requestedPaymentMethod && order.paymentMethod && <span className="text-sm text-emerald-700">Đã thanh toán</span>}
+    {!order.paymentMethod && (order.requestedPaymentMethod !== 'CASH' || order.payosStatus === 'PENDING') && <Button variant={order.status === 'PENDING' ? 'primary' : 'secondary'} className="text-xs px-3 py-1.5 rounded-lg shadow-2xs" onClick={() => { setAction('settle'); setSettlement(order.payosStatus === 'PENDING' ? 'BANK_TRANSFER' : order.requestedPaymentMethod ?? (order.status === 'PENDING' ? 'ROOM' : 'CASH')); setVerified(false); setError(''); }}>{order.requestedPaymentMethod === 'CASH' ? 'Xác nhận thu tiền' : order.status === 'PENDING' ? 'Ghi nhận đơn' : 'Thu tiền ngay'}</Button>}
     <Button variant="secondary" className="text-xs px-3 py-1.5 rounded-lg" onClick={() => { setAction('cancel'); setVerified(false); setError(''); }}>{order.paymentMethod ? 'Hủy & hoàn tiền' : 'Hủy đơn'}</Button>
     <Dialog open={action !== null} title={action === 'cancel' ? (refund ? 'Hủy đơn và ghi nhận hoàn tiền' : 'Hủy đơn dịch vụ') : 'Thanh toán đơn dịch vụ'} onClose={() => { if (!lock.current) setAction(null); }}>
       <form className="space-y-4" onSubmit={async event => {
@@ -35,7 +53,7 @@ export function ServiceOrderActions({ order }: { order: Order }) {
         <p>Đơn #{order.id.slice(0, 8)} · <strong>{money(order.totalAmount)}</strong></p>
         {action === 'settle' && <label className="block text-sm space-y-1">Cách thanh toán
           <select aria-label="Cách thanh toán" className="input w-full" value={settlement} disabled={busy} onChange={event => { setSettlement(event.target.value as typeof settlement); setVerified(false); }}>
-            {order.status === 'PENDING' && <option value="ROOM" disabled={order.payosStatus === 'PENDING'}>Ghi vào hóa đơn phòng</option>}
+            {order.status === 'PENDING' && !order.requestedPaymentMethod && <option value="ROOM" disabled={order.payosStatus === 'PENDING'}>Ghi vào hóa đơn phòng</option>}
             <option value="CASH" disabled={order.payosStatus === 'PENDING'}>Thanh toán ngay · Tiền mặt</option>
             <option value="BANK_TRANSFER">Thanh toán ngay · Chuyển khoản</option>
           </select>
@@ -43,7 +61,7 @@ export function ServiceOrderActions({ order }: { order: Order }) {
         {action === 'settle' && settlement === 'BANK_TRANSFER' && <BankTransferQr orderId={order.id} amount={order.totalAmount} onPaid={() => setAction(null)} onClosed={() => setSettlement('CASH')} />}
         {verificationRequired ? <label className="flex items-start gap-2 text-sm"><input type="checkbox" required disabled={busy} checked={verified} onChange={event => setVerified(event.target.checked)} />{refund ? `Tôi đã hoàn đủ ${money(order.totalAmount)} cho khách. Thao tác này chỉ ghi nhận, không tự chuyển tiền.` : `Tôi đã nhận và kiểm tra đủ ${money(order.totalAmount)}. Khoản này sẽ không thu lại khi trả phòng.`}</label> : settlement === 'BANK_TRANSFER' && action === 'settle' ? null : <p className="text-sm text-zinc-500">{action === 'cancel' ? 'Đơn sẽ được hủy và không tính phí vào hóa đơn phòng.' : 'Khoản dịch vụ sẽ được ghi vào hóa đơn phòng để thanh toán sau.'}</p>}
         {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
-        <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={busy} onClick={() => setAction(null)}>Đóng</Button><Button type="submit" busy={busy} disabled={(verificationRequired && !verified) || (action === 'settle' && settlement === 'BANK_TRANSFER')}>{action === 'cancel' ? (refund ? 'Xác nhận đã hoàn tiền & hủy' : 'Xác nhận hủy') : 'Lưu thanh toán'}</Button></div>
+        <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={busy} onClick={() => setAction(null)}>Đóng</Button><Button type="submit" busy={busy} disabled={(verificationRequired && !verified) || (action === 'settle' && settlement === 'BANK_TRANSFER')}>{action === 'cancel' ? (refund ? 'Xác nhận đã hoàn tiền & hủy' : 'Xác nhận hủy') : order.requestedPaymentMethod === 'CASH' ? 'Xác nhận thu tiền' : 'Lưu thanh toán'}</Button></div>
       </form>
     </Dialog>
   </>;

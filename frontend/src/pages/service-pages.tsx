@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { BankTransferQr } from '../features/reception/bank-transfer-qr';
+import { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -42,15 +43,14 @@ export function ServicesPage() {
   const catalog = useServices();
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [confirm, setConfirm] = useState(false);
+  const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
   const qc = useQueryClient();
   const toast = useToast();
 
   const bookingId = selected || stays.data?.[0]?.id || '';
-  const invoice = useInvoice(bookingId);
-  const eligible =
-    stays.data?.some((b) => b.id === bookingId) &&
-    invoice.isSuccess &&
-    !invoice.data;
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH');
+  const requestId = useRef<string | null>(null);
+  const eligible = stays.data?.some((b) => b.id === bookingId);
 
   const items = Object.entries(quantities)
     .filter(([, q]) => q > 0)
@@ -93,9 +93,11 @@ export function ServicesPage() {
     mutationFn: () =>
       api.request<Order>('/service-orders', {
         method: 'POST',
-        body: { bookingId, items },
+        body: { bookingId, items, requestedPaymentMethod: paymentMethod, requestId: requestId.current ??= crypto.randomUUID() },
       }),
-    onSuccess: () => {
+    onSuccess: (order) => {
+      if (order.requestedPaymentMethod === 'BANK_TRANSFER') setPaymentOrder(order);
+      requestId.current = null;
       setConfirm(false);
       setQuantities({});
       toast('Đã gửi đơn dịch vụ thành công.');
@@ -161,18 +163,6 @@ export function ServicesPage() {
               </p>
             )}
 
-            {invoice.isPending && bookingId && <Skeleton />}
-            {invoice.error && (
-              <ErrorState
-                message={invoice.error.message}
-                retry={() => void invoice.refetch()}
-              />
-            )}
-            {invoice.data && (
-              <p className="notice">
-                Booking đã có hóa đơn nên không thể đặt thêm dịch vụ.
-              </p>
-            )}
           </div>
 
           {/* Service Menu Grid */}
@@ -277,6 +267,7 @@ export function ServicesPage() {
               <Button
                 disabled={!eligible || !valid || create.isPending}
                 onClick={() => {
+                  requestId.current = null;
                   create.reset();
                   setConfirm(true);
                 }}
@@ -297,8 +288,9 @@ export function ServicesPage() {
                 <CheckCircle2 size={24} className="text-emerald-700" />
                 <h2>Đơn dịch vụ đã được tạo</h2>
               </div>
-              <OrderContents order={create.data} />
+              <OrderContents key={create.data.id} order={create.data} showPayment={false} />
               <div className="order-created-actions">
+                {create.data.requestedPaymentMethod === 'BANK_TRANSFER' && !create.data.paymentMethod && <Button onClick={() => setPaymentOrder(create.data)}>Mở QR thanh toán</Button>}
                 <LinkButton to="/guest/service-orders">
                   Xem đơn dịch vụ
                 </LinkButton>
@@ -308,6 +300,10 @@ export function ServicesPage() {
         </>
       )}
 
+      {paymentOrder && <Dialog open title="Thanh toán dịch vụ qua payOS" onClose={() => setPaymentOrder(null)}>
+        <OrderContents key={paymentOrder.id} order={paymentOrder} />
+        <div className="dialog-actions"><Button variant="secondary" onClick={() => setPaymentOrder(null)}>Đóng</Button></div>
+      </Dialog>}
       {/* Confirmation Dialog */}
       <Dialog
         open={confirm}
@@ -341,6 +337,11 @@ export function ServicesPage() {
             <span>Tổng dự kiến:</span>
             <strong>{money(decimal(total))}</strong>
           </div>
+          <label className="filter-label">Cách thanh toán
+            <select aria-label="Cách thanh toán" className="input" value={paymentMethod} disabled={create.isPending} onChange={event => setPaymentMethod(event.target.value as 'CASH' | 'BANK_TRANSFER')}>
+              <option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản qua QR payOS</option>
+            </select>
+          </label>
           <p className="order-review-disclaimer">
             Tổng dự kiến: {money(decimal(total))}. Giá chính thức được chốt khi gửi đơn.
           </p>
@@ -381,11 +382,16 @@ export function ServicesPage() {
 /* ========================================================
    ORDER CONTENTS COMPONENT
    ======================================================== */
-function OrderContents({ order: o }: { order: Order }) {
+function OrderContents({ order: o, showPayment = true }: { order: Order; showPayment?: boolean }) {
+  const [paid, setPaid] = useState(false);
   return (
     <div className="guest-order-contents-block">
       <div className="order-badge-row">
         <GuestBadge status={o.status} />
+        {o.status !== 'CANCELLED' && o.requestedPaymentMethod && <p>{(o.paymentMethod || paid) ? 'Đã thanh toán' : o.requestedPaymentMethod === 'CASH' ? 'Chờ thu tiền mặt' : 'Chờ thanh toán chuyển khoản'}</p>}
+        {o.status !== 'CANCELLED' && !o.paymentMethod && o.requestedPaymentMethod === 'CASH' && <p>Vui lòng thanh toán cho nhân viên giao dịch vụ hoặc tại quầy lễ tân.</p>}
+        {showPayment && o.status !== 'CANCELLED' && !o.paymentMethod && !paid && o.requestedPaymentMethod === 'BANK_TRANSFER' && <BankTransferQr orderId={o.id} amount={o.totalAmount} guest onPaid={() => setPaid(true)} onClosed={() => {}} />}
+
       </div>
 
       <div className="order-items-breakdown">
@@ -461,7 +467,7 @@ function OrderCard({ order: o }: { order: Order }) {
       {o.status === 'PENDING' &&
         booking.data?.status === 'CHECKED_IN' &&
         invoice.isSuccess &&
-        !invoice.data && (
+        (!invoice.data || !!o.requestedPaymentMethod) && !o.paymentMethod && o.payosStatus !== 'PENDING' && (
           <div className="order-actions-bar">
             <Button
               variant="secondary"

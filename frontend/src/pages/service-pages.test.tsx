@@ -182,3 +182,28 @@ it('MyServiceOrdersPage renders order cards with clean heading, items breakdown 
   expect(screen.getByText('165.000 ₫')).toBeTruthy();
   expect(await screen.findByRole('button', { name: 'Hủy đơn dịch vụ' })).toBeTruthy();
 });
+
+
+it.each(['CASH', 'BANK_TRANSFER'] as const)('lets an invoiced in-house guest order with %s', async requestedPaymentMethod => {
+  const request = vi.spyOn(api, 'request').mockImplementation(async (path, options) => {
+    if (path.endsWith('/payos/sync')) return { paid: false, closed: false };
+    if (path.endsWith('/payos')) return { paid: false, checkoutUrl: 'https://pay.payos.vn/web/test', qrCode: 'payload' };
+    if (path === '/service-orders' && options?.method === 'POST') return { ...mockOrder, requestedPaymentMethod };
+    if (path.includes('/bookings/my')) return { data: [mockBooking], meta: { totalPages: 1 } };
+    if (path.includes('/services')) return { data: mockServices, meta: { totalPages: 1 } };
+    if (path.includes('/invoice')) return { id: 'paid-room-invoice', status: 'PAID' };
+    return { data: [], meta: { totalPages: 1 } };
+  });
+  renderServices(<ServicesPage />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Tăng số lượng Cà phê Phin An Nhiên' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Xem lại đơn dịch vụ' }));
+  fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: requestedPaymentMethod } });
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đặt dịch vụ' }));
+  await screen.findByText('Đơn dịch vụ đã được tạo');
+  expect(request).toHaveBeenCalledWith('/service-orders', expect.objectContaining({ method: 'POST', body: expect.objectContaining({ requestedPaymentMethod, requestId: expect.any(String) }) }));
+  if (requestedPaymentMethod === 'CASH') expect(screen.getByText('Chờ thu tiền mặt')).toBeTruthy();
+  else {
+    expect(await screen.findByRole('dialog', { name: 'Thanh toán dịch vụ qua payOS' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: 'Mở trang thanh toán payOS' })).toBeTruthy();
+  }
+});

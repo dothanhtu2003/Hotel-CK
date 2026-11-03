@@ -205,6 +205,8 @@ model Service {
 }
 
 model ServiceOrder {
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(3)
+  requestedPaymentMethod PaymentMethod? @map("requested_payment_method")
   payosOrderCode BigInt? @unique @map("payos_order_code")
   payosCheckoutUrl String? @map("payos_checkout_url")
   payosQrCode String? @map("payos_qr_code")

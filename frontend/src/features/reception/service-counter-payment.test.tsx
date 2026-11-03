@@ -96,3 +96,22 @@ it('closes the payment dialog after payOS confirms funds', async () => {
   fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: 'BANK_TRANSFER' } });
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
+
+
+it('collects cash and records delivery with one click', async () => {
+  const request = vi.spyOn(api, 'request').mockResolvedValue(order);
+  mount(<ServiceOrderActions order={{ ...order, requestedPaymentMethod: 'CASH' }} />);
+  expect(screen.queryByText('Chờ thu tiền mặt')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Nhận tiền và giao hàng' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  await waitFor(() => expect(request).toHaveBeenCalledWith('/service-orders/order-1/collect-and-deliver', { method: 'PATCH', body: { settlement: 'CASH', paymentVerified: true, expectedAmount: '45000.00' } }));
+});
+
+it('keeps paid guest services actionable until delivery is confirmed', async () => {
+  const request = vi.spyOn(api, 'request').mockResolvedValue(order);
+  mount(<ServiceOrderActions order={{ ...order, requestedPaymentMethod: 'BANK_TRANSFER', paymentMethod: 'BANK_TRANSFER', paidAt: '2026-11-03T01:00:00Z' }} />);
+  expect(screen.getByText('Cần giao dịch vụ cho khách')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Thu tiền ngay' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Giao hàng' }));
+  await waitFor(() => expect(request).toHaveBeenCalledWith('/service-orders/order-1/deliver', { method: 'PATCH' }));
+});

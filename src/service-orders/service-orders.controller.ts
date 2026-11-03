@@ -36,6 +36,12 @@ export class ServiceOrdersController {
   @ApiBody({ required: false, schema: { type: 'object', additionalProperties: false } }) @ApiOkResponse({ type: ServiceOrderResponseDto })
   complete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body(new EmptyBodyPipe()) _body: unknown) { return this.orders.transition(id, user, 'complete'); }
 
+  @Patch(':id/collect-and-deliver') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  collectAndDeliver(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body() dto: SettleServiceOrderDto) { return this.orders.deliver(id, user, dto); }
+
+  @Patch(':id/deliver') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  deliver(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.orders.deliver(id, user); }
+
   @Patch(':id/settle') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store') @ApiOkResponse({ type: ServiceOrderResponseDto })
   settle(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body() dto: SettleServiceOrderDto) { return this.orders.settle(id, user, dto); }
 

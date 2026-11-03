@@ -4,6 +4,7 @@ import { ArrowRight, BellRing, CheckCircle2, Clock, ExternalLink, Receipt, User 
 import { api } from '../../lib/api';
 import { Dialog } from '../../components/ui';
 import { money, type Booking, type Order, type Page } from '../guest/contracts';
+import { serviceOrderLabel } from './service-order-label';
 import { ServiceOrderActions } from './service-order-actions';
 import { useDeskBase } from './queries';
 
@@ -30,7 +31,7 @@ export function useRoomRequests() {
       })));
       return orders.sort((a, b) => a.orderedAt.localeCompare(b.orderedAt));
     },
-    refetchInterval: 30000,
+    refetchInterval: 5000,
   });
 }
 
@@ -70,7 +71,7 @@ export function RoomRequestsDrawer({
               </div>
               <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
                 <span className="inline-block size-2 rounded-full bg-emerald-500 animate-pulse" />
-                Tự động đồng bộ mỗi 30s · Ưu tiên đơn gửi trước
+                Tự động đồng bộ mỗi 5s · Ưu tiên đơn gửi trước
               </p>
             </div>
           </div>
@@ -206,6 +207,7 @@ export function RoomRequestsDrawer({
                     Xem chi tiết đơn
                   </Link>
 
+                  <span className="text-sm font-semibold text-amber-800">{serviceOrderLabel(order)}</span>
                   {order.canProcess && (
                     <ServiceOrderActions order={order} />
                   )}

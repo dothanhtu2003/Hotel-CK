@@ -75,6 +75,11 @@ describe('ServiceOrdersService trusted transaction boundary', () => {
     await expect(f.service.create({ id: 'staff', role: 'HOUSEKEEPING' }, { bookingId: 'booking-id', items: [{ serviceId: 'service-id', quantity: 1 }] })).rejects.toBeInstanceOf(ForbiddenException);
     expect(f.createOrder).not.toHaveBeenCalled();
   });
+  it.each(['CASH', 'BANK_TRANSFER'] as const)('allows separate %s requests after invoicing without recording money', async requestedPaymentMethod => {
+    const f = fixture('CHECKED_IN', { id: 'invoice-id' });
+    await f.service.create({ id: 'guest', role: 'GUEST' }, { bookingId: 'booking-id', requestedPaymentMethod, items: [{ serviceId: 'service-id', quantity: 1 }] });
+    expect(f.createOrder).toHaveBeenCalledWith({ data: { bookingId: 'booking-id', requestedPaymentMethod }, select: { id: true } });
+  });
   it('denies a checked-in stay with invoice before inserting any order', async () => {
     const f = fixture('CHECKED_IN', { id: 'invoice-id' });
     await expect(f.service.create({ id: 'guest', role: 'GUEST' }, { bookingId: 'booking-id', items: [{ serviceId: 'service-id', quantity: 1 }] })).rejects.toBeInstanceOf(ConflictException);
