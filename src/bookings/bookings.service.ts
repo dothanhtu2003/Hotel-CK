@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { nextBookingReference } from './booking-reference.js';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
@@ -23,7 +24,7 @@ export class BookingsService {
     throw new ForbiddenException('Insufficient permissions');
   }
 
-  async create(actor: Actor, dto: CreateBookingDto) {
+  async create(actor: Actor, dto: CreateBookingDto, clientIp?: string) {
     if (actor.role !== 'GUEST') throw new ForbiddenException('Only guests may create their own bookings');
     const { start, end } = parseStay(dto.checkIn, dto.checkOut);
     if (dto.checkIn < hotelDay()) throw new BadRequestException('Ngày nhận phòng không được trước hôm nay. Vui lòng chọn lại ngày lưu trú.');
@@ -35,7 +36,7 @@ export class BookingsService {
       // Do not pre-SELECT availability or send any prices/status/user-supplied userId.
       // PostgreSQL trigger snapshots price and exclusion constraint arbitrates races.
       return await this.prisma.client.$transaction(async tx => bookingView(await tx.booking.create({
-        data: { reference: await nextBookingReference(tx), userId: actor.id, roomId: dto.roomId, checkInDate: start, checkOutDate: end, guestCount: dto.guests, onlinePaymentRequired: true }, select: bookingSelect,
+        data: { reference: await nextBookingReference(tx), userId: actor.id, roomId: dto.roomId, checkInDate: start, checkOutDate: end, guestCount: dto.guests, onlinePaymentRequired: true, ...(clientIp ? { clientIpHash:createHash('sha256').update(clientIp).digest('hex') } : {}) }, select: bookingSelect,
       })));
     } catch (error) { throwBookingError(error); }
   }

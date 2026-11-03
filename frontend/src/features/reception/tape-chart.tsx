@@ -1,10 +1,11 @@
+import { awaitingOnlinePayment, deskBookingStatusLabel } from './contracts';
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { ErrorState, Pagination } from "../../components/ui";
 import { Badge } from "../../components/kamra-ui";
 import { Skeleton } from "../guest/components";
-import { statusLabels, type Page } from "../guest/contracts";
+import { type Page } from "../guest/contracts";
 import type { DeskBooking, DeskRoom } from "./contracts";
 import { useDeskGet } from "./queries";
 import { bookingLanes, cleaningLabels, hotelToday, shiftDate } from "./room-state";
@@ -238,7 +239,7 @@ export function TapeChart({
                       <div className="absolute inset-0 flex items-center px-0.5">
                         {bars.map(({ booking: b, span, lane, kind }) => {
                           const overdueArrival = ['PENDING', 'CONFIRMED'].includes(b.status) && b.checkIn < today;
-                          const label = kind === 'overdue' ? 'Đang ở · Quá hạn trả phòng' : overdueArrival ? 'Quá hạn nhận phòng' : statusLabels[b.status];
+                          const label = kind === 'overdue' ? 'Đang ở · Quá hạn trả phòng' : awaitingOnlinePayment(b) ? 'Chờ thanh toán' : overdueArrival ? 'Quá hạn nhận phòng' : deskBookingStatusLabel(b);
                           const title = `${b.customer?.fullName ?? b.reference} · ${b.checkIn} → ${b.checkOut} (${b.nights} đêm) · ${label}`;
                           const barColor =
                             kind === 'overdue'

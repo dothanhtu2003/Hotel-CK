@@ -107,4 +107,63 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
     expect(invoice.body.status).toBe('PAID'); expect(invoice.body.balance).toBe('0.00');
     await api().post(`/api/invoices/${invoice.body.id}/payments`).auth(actors.staff.token, { type: 'bearer' }).set('Idempotency-Key', randomUUID()).send({ amount: '200000', method: 'CASH' }).expect(409);
   });
+  it('honors grace, closes links, releases the room, then restores a late payment exactly once if still available', async () => {
+    const b=await booking(); await start(b.id).expect(201);
+    const stored=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}});
+    const deadline=stored.holdExpiresAt!;
+    const link=await remote(b.id);
+    expect((link as unknown as {expiredAt:number}).expiredAt).toBe(Math.floor(deadline.getTime()/1000));
+    const service=ctx.app.get(PayosService);
+    await service.expireBooking(b.id,new Date(deadline.getTime()+119999));
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}})).holdState).toBe('ACTIVE');
+    await Promise.all([service.expireBooking(b.id,new Date(deadline.getTime()+120001)),service.expireBooking(b.id,new Date(deadline.getTime()+120001))]);
+    expect(link.status).toBe('CANCELLED');
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}}))).toMatchObject({status:'CANCELLED',holdState:'EXPIRED'});
+    link.status='PAID'; link.amountPaid=link.amount; link.amountRemaining=0;
+    await Promise.all([sync(b.id).expect(201),sync(b.id).expect(201)]);
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}}))).toMatchObject({status:'CONFIRMED',holdState:'PAID'});
+  });
+  it('keeps the room held on gateway errors and retries safely',async()=>{
+    const b=await booking(); await start(b.id).expect(201);
+    const stored=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}});
+    const attempt=await ctx.prisma.client.bookingPayment.findFirstOrThrow({where:{bookingId:b.id}});
+    const link=links.get(Number(attempt.payosOrderCode))!; links.delete(Number(attempt.payosOrderCode));
+    await expect(ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()+120001))).rejects.toThrow();
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}}))).toMatchObject({status:'PENDING',holdState:'CHECKING_PAYMENT'});
+    links.set(Number(attempt.payosOrderCode),link);
+    await ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()+190001));
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}})).status).toBe('CANCELLED');
+  });
+  it('routes late money to review if the expired room was sold again',async()=>{
+    const b=await booking(); await start(b.id).expect(201);
+    const stored=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}});
+    await ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()+120001));
+    await ctx.prisma.client.booking.create({data:{reference:randomUUID(),userId:actors.other.id,roomId:stored.roomId,checkInDate:stored.checkInDate,checkOutDate:stored.checkOutDate,guestCount:1}});
+    const link=await remote(b.id);link.status='PAID';link.amountPaid=link.amount;link.amountRemaining=0;
+    await sync(b.id).expect(201);await sync(b.id).expect(201);
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}})).status).toBe('CANCELLED');
+    expect(await ctx.prisma.client.bookingPayment.findFirstOrThrow({where:{bookingId:b.id}})).toMatchObject({reviewReason:'LATE_PAYMENT_ROOM_UNAVAILABLE'});
+    const review=await api().get('/api/payments/booking-reviews').auth(actors.staff.token,{type:'bearer'}).expect(200);
+    expect(review.body.payments.some((p:{bookingId:string})=>p.bookingId===b.id)).toBe(true);
+  });
+
+  it('expires a hold without a link, and keeps a paid booking when payment wins expiry',async()=>{
+    const b=await booking();
+    const stored=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}});
+    await ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()+120001));
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}})).holdState).toBe('EXPIRED');
+    const paid=await booking();await start(paid.id).expect(201);
+    const value=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:paid.id}});
+    const link=await remote(paid.id);link.status='PAID';link.amountPaid=link.amount;link.amountRemaining=0;
+    await Promise.all([ctx.app.get(PayosService).expireBooking(paid.id,new Date(value.holdExpiresAt!.getTime()+120001)),sync(paid.id).expect(201)]);
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:paid.id}})).status).toBe('CONFIRMED');
+  });
+
+  it('lets reception cancel an unpaid online booking through the normal cancel action',async()=>{
+    const b=await booking();await start(b.id).expect(201);
+    await action(b.id,'cancel').expect(200);
+    expect((await remote(b.id)).status).toBe('CANCELLED');
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}})).status).toBe('CANCELLED');
+  });
+
 });

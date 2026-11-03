@@ -21,3 +21,6 @@ GRANT UPDATE (status, checkout_url) ON hotel.payments, hotel.booking_payments TO
 -- No ownership, CREATE, DELETE, TRUNCATE, sequence, migration-table privileges,
 -- payment identity/amount or item UPDATE, role/status UPDATE on users, or catalog-price UPDATE.
 -- Trigger EXECUTE is checked at trigger creation; runtime needs no blanket grant.
+
+GRANT UPDATE (hold_state,payment_check_at) ON hotel.bookings TO hotel_runtime;
+GRANT UPDATE (received_amount,review_reason,review_resolved_at,refund_reference,resolved_by_id) ON hotel.booking_payments TO hotel_runtime;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { cents, type Booking, type Invoice } from '../guest/contracts';
+import { statusLabels, cents, type Booking, type Invoice } from '../guest/contracts';
 import { ApiError } from '../../lib/api-client';
 
 export type Customer = { id: string; fullName: string; email: string | null; phone: string | null };
@@ -30,9 +30,22 @@ export function deskError(error: Error, action = '') {
     if (action === 'check-in') return 'Chưa thể nhận phòng. Kiểm tra ngày lưu trú, khách đang hoạt động, phòng ACTIVE và CLEAN, không có công việc buồng phòng còn mở; trạng thái booking cũng có thể vừa thay đổi.';
     if (action === 'invoice') return 'Chưa thể phát hành: cần booking đang lưu trú, không còn đơn dịch vụ chờ và chưa có hóa đơn. Hãy tải lại dữ liệu.';
     if (action === 'check-out') return 'Chưa thể trả phòng: cần booking đang lưu trú, hóa đơn đã thanh toán đủ và không còn đơn dịch vụ chờ. Hãy tải lại dữ liệu.';
+    if (action === 'cancel') return 'Chưa thể hủy: giao dịch payOS đang xử lý hoặc đã nhận tiền. Kiểm tra thanh toán và thử lại; booking đã trả tiền cần xử lý hoàn tiền.';
     if (action === 'payment') return 'Khoản thu bị từ chối: số dư có thể đã thay đổi hoặc khóa yêu cầu đã được sử dụng. Kiểm tra lại hóa đơn và biên nhận trước khi tiếp tục.';
     return 'Trạng thái vừa thay đổi hoặc booking đã có hóa đơn. Hãy tải lại dữ liệu trước khi thao tác tiếp.';
   }
   if (error instanceof ApiError && (error.status === 0 || error.status >= 500)) return 'Chưa xác định thao tác đã được ghi nhận hay chưa. Hãy kiểm tra dữ liệu mới nhất trước khi gửi lại.';
   return error.message;
+}
+
+export function awaitingOnlinePayment(b: Pick<Booking, 'status' | 'onlinePaymentRequired'>) {
+  return b.status === 'PENDING' && b.onlinePaymentRequired === true;
+}
+export function deskBookingStatusLabel(b: Pick<Booking, 'status' | 'onlinePaymentRequired' | 'holdState'>) {
+  if (b.holdState === 'EXPIRED') return 'Hết hạn thanh toán';
+  if (b.holdState === 'CHECKING_PAYMENT') return 'Đang đối soát thanh toán';
+  if (awaitingOnlinePayment(b)) return 'Chờ thanh toán';
+  if (b.status === 'PENDING') return 'Chờ xác nhận';
+  if (b.status === 'CONFIRMED') return 'Chờ nhận phòng';
+  return statusLabels[b.status] ?? b.status;
 }

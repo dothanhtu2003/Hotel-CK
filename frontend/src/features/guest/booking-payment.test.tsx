@@ -24,7 +24,7 @@ it('keeps an unpaid booking payable and allows retry if the gateway fails', asyn
     if (path.endsWith('/payment-state')) return unpaid;
     throw new Error('offline');
   });
-  show(); fireEvent.click(screen.getByRole('button', { name: 'Thanh toán ngay qua payOS' }));
+  show(); await waitFor(() => expect((screen.getByRole('button', { name: 'Thanh toán ngay qua payOS' }) as HTMLButtonElement).disabled).toBe(false)); fireEvent.click(screen.getByRole('button', { name: 'Thanh toán ngay qua payOS' }));
   await screen.findByRole('alert');
   expect(request).toHaveBeenCalledWith('/bookings/booking/payos', { method: 'POST' });
   expect(screen.queryByText(/Đã thanh toán/)).toBeNull();

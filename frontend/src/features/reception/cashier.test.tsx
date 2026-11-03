@@ -13,12 +13,13 @@ describe("Cashier page", () => {
     const calls: string[] = [];
     vi.spyOn(api, "request").mockImplementation(async path => {
       calls.push(path);
+      if (path === "/payments/booking-reviews") return { payments:[],staleCounterBookings:[] };
       if (path.endsWith("/invoice")) return null;
       return { data: [{ id: "booking-1", customer: { fullName: "Nguyễn Thu" }, reference: "BK-001", roomNumber: "101", status: "CHECKED_IN", checkOut: "2026-10-30", roomAmount: "1000000", serviceAmount: "200000", totalAmount: "1200000", paidAmount: "0", balance: "1200000", invoiceId: null, pendingOrderCount: 0, paymentState: "OUTSTANDING" }], meta: { page: 1, pageSize: 15, total: 1, totalPages: 1 }, counts: { departures: 1, outstanding: 1, paid: 0, all: 1 } };
     });
     render(<MemoryRouter initialEntries={["/reception/billing"]}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><CashierPage /></QueryClientProvider></MemoryRouter>);
     expect(await screen.findByText("Nguyễn Thu")).toBeTruthy();
-    expect(calls[0]).toContain("group=departures");
+    expect(calls.some(path => path.includes("group=departures"))).toBe(true);
     expect(screen.getByRole("columnheader", { name: "CÒN PHẢI THU" })).toBeTruthy();
     expect(screen.queryByText("Khách đến (Arrivals)")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /^Còn phải thu/ }));

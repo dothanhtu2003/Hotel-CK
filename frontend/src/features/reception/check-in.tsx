@@ -22,6 +22,7 @@ export function CheckInWizard({ bookingId, variant = 'secondary', className = ''
       const b = await api.request<DeskBooking>('/front-desk/bookings/' + bookingId);
       setRoom(b.room);
       const today = hotelToday();
+      if (b.status === 'PENDING' && b.onlinePaymentRequired) throw new Error('Booking đang chờ thanh toán tiền phòng qua payOS. Chưa thể nhận phòng.');
       if (!['PENDING', 'CONFIRMED'].includes(b.status)) throw new Error('Booking chưa ở trạng thái chờ nhận phòng.');
       if (b.checkIn > today) throw new Error('Chưa đến ngày nhận phòng.');
       if (b.checkOut <= today) throw new Error('Booking đã qua ngày trả phòng.');

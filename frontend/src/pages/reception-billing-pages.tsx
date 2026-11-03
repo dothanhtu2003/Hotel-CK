@@ -459,11 +459,12 @@ export function ReceptionInvoicePage() {
               }
              
             >
-              {i.booking.status}
+              {statusLabels[i.booking.status]}
             </Badge>
           </div>
         </div>
 
+        <p className="text-xs text-zinc-600">Thu tại quầy: thu đủ tiền và trả phòng trong cùng một thao tác. Khách thanh toán online: chờ xác minh đủ tiền rồi lễ tân xác nhận trả phòng.</p>
         {/* Step Flow indicator */}
         <div className="grid grid-cols-3 gap-2 pt-1">
           <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-2.5 text-center">
@@ -650,7 +651,7 @@ export function ReceptionInvoicePage() {
                     tone={p.status === "COMPLETED" ? "green" : "rose"}
                    
                   >
-                    {p.status === "FAILED" ? "Thất bại" : p.status}
+                    {p.status === "COMPLETED" ? "Đã thu" : p.status === "FAILED" ? "Thất bại" : "Đang chờ"}
                   </Badge>
                 ),
               },

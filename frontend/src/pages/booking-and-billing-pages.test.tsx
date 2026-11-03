@@ -138,7 +138,7 @@ it('BookingDetailPage renders stay stepper, exact night/guest text and cancel ac
   expect(screen.getAllByText('Đã xác nhận').length).toBeGreaterThanOrEqual(1);
   expect(screen.getByRole('link', { name: /Xem chi phí & hóa đơn/i })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Hủy booking' })).toBeTruthy();
-  expect(await within(screen.getByRole('region', { name: 'Chi phí phòng và dịch vụ' })).findByText('4.800.000 ₫')).toBeTruthy();
+  expect((await within(screen.getByRole('region', { name: 'Chi phí phòng và dịch vụ' })).findAllByText('4.800.000 ₫')).length).toBe(2);
   expect(screen.getByText('Giặt ủi × 2 · 150.000 ₫ / đơn vị')).toBeTruthy();
   expect(screen.getByText('100.000 ₫')).toBeTruthy();
   expect(screen.getByText('1 đơn dịch vụ đang chờ, chưa tính vào tổng tiền.')).toBeTruthy();
@@ -163,4 +163,13 @@ it('InvoiceView formats clean folio bill without raw UUIDs or unformatted enums'
   // Booking reference link/text
   expect(screen.getByText('Booking CK-20261101-001')).toBeTruthy();
   expect(screen.getAllByText('4.800.000 ₫').length).toBeGreaterThanOrEqual(1);
+});
+
+it('hides billing and outstanding charges for a cancelled booking', async () => {
+  vi.spyOn(api,'request').mockImplementation(async path => path.endsWith('/billing-preview') ? { booking:{...mockBooking,status:'CANCELLED'},roomAmount:'4500000',serviceAmount:'0',totalAmount:'4500000',balance:'4500000',paidAmount:'0',completedOrders:[],pendingOrderCount:0 } : {...mockBooking,status:'CANCELLED'});
+  renderComponent(<Routes><Route path="/guest/bookings/:id" element={<BookingDetailPage />} /></Routes>,'/guest/bookings/b-101');
+  await screen.findByText('Phòng 201');
+  expect(screen.queryByRole('link',{name:/Xem chi phí & hóa đơn/})).toBeNull();
+  expect(screen.queryByText(/Còn phải thanh toán/)).toBeNull();
+  expect(screen.queryByRole('region',{name:'Chi phí phòng và dịch vụ'})).toBeNull();
 });

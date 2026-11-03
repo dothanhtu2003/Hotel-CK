@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiBody, ApiConflictResponse, ApiCreatedResponse, ApiForbiddenResponse, ApiNotFoundResponse, ApiOkResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { PayosService } from '../billing/payos.service.js';
+import type { Request } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import type { PublicUser } from '../users/public-user.js';
@@ -17,10 +19,10 @@ import { BookingsService } from './bookings.service.js';
 @ApiNotFoundResponse({ description: 'Room or accessible booking not found' })
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly bookings: BookingsService) {}
+  constructor(private readonly bookings: BookingsService, private readonly payos:PayosService) {}
 
   @Post() @Roles('GUEST') @Header('Cache-Control', 'no-store') @ApiCreatedResponse({ type: BookingResponseDto })
-  create(@CurrentUser() user: PublicUser, @Body() dto: CreateBookingDto) { return this.bookings.create(user, dto); }
+  create(@CurrentUser() user: PublicUser, @Body() dto: CreateBookingDto, @Req() request: Request) { return this.bookings.create(user, dto, request.ip); }
 
   @Get('my') @Roles('GUEST') @Header('Cache-Control', 'no-store') @ApiOkResponse({ type: BookingPageDto })
   my(@CurrentUser() user: PublicUser, @Query() query: BookingQueryDto) { return this.bookings.list(query, user); }
@@ -40,7 +42,7 @@ export class BookingsController {
 
   @Patch(':id/cancel') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   @ApiBody({ required: false, schema: { type: 'object', additionalProperties: false } }) @ApiOkResponse({ type: BookingResponseDto })
-  cancel(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body(new EmptyBodyPipe()) _body: unknown) { return this.bookings.transition(id, user, 'cancel'); }
+  async cancel(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body(new EmptyBodyPipe()) _body: unknown) { const booking=await this.bookings.get(id,user); if(booking.onlinePaymentRequired) return this.payos.cancelBooking(id,user); return this.bookings.transition(id, user, 'cancel'); }
 
   @Patch(':id/confirm') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   @ApiBody({ required: false, schema: { type: 'object', additionalProperties: false } }) @ApiOkResponse({ type: BookingResponseDto })

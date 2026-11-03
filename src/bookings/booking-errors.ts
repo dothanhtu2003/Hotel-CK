@@ -1,10 +1,11 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, NotFoundException } from '@nestjs/common';
 
 import { postgresCode } from '../common/database/postgres-code.js';
 export { postgresCode } from '../common/database/postgres-code.js';
 export function throwBookingError(error: unknown): never {
   const code = postgresCode(error);
   const prismaCode = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+  if (code === 'P0001') throw new HttpException('Bạn đã đạt giới hạn giữ phòng. Hãy thanh toán hoặc hủy booking đang chờ, hoặc thử lại sau.', 429);
   if (code === '23P01') throw new ConflictException('Room is not available for the requested dates');
   if (code === '23514') throw new ConflictException('Booking state, capacity or room conditions do not allow this action');
   if (code === '23505' || prismaCode === 'P2002') throw new ConflictException('Booking conflicts with an existing record');

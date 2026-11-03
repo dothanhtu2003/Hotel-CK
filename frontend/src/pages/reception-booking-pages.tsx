@@ -1,3 +1,4 @@
+import { awaitingOnlinePayment, deskBookingStatusLabel } from '../features/reception/contracts';
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import {
@@ -149,7 +150,7 @@ export function ReceptionBookingDetailPage() {
                   tone={STATUS_TONES[b.status] || "zinc"}
                   className="status-badge text-xs px-2.5 py-0.5"
                 >
-                  {beforeArrival ? "Chờ nhận phòng" : statusLabels[b.status] ?? b.status}
+                  {deskBookingStatusLabel(b)}
                 </Badge>
               </div>
 
@@ -210,11 +211,11 @@ export function ReceptionBookingDetailPage() {
             )}
             {beforeArrival && (
               <>
-                <CheckInWizard
+                {!awaitingOnlinePayment(b) && <CheckInWizard
                   bookingId={b.id}
                   variant="primary"
                   className="!bg-brand-600 !text-white hover:!bg-brand-700 !border-transparent px-3.5 py-1.5 font-semibold text-xs shadow-2xs"
-                />
+                />}
                 <DeskAction
                   action="cancel"
                   path={`/bookings/${id}/cancel`}
@@ -244,7 +245,7 @@ export function ReceptionBookingDetailPage() {
             <CardHeader><CardTitle>Thông tin đặt phòng</CardTitle></CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div className="rounded-xl bg-brand-50 p-4 text-brand-900">
-                <p className="font-semibold">Chờ nhận phòng</p>
+                <p className="font-semibold">{deskBookingStatusLabel(b)}</p>{awaitingOnlinePayment(b) && <p className="mt-1 text-sm">Khách chưa thanh toán tiền phòng qua payOS. Booking chỉ được xác nhận và nhận phòng sau khi thanh toán đủ.</p>}
                 
               </div>
               <dl className="grid grid-cols-2 gap-4">
@@ -264,7 +265,7 @@ export function ReceptionBookingDetailPage() {
               <div className="flex justify-between"><span className="text-zinc-500">Số đêm</span><span>{b.nights} đêm</span></div>
               <div className="flex justify-between border-t border-zinc-200 pt-4 font-bold"><span>Tổng tiền phòng</span><span className="text-lg text-brand-800">{money(b.totalRoomAmount)}</span></div>
               {financeReady && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2" aria-label="Thanh toán tiền phòng">
-                <div className="flex justify-between"><span>Đã thanh toán{onlineReceipts.length ? ' qua payOS' : ''}</span><strong>{money(paid)}</strong></div>
+                <div className="flex justify-between"><span>Đã thanh toán{onlineReceipts.length ? ' (gồm tiền phòng qua payOS)' : ''}</span><strong>{money(paid)}</strong></div>
                 <div className="flex justify-between"><span>Còn phải thu</span><strong>{money(balance)}</strong></div>
                 {onlineReceipts.map(receipt => <p className="text-xs text-emerald-800" key={receipt.id}>payOS · {money(receipt.amount)} · {receipt.paidAt ? new Date(receipt.paidAt).toLocaleString('vi-VN') : 'Đã xác minh'}</p>)}
               </div>}

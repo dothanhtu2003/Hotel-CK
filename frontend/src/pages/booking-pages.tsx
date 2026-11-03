@@ -209,10 +209,10 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
               </Link>
             )}
             <Link
-              to={detailUrl}
+              to={b.status === 'CANCELLED' ? `/guest/bookings/${b.id}` : detailUrl}
               className="guest-card-main-link"
             >
-              <span>{billing ? 'Xem chi phí & hóa đơn' : 'Chi tiết booking'}</span>
+              <span>{billing && b.status !== 'CANCELLED' ? 'Xem chi phí & hóa đơn' : 'Chi tiết booking'}</span>
               <ArrowRight size={14} className="guest-card-link-arrow" />
             </Link>
           </div>
@@ -490,7 +490,7 @@ export function BookingDetailPage() {
 
         {billing.isPending ? <Skeleton /> : billing.error ? (
           <ErrorState message={billing.error.message} retry={() => void billing.refetch()} />
-        ) : billing.data && (
+        ) : !isCancelled && billing.data && (
           <section aria-label="Chi phí phòng và dịch vụ">
             <dl className="guest-facts detail-facts-sheet">
               <div>
@@ -507,6 +507,8 @@ export function BookingDetailPage() {
                 <dt>Tổng tiền phòng & dịch vụ ghi vào phòng</dt>
                 <dd><strong className="fact-total-price">{money(billing.data.totalAmount)}</strong></dd>
               </div>
+              <div><dt>Đã thanh toán vào hóa đơn phòng</dt><dd>{money(billing.data.paidAmount ?? '0')}</dd></div>
+              <div><dt>Còn phải thanh toán · chi phí hiện tại</dt><dd><strong>{money(billing.data.balance ?? billing.data.totalAmount)}</strong></dd></div>
             </dl>
             {billing.data.completedOrders.length > 0 && (
               <div className="completed-orders-section">
@@ -552,12 +554,12 @@ export function BookingDetailPage() {
         {b.status === 'CHECKED_IN' && b.checkoutRequestedAt && (
           <p role="status" className="pending-orders-alert">Đã gửi yêu cầu trả phòng · Đang chờ lễ tân xử lý.</p>
         )}
-        {b.onlinePaymentRequired && b.status !== 'CANCELLED' && <BookingPayment booking={b} />}
+        {b.onlinePaymentRequired && <BookingPayment booking={b} />}
         {/* Action Buttons */}
         <div className="guest-actions detail-actions-bar">
-          <LinkButton to={`/guest/bookings/${id}/billing`}>
+          {!isCancelled && <LinkButton to={`/guest/bookings/${id}/billing`}>
             <ReceiptText size={16} /> Xem chi phí & hóa đơn
-          </LinkButton>
+          </LinkButton>}
 
           {b.status === 'CHECKED_IN' && (
             <LinkButton to={`/guest/services?bookingId=${id}`} variant="secondary">

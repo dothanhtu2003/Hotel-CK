@@ -274,7 +274,7 @@ describe("Unified Room Board & Booking Flow", () => {
     expect(screen.queryByText("Xem tất cả →")).toBeNull();
   });
 
-  it.each(["real.customer@example.com", ""])("Unified Booking Modal validates optional email %s and starts in PENDING", async (guestEmail) => {
+  it.each(["real.customer@example.com", ""])("Unified Booking Modal validates optional email %s and explains same-day check-in", async (guestEmail) => {
     setupDialog();
     const today = hotelToday();
     const tomorrow = shiftDate(today, 2);
@@ -370,9 +370,9 @@ describe("Unified Room Board & Booking Flow", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(mockPost).not.toHaveBeenCalled();
 
-    // Check status note: PENDING, no auto check-in
+    // Check the current same-day walk-in behavior.
     expect(
-      screen.getByText(/Booking bắt đầu ở trạng thái/),
+      screen.getByText("Xác nhận sẽ tạo booking và nhận phòng ngay. Phòng chuyển sang Đang ở."),
     ).toBeTruthy();
 
     // Confirm creation
@@ -380,6 +380,7 @@ describe("Unified Room Board & Booking Flow", () => {
 
     await waitFor(() => {
       expect(mockPost).toHaveBeenCalledWith({
+        receiveNow: true,
         roomId: "room-abc",
         checkIn: today,
         checkOut: tomorrow,
@@ -510,11 +511,11 @@ describe("Unified Room Board & Booking Flow", () => {
         </AuthContext.Provider>
       </QueryClientProvider>
     </MemoryRouter>);
-    await waitFor(() => expect(screen.getByText("Bảng trạng thái phòng (Room Board)")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Bảng trạng thái phòng")).toBeTruthy());
     expect(container.querySelector(".today-metrics")).toBeNull();
     expect(screen.queryByText("Điều phối khách")).toBeNull();
     if (pending) {
-      expect(screen.getByText("3 booking chờ xác nhận").closest("a")?.getAttribute("href")).toBe("/reception/bookings?status=PENDING");
+      expect(screen.getByText("3 booking chờ thanh toán / xác nhận").closest("a")?.getAttribute("href")).toBe("/reception/bookings?status=PENDING");
       expect(screen.getByText("3 đơn dịch vụ phòng chờ xử lý").closest("a")?.getAttribute("href")).toBe("/reception/service-orders?status=PENDING");
     } else expect(screen.queryByText("Cần lưu ý:")).toBeNull();
   });
@@ -626,7 +627,7 @@ describe("Unified Room Board & Booking Flow", () => {
 });
 
 
-it.each([['PENDING', 'CHỜ XÁC NHẬN'], ['CONFIRMED', 'ĐÃ ĐẶT']])('room board shows %s reservations instead of vacant rooms', async (status, label) => {
+it.each([['PENDING', 'CHỜ XÁC NHẬN'], ['CONFIRMED', 'CHỜ NHẬN PHÒNG']])('room board shows %s reservations instead of vacant rooms', async (status, label) => {
   setupDialog();
   const today = hotelToday();
   vi.spyOn(api, 'request').mockImplementation(async path => {
@@ -641,6 +642,26 @@ it.each([['PENDING', 'CHỜ XÁC NHẬN'], ['CONFIRMED', 'ĐÃ ĐẶT']])('room 
   expect(card.textContent).not.toContain('TRỐNG SẠCH');
   expect(card.textContent).toContain('Khách vừa đặt');
   fireEvent.click(card);
-  expect(screen.getByRole('link', { name: 'Xem booking · Xác nhận / Nhận phòng' }).getAttribute('href')).toBe('/reception/bookings/reserved-booking');
+  expect(screen.getByRole('link', { name: 'Xem booking · Nhận phòng' }).getAttribute('href')).toBe('/reception/bookings/reserved-booking');
   expect(screen.queryByRole('button', { name: /Đặt phòng này/ })).toBeNull();
+});
+
+it('shows an unpaid online reservation on the room board as awaiting payment', async () => {
+  setupDialog();
+  const today = hotelToday(), tomorrow = shiftDate(today, 1);
+  const booking = { id: 'unpaid', status: 'PENDING', onlinePaymentRequired: true, checkIn: today, checkOut: tomorrow, nights: 1, customer: { fullName: 'Khách chưa trả tiền' } };
+  vi.spyOn(api, 'request').mockImplementation(async (path: string) => {
+    if (path.includes('/front-desk/dashboard')) return { today, counts: { pending: 1 }, arrivals: [booking], departures: [] };
+    if (path.includes('/front-desk/room-filters')) return { floors: [1], types: [] };
+    if (path.includes('/front-desk/rooms')) return { data: [{ id: 'unpaid-room', roomNumber: '104', floor: 1, operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN', openTaskCount: 0, roomType: { name: 'Standard', nightlyPrice: '5000', maxGuests: 2 }, bookings: [booking] }] };
+    return { data: [], meta: { total: 0, page: 1, totalPages: 1 } };
+  });
+  render(<MemoryRouter initialEntries={['/reception']}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastContext.Provider value={() => {}}><ReceptionDashboard /></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
+  const room = await screen.findByRole('button', { name: /104.*CHỜ THANH TOÁN/ });
+  expect(room.textContent).toContain('Chưa thanh toán tiền phòng');
+  expect(screen.queryByText('Sắp đến')).toBeNull();
+  expect(screen.queryByText('CHỜ NHẬN PHÒNG')).toBeNull();
+  fireEvent.click(room);
+  expect(await screen.findByText('Chờ thanh toán')).toBeTruthy();
+  expect(screen.getByRole('link', { name: /Xem booking · Chờ thanh toán/ })).toBeTruthy();
 });

@@ -104,6 +104,7 @@ export class BillingService {
         const balance = new Prisma.Decimal(invoiceView(invoice).balance);
         if (dto.checkout && !amount.equals(balance)) throw new ConflictException('Full payment required for checkout');
         if (amount.gt(balance)) throw new ConflictException('Payment exceeds outstanding balance');
+        if (await tx.payment.count({ where: { invoiceId: id, status: 'PENDING', payosOrderCode: { not: null } } })) throw new ConflictException('Giao dịch payOS đang chờ xác minh. Đối soát trước khi thu tại quầy để tránh thu trùng');
         // A counter receipt for funds staff already verified, never bank/gateway verification.
         const payment = await tx.payment.create({ data: { id: key, invoiceId: id, amount, method: dto.method, status: 'COMPLETED' }, select: paymentSelect });
         await finishCheckout();

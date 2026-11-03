@@ -212,13 +212,18 @@ export function BookingBillingPage() {
   const preview = useGet<Preview>(`/bookings/${id}/billing-preview`);
   const invoice = useInvoice(id);
 
+  if (preview.data?.booking.status === 'CANCELLED' && !invoice.isPending && !invoice.error && !invoice.data) return <div className="guest-billing-page-space">
+    <Link to={'/guest/bookings/'+id} className="text-link">← Chi tiết booking</Link>
+    <PageHeading eyebrow="THÔNG TIN BOOKING" title="Booking đã hủy" />
+    {preview.data.booking.onlinePaymentRequired ? <BookingPayment booking={preview.data.booking} /> : <p className="notice">Booking đã hủy. Không có hóa đơn lưu trú cần thanh toán.</p>}
+  </div>;
   return (
     <div className="guest-billing-page-space">
       <Link to={'/guest/bookings/' + id} className="text-link">
         ← Chi tiết booking
       </Link>
       <PageHeading eyebrow="CHI PHÍ LƯU TRÚ" title="Chi phí & hóa đơn" />
-      {preview.data?.booking.onlinePaymentRequired && preview.data.booking.status !== 'CANCELLED' && <BookingPayment booking={preview.data.booking} />}
+      {preview.data?.booking.onlinePaymentRequired && (preview.data.booking.status !== 'CANCELLED' || preview.data.booking.holdState === 'EXPIRED') && <BookingPayment booking={preview.data.booking} />}
 
       {/* 1. Preliminary Cost Preview (Before Invoice) */}
       {preview.isPending ? (
@@ -233,12 +238,12 @@ export function BookingBillingPage() {
           <section className="panel guest-box folio-preview-sheet">
             <div className="preview-heading-row">
               <div>
-                <h2>Chi phí dự kiến · Chưa phải hóa đơn</h2>
+                <h2>{invoice.data ? 'Bảng kê chi phí lưu trú' : 'Chi phí dự kiến · Chưa phải hóa đơn'}</h2>
                 <p className="preview-meta">
                   {formatBookingReference(preview.data.booking.reference)} · Phòng {preview.data.booking.roomNumber}
                 </p>
               </div>
-              <span className="preview-draft-badge">Dự kiến</span>
+              <span className="preview-draft-badge">{invoice.data ? 'Đã phát hành hóa đơn' : 'Dự kiến'}</span>
             </div>
 
             <Amounts
@@ -246,6 +251,12 @@ export function BookingBillingPage() {
               services={preview.data.serviceAmount}
               total={preview.data.totalAmount}
             />
+
+            <dl className="guest-facts folio-balance-summary">
+              <div><dt>Đã thanh toán</dt><dd>{money(preview.data.paidAmount ?? '0')}</dd></div>
+              <div><dt>Còn phải thanh toán{invoice.data ? '' : ' · tạm tính'}</dt><dd><strong>{money(preview.data.balance ?? preview.data.totalAmount)}</strong></dd></div>
+            </dl>
+            {Number(preview.data.counterPaidAmount ?? 0) > 0 && <p className="notice">Dịch vụ đã thu riêng tại quầy: {money(preview.data.counterPaidAmount!)}. Khoản này không nằm trong tổng trên và không thu lại khi trả phòng.</p>}
 
             {preview.data.pendingOrderCount > 0 ? (
               <div className="pending-orders-alert">
@@ -311,7 +322,7 @@ export function BookingBillingPage() {
           <div>
             <h2>Chưa phát hành hóa đơn</h2>
             <p>
-              Chưa có thông tin thanh toán và số dư chính thức. Lễ tân sẽ hỗ trợ khi bạn hoàn tất kỳ nghỉ.
+              Các khoản đã thanh toán được ghi nhận ở trên. Số dư hiện tại là tạm tính; lễ tân sẽ chốt hóa đơn khi bạn trả phòng.
             </p>
           </div>
         </section>

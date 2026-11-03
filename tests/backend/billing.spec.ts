@@ -1,8 +1,10 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '../../generated/prisma/client.js';
 import { invoiceView, paymentAmount, paymentKey, type InvoiceRecord } from '../../src/billing/billing-view.js';
+import { BillingService } from '../../src/billing/billing.service.js';
+import type { PrismaService } from '../../src/database/prisma.service.js';
 import { throwBillingError } from '../../src/billing/billing-errors.js';
 
 describe('Billing exact money, receipt keys and safe database errors', () => {
@@ -21,7 +23,7 @@ describe('Billing exact money, receipt keys and safe database errors', () => {
     const date = new Date('2026-01-01T00:00:00Z');
     const invoice: InvoiceRecord = {
       id: randomUUID(), bookingId: randomUUID(), roomAmount: new Prisma.Decimal('0.30'), serviceAmount: new Prisma.Decimal(0), totalAmount: new Prisma.Decimal('0.30'), status: 'ISSUED', issuedAt: date,
-      booking: { onlinePaymentRequired: false, checkoutRequestedAt: null, id: randomUUID(), reference: 'Test', userId: randomUUID(), roomId: randomUUID(), checkInDate: date, checkOutDate: new Date('2026-01-04T00:00:00Z'), guestCount: 1, status: 'CHECKED_IN', nightlyPrice: new Prisma.Decimal('0.10'), totalRoomAmount: new Prisma.Decimal('0.30'), createdAt: date, updatedAt: date, room: { roomNumber: '101' } },
+      booking: { holdExpiresAt:null, holdState:null, onlinePaymentRequired: false, checkoutRequestedAt: null, id: randomUUID(), reference: 'Test', userId: randomUUID(), roomId: randomUUID(), checkInDate: date, checkOutDate: new Date('2026-01-04T00:00:00Z'), guestCount: 1, status: 'CHECKED_IN', nightlyPrice: new Prisma.Decimal('0.10'), totalRoomAmount: new Prisma.Decimal('0.30'), createdAt: date, updatedAt: date, room: { roomNumber: '101' } },
       payments: ['COMPLETED', 'PENDING', 'FAILED'].map((status, i) => ({ id: randomUUID(), invoiceId: randomUUID(), amount: new Prisma.Decimal(i ? '0.20' : '0.10'), method: 'CASH', status: status as 'COMPLETED' | 'PENDING' | 'FAILED', paidAt: i ? null : date })),
     };
     const view = invoiceView(invoice); expect(view.paidAmount).toBe('0.10'); expect(view.balance).toBe('0.20');
@@ -38,4 +40,17 @@ describe('Billing exact money, receipt keys and safe database errors', () => {
     expect(() => throwBillingError({ code: 'P2025' })).toThrow(NotFoundException);
     const unknown = new Error('23514 in untrusted message'); expect(() => throwBillingError(unknown)).toThrow(unknown);
   });
+});
+
+it('rejects counter collection while a payOS transaction is pending', async () => {
+  const create = jest.fn();
+  const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'booking' }] as never),
+    invoice: { findUnique: jest.fn().mockResolvedValue({ bookingId: 'booking' } as never),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ roomAmount: new Prisma.Decimal(100), serviceAmount: new Prisma.Decimal(0), totalAmount: new Prisma.Decimal(100), payments: [], booking: { nightlyPrice: new Prisma.Decimal(100), totalRoomAmount: new Prisma.Decimal(100), checkInDate: new Date(), checkOutDate: new Date(), room: { roomNumber: '101' } } } as never) },
+    payment: { findUnique: jest.fn().mockResolvedValue(null as never), count: jest.fn().mockResolvedValue(1 as never), create },
+  };
+  const prisma = { client: { $transaction: async (run: (value: typeof tx) => unknown) => run(tx) } } as unknown as PrismaService;
+  await expect(new BillingService(prisma).pay('invoice', randomUUID(), { amount: '100.00', method: 'CASH' }, { id: 'staff', role: 'RECEPTIONIST' })).rejects.toThrow('payOS đang chờ xác minh');
+  expect(create).not.toHaveBeenCalled();
 });

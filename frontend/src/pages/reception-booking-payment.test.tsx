@@ -42,7 +42,7 @@ it('uses the issued invoice balance after additional receipts', () => {
 });
 it('shows payment information before check-in too', () => {
   show({ status: 'CONFIRMED' });
-  expect(screen.getByLabelText('Thanh toán tiền phòng').textContent).toContain('Đã thanh toán qua payOS');
+  expect(screen.getByLabelText('Thanh toán tiền phòng').textContent).toContain('Đã thanh toán (gồm tiền phòng qua payOS)');
   expect(screen.getByLabelText('Thanh toán tiền phòng').textContent).toContain('0 ₫');
 });
 it('does not suggest collection when financial data cannot be loaded', () => {

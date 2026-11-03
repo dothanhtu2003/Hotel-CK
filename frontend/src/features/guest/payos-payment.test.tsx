@@ -31,3 +31,9 @@ it('hides the payment action for a fully paid invoice', () => {
   expect(screen.queryByRole('button', { name: 'Thanh toán qua payOS' })).toBeNull();
   expect(request).not.toHaveBeenCalled();
 });
+
+it('shows completed checkout without asking the guest to check out again', () => {
+  show({ ...invoice, status: 'PAID', balance: '0.00', booking: { ...invoice.booking, status: 'CHECKED_OUT' } });
+  expect(screen.getByRole('status').textContent).toBe('Đã thanh toán đủ và hoàn tất trả phòng.');
+  expect(screen.queryByRole('button')).toBeNull();
+});

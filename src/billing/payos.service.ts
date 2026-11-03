@@ -1,15 +1,27 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException, Logger, type OnModuleInit, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PayOS } from '@payos/node';
+import { PayOS, NotFoundError as PayosNotFoundError } from '@payos/node';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../database/prisma.service.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import type { PublicUser } from '../users/public-user.js';
 import { BillingService } from './billing.service.js';
+import { postgresCode } from '../common/database/postgres-code.js';
 import { invoiceSelect, invoiceView } from './billing-view.js';
 
 @Injectable()
-export class PayosService {
+export class PayosService implements OnModuleInit, OnModuleDestroy {
+  private timer?: ReturnType<typeof setInterval>;
+  private sweeping = false;
+  private readonly logger = new Logger(PayosService.name);
+  onModuleInit() {
+    if (process.env.NODE_ENV === 'test') return;
+    this.timer = setInterval(() => { void this.sweepExpiredBookings(); }, 30000);
+    this.timer.unref();
+    void this.sweepExpiredBookings();
+  }
+  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+
   constructor(private readonly prisma: PrismaService, private readonly billing: BillingService, private readonly config: ConfigService) {}
 
   private client() {
@@ -21,17 +33,17 @@ export class PayosService {
   }
 
   private async ownedBooking(id: string, actor: PublicUser) {
-    const booking = await this.prisma.client.booking.findFirst({ where: { id, userId: actor.id } });
+    const booking = await this.prisma.client.booking.findFirst({ where: { id, ...(actor.role === 'GUEST' ? { userId:actor.id } : { user: { is: { role:'GUEST' } } }) } });
     if (!booking) throw new NotFoundException('Booking not found');
     return booking;
   }
 
   async bookingState(id: string, actor: PublicUser) {
     const booking = await this.ownedBooking(id, actor);
-    const attempts = await this.prisma.client.bookingPayment.findMany({ where: { bookingId: id }, select: { status: true, amount: true } });
+    const attempts = await this.prisma.client.bookingPayment.findMany({ where: { bookingId: id }, select: { status: true, amount: true, receivedAmount: true, reviewReason: true, reviewResolvedAt: true } });
     const paid = attempts.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum.add(p.amount), new Prisma.Decimal(0));
     return { required: booking.onlinePaymentRequired, totalAmount: booking.totalRoomAmount.toFixed(2), paidAmount: paid.toFixed(2),
-      pending: attempts.some(p => p.status === 'PENDING'), paid: paid.gte(booking.totalRoomAmount), bookingStatus: booking.status };
+      pending: attempts.some(p => p.status === 'PENDING'), paid: paid.gte(booking.totalRoomAmount), bookingStatus: booking.status, holdState: booking.holdState, expiredAt: booking.holdExpiresAt, serverNow: new Date(), paymentReview: attempts.some(p => p.reviewReason && !p.reviewResolvedAt), receivedAmount: attempts.reduce((sum,p) => sum.add(p.receivedAmount), new Prisma.Decimal(0)).toFixed(2) };
   }
 
   async startBooking(id: string, actor: PublicUser) {
@@ -42,44 +54,152 @@ export class PayosService {
       await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
       const booking = await tx.booking.findUniqueOrThrow({ where: { id } });
       if (!booking.onlinePaymentRequired || booking.status !== 'PENDING') throw new ConflictException('Booking không còn chờ thanh toán');
+      if (booking.holdState !== 'ACTIVE' || !booking.holdExpiresAt || booking.holdExpiresAt.getTime() <= Date.now()) throw new ConflictException('Đã hết thời gian thanh toán. Hệ thống đang đối soát booking');
       if (!booking.totalRoomAmount.isInteger() || !Number.isSafeInteger(booking.totalRoomAmount.toNumber()) || booking.totalRoomAmount.lte(0)) throw new ConflictException('Số tiền phòng phải là số nguyên VND dương');
       const pending = await tx.bookingPayment.findFirst({ where: { bookingId: id, status: 'PENDING' } });
-      return pending ?? tx.bookingPayment.create({ data: { bookingId: id, amount: booking.totalRoomAmount, payosOrderCode: (1n << 48n) + BigInt(randomBytes(6).readUIntBE(0, 6)) } });
+      const payment = pending ?? await tx.bookingPayment.create({ data: { bookingId: id, amount: booking.totalRoomAmount, payosOrderCode: (1n << 48n) + BigInt(randomBytes(6).readUIntBE(0, 6)) } });
+      return payment;
     });
-    if (payment.checkoutUrl) return { checkoutUrl: payment.checkoutUrl };
-    const checkoutUrl = await this.createLink(Number(payment.payosOrderCode), payment.amount.toNumber(), `/guest/bookings/${id}`);
-    await this.prisma.client.bookingPayment.updateMany({ where: { id: payment.id, status: 'PENDING' }, data: { checkoutUrl } });
-    return { checkoutUrl };
+    return this.prisma.client.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
+      const booking = await tx.booking.findUniqueOrThrow({ where:{ id } });
+      if (booking.status !== 'PENDING' || booking.holdState !== 'ACTIVE' || !booking.holdExpiresAt || booking.holdExpiresAt.getTime() <= Date.now()) throw new ConflictException('Đã hết thời gian thanh toán');
+      const attempt = await tx.bookingPayment.findUniqueOrThrow({ where:{ id:payment.id } });
+      if (attempt.status !== 'PENDING') throw new ConflictException('Giao dịch đã thay đổi');
+      if (attempt.checkoutUrl) return { checkoutUrl:attempt.checkoutUrl };
+      const checkoutUrl = await this.createLink(Number(attempt.payosOrderCode), attempt.amount.toNumber(), `/guest/bookings/${id}`, Math.floor(booking.holdExpiresAt.getTime()/1000));
+      await tx.bookingPayment.update({ where:{ id:attempt.id }, data:{ checkoutUrl } });
+      return { checkoutUrl };
+    }, { timeout:25000 });
+  }
+
+  private async remoteBookingPayment(attempt: { id:string; checkoutUrl:string|null; payosOrderCode:bigint; amount:Prisma.Decimal }) {
+    try { return await this.client().paymentRequests.get(Number(attempt.payosOrderCode)); }
+    catch (error) {
+      // A definitive 404 can clear an attempt that never created a link.
+      // Timeouts, 429s and ambiguous errors must retain the room and retry.
+      if (!attempt.checkoutUrl && error instanceof PayosNotFoundError) return { orderCode:Number(attempt.payosOrderCode), amount:attempt.amount.toNumber(), amountPaid:0, amountRemaining:attempt.amount.toNumber(), status:'FAILED' as const };
+      throw new ServiceUnavailableException('Chưa thể kiểm tra giao dịch payOS');
+    }
+  }
+
+  private validBookingRemote(remote: { orderCode: number; amount: number; amountPaid: number; amountRemaining: number; status: string }, attempt: { payosOrderCode: bigint; amount: Prisma.Decimal }) {
+    if (remote.orderCode !== Number(attempt.payosOrderCode) || remote.amount !== attempt.amount.toNumber() || !Number.isSafeInteger(remote.amountPaid) || remote.amountPaid < 0) throw new ConflictException('Thông tin giao dịch không khớp');
+    if (remote.status === 'PAID' && (remote.amountPaid < remote.amount || remote.amountRemaining !== 0)) throw new ConflictException('Giao dịch chưa đủ tiền');
+  }
+
+  private async applyBookingRemote(id: string, attemptId: string, remote: { orderCode: number; amount: number; amountPaid: number; amountRemaining: number; status: string }) {
+    try {
+      await this.prisma.client.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
+        const b = await tx.booking.findUniqueOrThrow({ where: { id } });
+        const attempt = await tx.bookingPayment.findUniqueOrThrow({ where: { id: attemptId } });
+        this.validBookingRemote(remote, attempt);
+        if (attempt.status === 'COMPLETED') return;
+        if (attempt.reviewResolvedAt) return;
+        const terminal = ['CANCELLED','EXPIRED','FAILED'].includes(remote.status);
+        if (remote.status === 'PAID') {
+          const canRestore = b.status === 'CANCELLED' && b.holdState === 'EXPIRED';
+          if (b.status !== 'PENDING' && !canRestore) throw new ConflictException('Late payment requires review');
+          if (canRestore) {
+            const room = await tx.room.findUniqueOrThrow({ where: { id: b.roomId } });
+            const guest = await tx.user.findUniqueOrThrow({ where: { id: b.userId } });
+            const today = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Ho_Chi_Minh', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
+            if (room.operationalStatus !== 'ACTIVE' || guest.status !== 'ACTIVE' || b.checkOutDate.toISOString().slice(0,10) <= today) throw new ConflictException('Late payment requires review');
+          }
+          // The trigger confirms PENDING, or restores EXPIRED only if the overlap
+          // exclusion constraint still allows this exact room and stay.
+          await tx.bookingPayment.updateMany({ where: { id: attemptId, status: { in: ['PENDING','FAILED'] } }, data: { status:'COMPLETED', receivedAmount:remote.amountPaid, reviewReason:null } });
+        } else {
+          await tx.bookingPayment.update({ where: { id: attemptId }, data: {
+            receivedAmount: Prisma.Decimal.max(attempt.receivedAmount, remote.amountPaid),
+            ...(remote.amountPaid > 0 ? { reviewReason:'PARTIAL_PAYMENT' } : {}),
+            ...(terminal && attempt.status === 'PENDING' ? { status:'FAILED' } : {}),
+          } });
+        }
+      });
+    } catch (error) {
+      if (remote.amountPaid <= 0 || !(error instanceof ConflictException || ['23P01','23514','23505'].includes(postgresCode(error) ?? '') || (error as { code?:string }).code === 'P2002')) throw error;
+      // Keep money received after release in a durable review queue. Never
+      // claim a refund occurred or credit a different guest's occupied room.
+      await this.prisma.client.bookingPayment.updateMany({ where: { id:attemptId, status: { not:'COMPLETED' }, reviewResolvedAt:null }, data: { receivedAmount:remote.amountPaid, reviewReason:'LATE_PAYMENT_ROOM_UNAVAILABLE' } });
+      this.logger.warn(`Booking payment requires review: ${attemptId}`);
+    }
   }
 
   async syncBooking(id: string, actor?: PublicUser) {
     if (actor) await this.ownedBooking(id, actor);
-    const attempts = await this.prisma.client.bookingPayment.findMany({ where: { bookingId: id, status: 'PENDING' } });
+    const attempts = await this.prisma.client.bookingPayment.findMany({ where: { bookingId: id, status: { not:'COMPLETED' } } });
     for (const attempt of attempts) {
-      let remote;
-      try { remote = await this.client().paymentRequests.get(Number(attempt.payosOrderCode)); }
-      catch {
-        if (!attempt.checkoutUrl) continue;
-        throw new ServiceUnavailableException('Chưa thể kiểm tra giao dịch payOS');
-      }
-      if (remote.orderCode !== Number(attempt.payosOrderCode) || remote.amount !== attempt.amount.toNumber()) throw new ConflictException('Thông tin giao dịch không khớp');
-      let status: 'COMPLETED' | 'FAILED' | undefined;
-      if (remote.status === 'PAID') {
-        if (remote.amountPaid < remote.amount || remote.amountRemaining !== 0) throw new ConflictException('Giao dịch chưa đủ tiền');
-        status = 'COMPLETED';
-      } else if (['CANCELLED', 'EXPIRED', 'FAILED'].includes(remote.status) && remote.amountPaid === 0) status = 'FAILED';
-      if (status) await this.prisma.client.$transaction(async tx => {
-        await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
-        // DB trigger confirms the booking atomically, only after full verified payment.
-        await tx.bookingPayment.updateMany({ where: { id: attempt.id, status: 'PENDING' }, data: { status } });
-      });
+      const remote = await this.remoteBookingPayment(attempt);
+      this.validBookingRemote(remote, attempt);
+      await this.applyBookingRemote(id, attempt.id, remote);
     }
     return { checked: true };
+  }
+
+  async expireBooking(id: string, now = new Date()) {
+    // Persist the intermediate state so errors/crashes keep the room held and
+    // a later worker can resume. Claims are conditional and multi-worker safe.
+    const claimed = await this.prisma.client.booking.updateMany({ where: { id, onlinePaymentRequired:true, status:'PENDING', holdExpiresAt: { lte:new Date(now.getTime()-120000) }, OR: [{ holdState:'ACTIVE' }, { holdState:'CHECKING_PAYMENT', paymentCheckAt:{ lte:new Date(now.getTime()-60000) } }] }, data: { holdState:'CHECKING_PAYMENT', paymentCheckAt:now } });
+    if (!claimed.count) return;
+    const attempts = await this.prisma.client.bookingPayment.findMany({ where: { bookingId:id, status:'PENDING' } });
+    for (const attempt of attempts) {
+      let remote = await this.remoteBookingPayment(attempt);
+      this.validBookingRemote(remote, attempt);
+      if (remote.status !== 'PAID' && !['CANCELLED','EXPIRED','FAILED'].includes(remote.status)) {
+        await this.client().paymentRequests.cancel(Number(attempt.payosOrderCode), 'Het han giu phong');
+        remote = await this.client().paymentRequests.get(Number(attempt.payosOrderCode));
+        this.validBookingRemote(remote, attempt);
+      }
+      await this.applyBookingRemote(id, attempt.id, remote);
+      // PROCESSING and unknown outcomes keep the room held for another pass.
+      if (!['PAID','CANCELLED','EXPIRED','FAILED'].includes(remote.status)) return;
+    }
+    await this.prisma.client.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
+      if (await tx.bookingPayment.count({ where: { bookingId:id, status: { in:['PENDING','COMPLETED'] } } })) return;
+      await tx.booking.updateMany({ where: { id, status:'PENDING', holdState:'CHECKING_PAYMENT' }, data: { status:'CANCELLED', holdState:'EXPIRED' } });
+    });
+  }
+
+  async sweepExpiredBookings() {
+    if (this.sweeping) return;
+    this.sweeping = true;
+    try {
+      const now = new Date();
+      const due = await this.prisma.client.booking.findMany({ where: { onlinePaymentRequired:true, status:'PENDING', holdExpiresAt: { lte:new Date(now.getTime()-120000) }, OR: [{ paymentCheckAt:null }, { paymentCheckAt: { lte:new Date(now.getTime()-60000) } }] }, select:{ id:true }, orderBy:[{ paymentCheckAt:{ sort:'asc',nulls:'first' } },{ holdExpiresAt:'asc' }], take:10 });
+      for (const b of due) { try { await this.expireBooking(b.id, now); } catch { this.logger.warn(`Payment expiry reconciliation will retry: ${b.id}`); } }
+      const released = await this.prisma.client.booking.findMany({ where:{ onlinePaymentRequired:true,status:'CANCELLED',holdState:'EXPIRED',bookingPayments:{ some:{ status:{ not:'COMPLETED' },reviewResolvedAt:null } },OR:[{paymentCheckAt:null},{paymentCheckAt:{lte:new Date(now.getTime()-300000)}}] },select:{id:true},orderBy:{paymentCheckAt:{sort:'asc',nulls:'first'}},take:10 });
+      for (const b of released) {
+        await this.prisma.client.booking.update({where:{id:b.id},data:{paymentCheckAt:now}});
+        try { await this.syncBooking(b.id); } catch { this.logger.warn(`Late payment audit will retry: ${b.id}`); }
+      }
+    } catch { this.logger.error('Booking hold worker unavailable; rooms remain held until reconciliation succeeds'); }
+    finally { this.sweeping = false; }
+  }
+
+  async paymentReviews() {
+    const payments = await this.prisma.client.bookingPayment.findMany({ where: { reviewReason:{ not:null }, reviewResolvedAt:null }, include: { booking:{ select:{ reference:true, room:{ select:{ roomNumber:true } }, user:{ select:{ fullName:true } } } } }, orderBy:{ id:'asc' }, take:100 });
+    const staleCounterBookings = await this.prisma.client.booking.findMany({ where:{ onlinePaymentRequired:false, status:'PENDING', createdAt:{ lte:new Date(Date.now()-24*60*60*1000) } }, select:{ id:true,reference:true,createdAt:true,room:{ select:{ roomNumber:true } },user:{ select:{ fullName:true } } }, orderBy:{ createdAt:'asc' }, take:100 });
+    return { payments:payments.map(p => ({ id:p.id,bookingId:p.bookingId,reference:p.booking.reference,roomNumber:p.booking.room.roomNumber,customerName:p.booking.user.fullName,amount:p.receivedAmount.toFixed(2),reason:p.reviewReason })), staleCounterBookings };
+  }
+
+  async resolvePaymentReview(id: string, refundReference: string, actor: PublicUser) {
+    if (!['ADMIN','RECEPTIONIST'].includes(actor.role)) throw new BadRequestException('Staff required');
+    if (typeof refundReference !== 'string' || !refundReference.trim() || refundReference.length>200) throw new BadRequestException('Cần mã giao dịch hoàn tiền đã xác minh');
+    const result = await this.prisma.client.bookingPayment.updateMany({ where:{ id, reviewReason:{ not:null }, reviewResolvedAt:null, status:{ not:'COMPLETED' } }, data:{ reviewResolvedAt:new Date(), refundReference:refundReference.trim(), resolvedById:actor.id } });
+    if (!result.count) throw new ConflictException('Khoản tiền đã được xử lý hoặc cần tải lại');
+    return { resolved:true };
   }
 
   async cancelBooking(id: string, actor: PublicUser) {
     const booking = await this.ownedBooking(id, actor);
     if (!booking.onlinePaymentRequired || booking.status !== 'PENDING') throw new ConflictException('Vui lòng liên hệ lễ tân để xử lý booking đã thanh toán');
+    await this.prisma.client.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
+      await tx.booking.updateMany({ where:{id,status:'PENDING'},data:{holdState:'CHECKING_PAYMENT',paymentCheckAt:new Date()} });
+    });
     const pending = await this.prisma.client.bookingPayment.findFirst({ where: { bookingId: id, status: 'PENDING' } });
     if (pending) {
       // Cancel remotely first. If payment won the race, sync confirms it and cancellation is rejected.
@@ -90,13 +210,13 @@ export class PayosService {
     await this.prisma.client.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
       if (await tx.bookingPayment.count({ where: { bookingId: id, status: { in: ['PENDING', 'COMPLETED'] } } })) throw new ConflictException('Giao dịch đang xử lý hoặc đã nhận tiền. Vui lòng liên hệ lễ tân');
-      const result = await tx.booking.updateMany({ where: { id, userId: actor.id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
+      const result = await tx.booking.updateMany({ where: { id, ...(actor.role === 'GUEST' ? {userId:actor.id} : {}), status: 'PENDING' }, data: { status: 'CANCELLED',holdState:null } });
       if (!result.count) throw new ConflictException('Booking đã thay đổi');
     });
     return { cancelled: true };
   }
 
-  private async createLink(orderCode: number, amount: number, path: string) {
+  private async createLink(orderCode: number, amount: number, path: string, expiredAt?: number) {
     const client = this.client();
     const origin = this.config.get<string>('PAYOS_RETURN_ORIGIN');
     let validOrigin = false;
@@ -105,7 +225,7 @@ export class PayosService {
     let checkoutUrl: string;
     try {
       const link = await client.paymentRequests.create({ orderCode, amount, description: `HOTEL ${orderCode}`,
-        returnUrl: `${origin}${path}?payos=return`, cancelUrl: `${origin}${path}?payos=cancel` });
+        ...(expiredAt ? { expiredAt } : {}), returnUrl: `${origin}${path}?payos=return`, cancelUrl: `${origin}${path}?payos=cancel` });
       if (link.orderCode !== orderCode || link.amount !== amount || link.currency !== 'VND') throw new Error('Payment link mismatch');
       checkoutUrl = link.checkoutUrl;
     } catch {

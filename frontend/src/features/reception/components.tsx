@@ -1,3 +1,4 @@
+import { awaitingOnlinePayment, deskBookingStatusLabel } from './contracts';
 import { CheckoutSummary } from "./reservation-panels";
 import { CheckInWizard } from "./check-in";
 import { useRef, useState } from "react";
@@ -6,7 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { BedDouble, LogOut } from "lucide-react";
 import { Button, Dialog, EmptyState, Table } from "../../components/ui";
 import { Avatar, Badge, type BadgeTone } from "../../components/kamra-ui";
-import { money, statusLabels, type Booking, type Order } from "../guest/contracts";
+import { money, type Booking, type Order } from "../guest/contracts";
 import { api } from "../../lib/api";
 import { useToast } from "../../components/toast-context";
 import { type DeskBooking, deskError } from "./contracts";
@@ -223,7 +224,7 @@ export function BookingTable({
           title: "TRẠNG THÁI",
           render: (b) => (
             <Badge tone={STATUS_TONES[b.status] || "zinc"} className="status-badge">
-              {["PENDING", "CONFIRMED"].includes(b.status) ? "Chờ nhận phòng" : statusLabels[b.status] ?? b.status}
+              {deskBookingStatusLabel(b)}
             </Badge>
           ),
         },
@@ -249,7 +250,7 @@ export function BookingTable({
                   <LogOut className="size-3" />
                   Trả phòng / Hóa đơn
                 </Link>
-              ) : ["PENDING", "CONFIRMED"].includes(b.status) ? (
+              ) : ["PENDING", "CONFIRMED"].includes(b.status) && !awaitingOnlinePayment(b) ? (
                 <DeskAction
                   path={`/bookings/${b.id}/check-in`}
                   action="check-in"

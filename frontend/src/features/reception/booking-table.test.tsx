@@ -34,6 +34,13 @@ describe("BookingTable UX improvements", () => {
     },
   ];
 
+  it('shows unpaid online bookings as awaiting payment without a check-in action', () => {
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><ToastContext.Provider value={() => {}}><BookingTable rows={[{ ...rows[0], status: 'PENDING', onlinePaymentRequired: true }]} /></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
+    expect(screen.getByText('Chờ thanh toán')).toBeTruthy();
+    expect(screen.queryByText('Chờ nhận phòng')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Nhận phòng' })).toBeNull();
+  });
+
   it("does not render the 'Chi tiết' button in THAO TÁC", () => {
     render(
       <MemoryRouter initialEntries={["/reception/bookings"]}>

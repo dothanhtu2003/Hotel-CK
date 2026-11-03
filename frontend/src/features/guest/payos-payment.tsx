@@ -24,7 +24,7 @@ export function PayosPayment({ invoice }: { invoice: Invoice }) {
     mutationFn: () => api.request<{ checkoutUrl: string }>(`/invoices/${invoice.id}/payos`, { method: 'POST' }),
     onSuccess: data => { window.location.assign(data.checkoutUrl); },
   });
-  if (paid) return <p role="status" className="notice">Đã thanh toán đủ. Vui lòng liên hệ lễ tân để hoàn tất trả phòng.</p>;
+  if (paid) return <p role="status" className="notice">{invoice.booking.status === 'CHECKED_OUT' ? 'Đã thanh toán đủ và hoàn tất trả phòng.' : 'Đã thanh toán đủ. Vui lòng liên hệ lễ tân để hoàn tất trả phòng.'}</p>;
   if (invoice.booking.status !== 'CHECKED_IN') return null;
   return <div className="guest-box" aria-label="Thanh toán trực tuyến">
     <h3>Thanh toán trực tuyến qua payOS</h3>

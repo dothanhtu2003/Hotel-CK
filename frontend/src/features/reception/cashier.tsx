@@ -1,3 +1,4 @@
+import { api } from '../../lib/api';
 import { useState } from "react";
 import { Link } from "react-router";
 import { Dialog, ErrorState, Pagination, Table } from "../../components/ui";
@@ -40,6 +41,7 @@ export function CashierPage() {
         <span>{g.label}</span><strong>{query.data?.counts[g.id] ?? "—"}</strong><small>{g.hint}</small>
       </button>)}
     </div>
+    <PaymentReviewQueue />
     <section className="cashier-list">
       <form className="cashier-filters" onSubmit={e => { e.preventDefault(); setQ(search.trim()); setPage(1); }}>
         <button type="button" aria-pressed={group === "all"} onClick={() => selectGroup("all")}>Tất cả ({query.data?.counts.all ?? "—"})</button>
@@ -88,4 +90,25 @@ function BillingDrawer({ booking, onClose }: { booking: BillingRow; onClose: () 
         </> : <div className="cashier-empty"><p>{booking.status === "CANCELLED" ? "Booking đã hủy. Kiểm tra chi tiết trước khi xử lý chi phí." : "Chi phí tạm tính. Mở hồ sơ để kiểm tra dịch vụ và phát hành hóa đơn trước khi thu tiền."}</p><Link className="cashier-link" to={`${base}/bookings/${booking.id}/billing`}>Mở chi phí & phát hành hóa đơn</Link></div>}
       </>}
   </Dialog>;
+}
+
+function PaymentReviewQueue() {
+  const base = useDeskBase();
+  const query = useDeskGet<{ payments:{ id:string;bookingId:string;reference:string;amount:string;customerName:string }[]; staleCounterBookings:{ id:string;reference:string }[] }>('/payments/booking-reviews');
+  if (query.isPending) return null;
+  if (query.error) return <ErrorState message="Không tải được hàng chờ đối soát thanh toán." retry={() => void query.refetch()} />;
+  const data=query.data!;
+  return <section className="cashier-list"><h2>Đối soát cần xử lý</h2>
+    {data.payments.map(p => <div key={p.id}><p><Link to={`${base}/bookings/${p.bookingId}`}>{p.reference} · {p.customerName}</Link> · Đã nhận {money(p.amount)} · Cần kiểm tra hoàn tiền. Chỉ xác nhận hoàn sau khi kiểm tra giao dịch ngân hàng.</p><ResolveRefund id={p.id} onDone={() => void query.refetch()} /></div>)}
+    {data.staleCounterBookings.map(b => <p key={b.id}><Link to={`${base}/bookings/${b.id}`}>{b.reference}</Link> · Booking tại quầy chờ trên 24 giờ: kiểm tra và hủy thủ công nếu khách không đến.</p>)}
+    {!data.payments.length && !data.staleCounterBookings.length && <p>Không có khoản chờ xử lý.</p>}
+  </section>;
+}
+
+function ResolveRefund({id,onDone}:{id:string;onDone:()=>void}) {
+  const [reference,setReference]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  return <form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{await api.request(`/payments/booking-reviews/${id}/resolve`,{method:'POST',body:{refundReference:reference}});onDone();}catch{setError('Chưa ghi nhận được. Kiểm tra giao dịch và thử lại.');}finally{setBusy(false);}}}>
+    <label>Mã giao dịch hoàn tiền đã xác minh <input required maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} /></label>
+    <button disabled={busy || !reference.trim()}>Xác nhận đã hoàn tiền</button>{error && <p role="alert">{error}</p>}
+  </form>;
 }

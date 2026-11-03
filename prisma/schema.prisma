@@ -158,6 +158,10 @@ model RoomImage {
 }
 
 model Booking {
+  holdExpiresAt DateTime? @map("hold_expires_at") @db.Timestamptz(3)
+  holdState String? @map("hold_state") @db.VarChar(24)
+  paymentCheckAt DateTime? @map("payment_check_at") @db.Timestamptz(3)
+  clientIpHash String? @map("client_ip_hash") @db.VarChar(64)
   onlinePaymentRequired Boolean @default(false) @map("online_payment_required")
   bookingPayments BookingPayment[]
   checkoutRequestedAt DateTime? @map("checkout_requested_at") @db.Timestamptz(3)
@@ -306,6 +310,11 @@ model Payment {
 }
 
 model BookingPayment {
+  receivedAmount Decimal @default(0) @map("received_amount") @db.Decimal(14,2)
+  reviewReason String? @map("review_reason") @db.VarChar(80)
+  reviewResolvedAt DateTime? @map("review_resolved_at") @db.Timestamptz(3)
+  refundReference String? @map("refund_reference") @db.VarChar(200)
+  resolvedById String? @map("resolved_by_id") @db.Uuid
   id String @id @default(uuid()) @db.Uuid
   bookingId String @map("booking_id") @db.Uuid
   amount Decimal @db.Decimal(14, 2)

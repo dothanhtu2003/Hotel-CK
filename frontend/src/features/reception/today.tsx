@@ -1,3 +1,4 @@
+import { awaitingOnlinePayment, deskBookingStatusLabel } from './contracts';
 import { useState, type MouseEvent } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import {
@@ -215,7 +216,7 @@ export function ReceptionDashboard() {
                     to={`${base}/bookings?status=PENDING`}
                     className="inline-flex items-center gap-1 font-medium hover:underline text-amber-800"
                   >
-                    <span>{d.counts.pending} booking chờ xác nhận</span>
+                    <span>{d.counts.pending} booking chờ thanh toán / xác nhận</span>
                     <ChevronRight className="size-3" />
                   </Link>
                 )}
@@ -367,7 +368,7 @@ export function ReceptionDashboard() {
                                     (b) => b.status === "CONFIRMED" && b.checkIn === todayStr,
                                   ) ||
                                     (d?.arrivals || []).find(
-                                      (a) => a.roomNumber === room.roomNumber,
+                                      (a) => a.roomNumber === room.roomNumber && !awaitingOnlinePayment(a),
                                     ));
 
                                 const isDepartingToday =
@@ -475,7 +476,7 @@ export function ReceptionDashboard() {
                                           : isOoo
                                           ? "BẢO TRÌ"
                                           : reservedBooking
-                                          ? "CHỜ NHẬN PHÒNG"
+                                          ? deskBookingStatusLabel(reservedBooking).toLocaleUpperCase("vi-VN")
                                           : isDirty
                                           ? "CẦN DỌN"
                                           : isCleaning
@@ -519,7 +520,7 @@ export function ReceptionDashboard() {
                                       <div className="my-1.5 space-y-0.5">
                                         <div className="text-xs font-semibold">{reservedBooking.customer?.fullName ?? 'Khách đặt phòng'}</div>
                                         <div className="text-xs">{formatStayDateDisplay(reservedBooking.checkIn, todayStr)} → {formatStayDateDisplay(reservedBooking.checkOut, todayStr)}</div>
-                                        <div className="text-xs">Chưa nhận phòng</div>
+                                        <div className="text-xs">{awaitingOnlinePayment(reservedBooking) ? "Chưa thanh toán tiền phòng" : "Chưa nhận phòng"}</div>
                                       </div>
                                     ) : isClean ? (
                                       <div className="my-1.5 space-y-0.5">
@@ -655,7 +656,7 @@ export function ReceptionDashboard() {
                       (b) => b && b.status !== "CANCELLED" && b.checkIn <= dateStr && dateStr < b.checkOut,
                     );
 
-                    let dayStatus: "dirty" | "cleaning" | "occupied" | "booked" | "empty" = "empty";
+                    let dayStatus: "dirty" | "cleaning" | "occupied" | "booked" | "empty";
                     if (offset === 0) {
                       if (occupiedBooking) dayStatus = "occupied";
                       else if (isDirty) dayStatus = "dirty";
@@ -735,7 +736,7 @@ export function ReceptionDashboard() {
                           ) : reservedBooking ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-2xs">
                               <LogIn className="size-3.5 text-indigo-600" />
-                              {"Chờ nhận phòng"}
+                              {deskBookingStatusLabel(reservedBooking)}
                             </span>
                           ) : isDirty ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
@@ -900,7 +901,7 @@ export function ReceptionDashboard() {
                               className="sm:col-span-2 justify-center bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl shadow-xs"
                             >
                               <LogIn className="size-4 mr-1.5" />
-                              Xem booking · Nhận phòng
+                              {awaitingOnlinePayment(reservedBooking) ? "Xem booking · Chờ thanh toán" : "Xem booking · Nhận phòng"}
                             </LinkButton>
                           )}
 
