@@ -13,12 +13,15 @@ import { invoiceSelect, invoiceView } from './billing-view.js';
 export class PayosService implements OnModuleInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setInterval>;
   private sweeping = false;
+  private sweepingServicePayments = false;
+  private servicePaymentCursor?: string;
   private readonly logger = new Logger(PayosService.name);
   onModuleInit() {
     if (process.env.NODE_ENV === 'test') return;
-    this.timer = setInterval(() => { void this.sweepExpiredBookings(); }, 30000);
+    this.timer = setInterval(() => { void this.sweepExpiredBookings(); void this.sweepServicePayments(); }, 15000);
     this.timer.unref();
     void this.sweepExpiredBookings();
+    void this.sweepServicePayments();
   }
   onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
@@ -177,6 +180,23 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       }
     } catch { this.logger.error('Booking hold worker unavailable; rooms remain held until reconciliation succeeds'); }
     finally { this.sweeping = false; }
+  }
+
+  async sweepServicePayments() {
+    if (this.sweepingServicePayments) return;
+    this.sweepingServicePayments = true;
+    try {
+      const orders = await this.prisma.client.serviceOrder.findMany({
+        where: { payosStatus: 'PENDING', payosOrderCode: { not: null }, ...(this.servicePaymentCursor ? { id: { gt: this.servicePaymentCursor } } : {}) },
+        select: { id: true }, orderBy: { id: 'asc' }, take: 20,
+      });
+      this.servicePaymentCursor = orders.length === 20 ? orders[orders.length - 1].id : undefined;
+      for (const order of orders) {
+        try { await this.syncServiceOrder(order.id); }
+        catch { this.logger.warn(`Service payment verification will retry: ${order.id}`); }
+      }
+    } catch { this.logger.warn('Service payment verification unavailable; will retry'); }
+    finally { this.sweepingServicePayments = false; }
   }
 
   async paymentReviews() {

@@ -26,7 +26,10 @@ import type {
   WalkInDto,
 } from "./desk.dto.js";
 
-const serviceRequestsWhere: Prisma.ServiceOrderWhereInput = { OR: [
+const visibleServiceOrdersWhere: Prisma.ServiceOrderWhereInput = { OR: [
+  { requestedPaymentMethod: null }, { requestedPaymentMethod: 'CASH' }, { paymentMethod: { not: null } },
+] };
+const serviceRequestsWhere: Prisma.ServiceOrderWhereInput = { AND: [visibleServiceOrdersWhere], OR: [
   { status: 'PENDING' },
   { status: 'COMPLETED', requestedPaymentMethod: { not: null }, deliveredAt: null },
 ] };
@@ -408,6 +411,7 @@ export class FrontDeskService {
   }
   async orders(q: DeskOrderQuery) {
     const where: Prisma.ServiceOrderWhereInput = {
+      AND: [visibleServiceOrdersWhere],
       ...(q.q?.trim() ? { booking: { OR: [
         { reference: { contains: q.q.trim(), mode: 'insensitive' } },
         { room: { roomNumber: { contains: q.q.trim(), mode: 'insensitive' } } },

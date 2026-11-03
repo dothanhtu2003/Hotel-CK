@@ -102,7 +102,7 @@ it('collects cash and records delivery with one click', async () => {
   const request = vi.spyOn(api, 'request').mockResolvedValue(order);
   mount(<ServiceOrderActions order={{ ...order, requestedPaymentMethod: 'CASH' }} />);
   expect(screen.queryByText('Chờ thu tiền mặt')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Nhận tiền và giao hàng' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Nhận tiền và hoàn tất' }));
   expect(screen.queryByRole('dialog')).toBeNull();
   await waitFor(() => expect(request).toHaveBeenCalledWith('/service-orders/order-1/collect-and-deliver', { method: 'PATCH', body: { settlement: 'CASH', paymentVerified: true, expectedAmount: '45000.00' } }));
 });
@@ -110,8 +110,18 @@ it('collects cash and records delivery with one click', async () => {
 it('keeps paid guest services actionable until delivery is confirmed', async () => {
   const request = vi.spyOn(api, 'request').mockResolvedValue(order);
   mount(<ServiceOrderActions order={{ ...order, requestedPaymentMethod: 'BANK_TRANSFER', paymentMethod: 'BANK_TRANSFER', paidAt: '2026-11-03T01:00:00Z' }} />);
-  expect(screen.getByText('Cần giao dịch vụ cho khách')).toBeTruthy();
+  expect(screen.getAllByRole('button')).toHaveLength(1);
   expect(screen.queryByRole('button', { name: 'Thu tiền ngay' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Giao hàng' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Đã giao' }));
   await waitFor(() => expect(request).toHaveBeenCalledWith('/service-orders/order-1/deliver', { method: 'PATCH' }));
+});
+
+
+it('never opens a payment dialog for guest transfer requests awaiting payOS', async () => {
+  vi.spyOn(api, 'request').mockResolvedValue({ paid: false });
+  mount(<ServiceOrderActions order={{ ...order, status: 'PENDING', requestedPaymentMethod: 'BANK_TRANSFER', payosStatus: 'PENDING' }} />);
+  expect(screen.getByText('Chờ khách thanh toán chuyển khoản')).toBeTruthy();
+  expect(screen.queryByRole('button')).toBeNull();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.queryByRole('combobox')).toBeNull();
 });
