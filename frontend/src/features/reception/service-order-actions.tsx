@@ -17,8 +17,8 @@ export function ServiceOrderActions({ order }: { order: Order }) {
   const refund = action === 'cancel' && !!order.paymentMethod;
   const verificationRequired = refund || (action === 'settle' && settlement !== 'ROOM');
   return <>
-    {!order.paymentMethod && <Button variant="secondary" onClick={() => { setAction('settle'); setSettlement(order.status === 'PENDING' ? 'ROOM' : 'CASH'); setVerified(false); setError(''); }}>{order.status === 'PENDING' ? 'Ghi nhận đơn' : 'Thu tiền ngay'}</Button>}
-    <Button variant="secondary" onClick={() => { setAction('cancel'); setVerified(false); setError(''); }}>{order.paymentMethod ? 'Hủy & hoàn tiền' : 'Hủy đơn'}</Button>
+    {!order.paymentMethod && <Button variant={order.status === 'PENDING' ? 'primary' : 'secondary'} className="text-xs px-3 py-1.5 rounded-lg shadow-2xs" onClick={() => { setAction('settle'); setSettlement(order.status === 'PENDING' ? 'ROOM' : 'CASH'); setVerified(false); setError(''); }}>{order.status === 'PENDING' ? 'Ghi nhận đơn' : 'Thu tiền ngay'}</Button>}
+    <Button variant="secondary" className="text-xs px-3 py-1.5 rounded-lg" onClick={() => { setAction('cancel'); setVerified(false); setError(''); }}>{order.paymentMethod ? 'Hủy & hoàn tiền' : 'Hủy đơn'}</Button>
     <Dialog open={action !== null} title={action === 'cancel' ? (refund ? 'Hủy đơn và ghi nhận hoàn tiền' : 'Hủy đơn dịch vụ') : 'Thanh toán đơn dịch vụ'} onClose={() => { if (!lock.current) setAction(null); }}>
       <form className="space-y-4" onSubmit={async event => {
         event.preventDefault();

@@ -124,7 +124,8 @@ export function TapeChart({
             <span className="size-2.5 rounded-sm bg-zinc-400" />
             Đã trả phòng
           </span>
-          <span>VS: tình trạng vệ sinh hiện tại · Thanh lịch hiển thị khoảng ngày đặt</span>
+          <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-rose-600" />Đang ở quá hạn (hôm nay)</span>
+          <span>VS: tình trạng vệ sinh hiện tại · Thanh lịch hiển thị khoảng ngày đặt · Dấu quá hạn hiển thị tại hôm nay</span>
         </div>
       </div>
 
@@ -179,7 +180,8 @@ export function TapeChart({
               {/* Rows for each room */}
               <div className="divide-y divide-zinc-100">
                 {query.data!.data.map((room) => {
-                  const bars = bookingLanes(room.bookings, start, 14);
+                  const bars = bookingLanes(room.bookings, start, 14, today);
+                  const overdueStays = room.bookings.filter(b => b.status === 'CHECKED_IN' && b.checkOut < today);
                   const lanes = Math.max(1, ...bars.map(bar => bar.lane + 1));
                   return (
                   <div key={room.id} className="flex items-stretch hover:bg-zinc-50/40 transition-colors">
@@ -209,6 +211,13 @@ export function TapeChart({
                       <div className="text-[11px] text-zinc-400 truncate" title={`${room.roomType.name} · Tầng ${room.floor}`}>
                         {room.roomType.name} · Tầng {room.floor}
                       </div>
+                      {overdueStays.map(b => (
+                        <button key={b.id} type="button" className="text-[10px] text-rose-700 font-semibold text-start cursor-pointer"
+                          title={`${b.customer?.fullName ?? b.reference} · Lịch đặt: ${b.checkIn} → ${b.checkOut}`}
+                          onClick={() => onSelectBooking ? onSelectBooking(b) : navigate(`${base}/bookings/${b.id}`)}>
+                          Đang ở · Quá hạn trả phòng
+                        </button>
+                      ))}
                     </div>
 
                     {/* Timeline Cell */}
@@ -227,12 +236,14 @@ export function TapeChart({
 
                       {/* Booking Bars */}
                       <div className="absolute inset-0 flex items-center px-0.5">
-                        {bars.map(({ booking: b, span, lane }) => {
-
-
-
+                        {bars.map(({ booking: b, span, lane, kind }) => {
+                          const overdueArrival = ['PENDING', 'CONFIRMED'].includes(b.status) && b.checkIn < today;
+                          const label = kind === 'overdue' ? 'Đang ở · Quá hạn trả phòng' : overdueArrival ? 'Quá hạn nhận phòng' : statusLabels[b.status];
+                          const title = `${b.customer?.fullName ?? b.reference} · ${b.checkIn} → ${b.checkOut} (${b.nights} đêm) · ${label}`;
                           const barColor =
-                            b.status === "CHECKED_IN"
+                            kind === 'overdue'
+                              ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                              : b.status === "CHECKED_IN"
                               ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                               : b.status === "CONFIRMED"
                               ? "bg-sky-600 hover:bg-sky-700 text-white"
@@ -242,7 +253,7 @@ export function TapeChart({
 
                           return (
                             <button
-                              key={b.id}
+                              key={`${b.id}-${kind}`}
                               type="button"
                               onClick={() =>
                                 onSelectBooking
@@ -254,14 +265,15 @@ export function TapeChart({
                                 top: 6 + lane * 36, left: `${(span.left / 14) * 100}%`,
                                 width: `calc(${(span.width / 14) * 100}% - 2px)`,
                               }}
-                              title={`${b.customer?.fullName ?? b.reference} · ${b.checkIn} → ${b.checkOut} (${b.nights} đêm) · ${statusLabels[b.status]}`}
+                              title={title}
+                              aria-label={title}
                             >
                               <span className="size-1.5 rounded-full bg-white shrink-0" />
                               <span className="truncate font-semibold text-[11px]">
                                 {b.customer?.fullName ?? b.reference}
                               </span>
                               <span className="hidden sm:inline text-[10px] opacity-80 truncate">
-                                ({b.nights} đêm)
+                                {kind === 'overdue' ? 'Quá hạn trả phòng' : overdueArrival ? 'Quá hạn nhận phòng' : `(${b.nights} đêm)`}
                               </span>
                             </button>
                           );

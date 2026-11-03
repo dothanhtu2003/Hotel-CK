@@ -7,6 +7,23 @@ const room = {
   openTaskCount: 0,
   bookings: [],
 } as unknown as DeskRoom;
+it('shows overdue occupancy today separately from booked dates and keeps conflicts in separate lanes', () => {
+  const bookings = [
+    { id: 'overdue', status: 'CHECKED_IN', checkIn: '2026-10-30', checkOut: '2026-10-31' },
+    { id: 'arrival', status: 'CONFIRMED', checkIn: '2026-11-03', checkOut: '2026-11-05' },
+  ] as DeskBooking[];
+  const bars = bookingLanes(bookings, '2026-11-03', 14, '2026-11-03');
+  expect(bars).toHaveLength(2);
+  expect(bars.find(b => b.kind === 'overdue')).toMatchObject({ span: { left: 0, width: 1 } });
+  expect(new Set(bars.map(b => b.lane)).size).toBe(2);
+  const history = bookingLanes(bookings, '2026-10-30', 14, '2026-11-03');
+  expect(history.find(b => b.booking.id === 'overdue' && b.kind === 'scheduled')?.span).toEqual({ left: 0, width: 1 });
+  expect(bookings[0].checkOut).toBe('2026-10-31');
+  expect(bookingLanes(bookings, '2026-11-04', 14, '2026-11-03')).toHaveLength(1);
+});
+it.each(['PENDING', 'CONFIRMED', 'CHECKED_OUT', 'CANCELLED'] as const)('does not project %s bookings into today', status => {
+  expect(bookingLanes([{ id: 'past', status, checkIn: '2026-10-30', checkOut: '2026-10-31' } as DeskBooking], '2026-11-03', 14, '2026-11-03')).toEqual([]);
+});
 it('keeps overlapping historical bookings visible and reuses lanes after checkout', () => {
   const bookings = [
     { id: 'a', checkIn: '2026-10-29', checkOut: '2026-10-31' },

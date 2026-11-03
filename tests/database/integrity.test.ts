@@ -244,7 +244,7 @@ test('37 Restricted backend role can execute trigger workflows without DDL acces
   const role=`test_runtime_${randomUUID().replaceAll('-','')}`;
   await c.query(`CREATE ROLE ${role} NOLOGIN`);
   await c.query(`GRANT USAGE ON SCHEMA hotel TO ${role}`);
-  await c.query(`GRANT SELECT, INSERT, UPDATE ON hotel.users,hotel.room_types,hotel.rooms,hotel.room_images,hotel.bookings,hotel.services,hotel.service_orders,hotel.service_order_items,hotel.housekeeping_tasks,hotel.invoices,hotel.payments TO ${role}`);
+  await c.query(`GRANT SELECT, INSERT, UPDATE ON hotel.users,hotel.room_types,hotel.rooms,hotel.room_images,hotel.bookings,hotel.services,hotel.service_orders,hotel.service_order_items,hotel.housekeeping_tasks,hotel.invoices,hotel.payments,hotel.booking_payments TO ${role}`);
   await c.query(`SET LOCAL ROLE ${role}`);
   await order(c,f,bid); const inv=await issueInvoiceSql(c,bid);
   await c.query("INSERT INTO payments(id,invoice_id,amount,method,status) VALUES($1,$2,$3,'CASH','COMPLETED')",[randomUUID(),inv.id,inv.total_amount]);

@@ -133,23 +133,24 @@ export class FrontDeskService {
       const records = await tx.booking.findMany({
         where: deskWhere({ ...q, view: undefined }),
         select: { ...deskSelect,
+          bookingPayments: { where: { status: 'COMPLETED' }, select: { amount: true } },
           serviceOrders: { where: { status: { in: ["COMPLETED", "PENDING"] }, paymentMethod: null }, select: { status: true, totalAmount: true } },
           invoice: { select: { id: true, roomAmount: true, serviceAmount: true, totalAmount: true,
             payments: { where: { status: "COMPLETED" }, select: { amount: true } } } },
         },
         orderBy: [{ checkOutDate: "asc" }, { id: "asc" }],
       });
-      const rows = records.map(({ user, invoice, serviceOrders, ...b }) => {
+      const rows = records.map(({ user, invoice, serviceOrders, bookingPayments, ...b }) => {
         const room = invoice?.roomAmount ?? b.totalRoomAmount;
         const service = invoice?.serviceAmount ?? serviceOrders.filter(o => o.status === "COMPLETED").reduce((sum, o) => sum.add(o.totalAmount), new Prisma.Decimal(0));
         const total = invoice?.totalAmount ?? room.add(service);
-        const paid = invoice?.payments.reduce((sum, p) => sum.add(p.amount), new Prisma.Decimal(0)) ?? new Prisma.Decimal(0);
+        const paid = (invoice?.payments ?? bookingPayments).reduce((sum, p) => sum.add(p.amount), new Prisma.Decimal(0));
         const balance = total.sub(paid);
         const cancelled = b.status === "CANCELLED";
         return { ...bookingView(b), customer: user, invoiceId: invoice?.id ?? null,
           roomAmount: room.toFixed(2), serviceAmount: service.toFixed(2), totalAmount: total.toFixed(2), paidAmount: paid.toFixed(2),
           balance: cancelled ? "0.00" : balance.toFixed(2),
-          paymentState: cancelled ? (paid.gt(0) ? "REVIEW_REFUND" : "CANCELLED") : invoice && balance.lte(0) ? "PAID" : "OUTSTANDING",
+          paymentState: cancelled ? (paid.gt(0) ? "REVIEW_REFUND" : "CANCELLED") : balance.lte(0) ? "PAID" : "OUTSTANDING",
           pendingOrderCount: serviceOrders.filter(o => o.status === "PENDING").length,
         };
       });

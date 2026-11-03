@@ -38,8 +38,15 @@ export class BillingService {
       const pendingOrderCount = await tx.serviceOrder.count({ where: { bookingId: id, status: 'PENDING' } });
       const counterPaid = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: { not: null } }, select: { totalAmount: true } });
       const counterPaidAmount = counterPaid.reduce((sum, order) => sum.add(order.totalAmount), new Prisma.Decimal(0)).toFixed(2);
+      const roomPayments = await tx.bookingPayment.findMany({ where: { bookingId: id, status: 'COMPLETED' }, select: { id: true, amount: true, paidAt: true } });
+      const prepaid = roomPayments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0));
+      const invoice = await tx.invoice.findUnique({ where: { bookingId: id }, select: { payments: { where: { status: 'COMPLETED' }, select: { amount: true } } } });
+      const paid = invoice ? invoice.payments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0)) : prepaid;
+      const total = booking.totalRoomAmount.add(serviceAmount);
       const view = billingBookingView(booking);
       return { booking: view, completedOrders: completed.map(orderView), pendingOrderCount, counterPaidAmount,
+        prepaidAmount: prepaid.toFixed(2), paidAmount: paid.toFixed(2), balance: total.sub(paid).toFixed(2),
+        roomPayments: roomPayments.map(payment => ({ ...payment, amount: payment.amount.toFixed(2) })),
         roomAmount: booking.totalRoomAmount.toFixed(2), serviceAmount: serviceAmount.toFixed(2), totalAmount: booking.totalRoomAmount.add(serviceAmount).toFixed(2) };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
@@ -52,8 +59,8 @@ export class BillingService {
         const booking = await tx.booking.findUniqueOrThrow({ where: { id }, select: { status: true, invoice: { select: { id: true } } } });
         if (booking.status !== 'CHECKED_IN' || booking.invoice) throw new ConflictException('Invoice requires a checked-in booking without an existing invoice');
         if (await tx.serviceOrder.count({ where: { bookingId: id, status: 'PENDING' } })) throw new ConflictException('Resolve pending service orders before issuing the invoice');
-        const invoice = await tx.invoice.create({ data: { bookingId: id }, select: invoiceSelect });
-        return invoiceView(invoice);
+        const invoice = await tx.invoice.create({ data: { bookingId: id }, select: { id: true } });
+        return invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id: invoice.id }, select: invoiceSelect }));
       });
     } catch (error) { throwBillingError(error); }
   }

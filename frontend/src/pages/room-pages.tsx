@@ -356,10 +356,15 @@ export function RoomDetailPage() {
         },
       });
     },
-    onSuccess: (b) => {
+    onSuccess: async (b) => {
       void qc.invalidateQueries({ queryKey: ['guest'] });
-      toast('Đặt phòng thành công. Giá đã được xác nhận.');
-      navigate('/guest/bookings/' + b.id);
+      try {
+        const payment = await api.request<{ checkoutUrl: string }>(`/bookings/${b.id}/payos`, { method: 'POST' });
+        window.location.assign(payment.checkoutUrl);
+      } catch {
+        toast('Đã tạo yêu cầu đặt phòng, chưa thanh toán. Bạn có thể tiếp tục thanh toán tại chi tiết booking.');
+        navigate('/guest/bookings/' + b.id);
+      }
     },
   });
 
@@ -517,7 +522,7 @@ export function RoomDetailPage() {
           </div>
 
           <div className="booking-perks-list">
-            <p>Kiểm tra lại ngày, số khách và tổng tiền trước khi xác nhận.</p>
+            <p>Thanh toán 100% tiền phòng qua payOS để xác nhận giữ phòng.</p>
             <p>Đơn đặt phòng sẽ hiển thị trong mục Đặt phòng của tôi.</p>
           </div>
         </section>
@@ -581,7 +586,7 @@ export function RoomDetailPage() {
               </div>
               <div>
                 <dt>Hình thức thanh toán</dt>
-                <dd>Thanh toán tại quầy khi nhận phòng (Tiền mặt / Chuyển khoản)</dd>
+                <dd>Thanh toán 100% tiền phòng qua payOS khi đặt trên web</dd>
               </div>
             </dl>
           )}
@@ -589,7 +594,7 @@ export function RoomDetailPage() {
           <div className="dialog-guarantee-note">
             <ShieldCheck size={16} />
             <p>
-              Giá tiền phòng sẽ được hệ thống xác nhận khi đặt thành công. Dịch vụ phát sinh được tính riêng.
+              Booking chỉ được xác nhận sau khi thanh toán đủ tiền phòng. Dịch vụ phát sinh được tính riêng khi trả phòng.
             </p>
           </div>
         </div>
@@ -624,7 +629,7 @@ export function RoomDetailPage() {
             disabled={!!create.error}
             onClick={() => create.mutate()}
           >
-            Xác nhận đặt phòng
+            Đặt phòng & thanh toán
           </Button>
         </div>
       </Dialog>

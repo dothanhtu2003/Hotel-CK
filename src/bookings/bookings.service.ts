@@ -35,7 +35,7 @@ export class BookingsService {
       // Do not pre-SELECT availability or send any prices/status/user-supplied userId.
       // PostgreSQL trigger snapshots price and exclusion constraint arbitrates races.
       return await this.prisma.client.$transaction(async tx => bookingView(await tx.booking.create({
-        data: { reference: await nextBookingReference(tx), userId: actor.id, roomId: dto.roomId, checkInDate: start, checkOutDate: end, guestCount: dto.guests }, select: bookingSelect,
+        data: { reference: await nextBookingReference(tx), userId: actor.id, roomId: dto.roomId, checkInDate: start, checkOutDate: end, guestCount: dto.guests, onlinePaymentRequired: true }, select: bookingSelect,
       })));
     } catch (error) { throwBookingError(error); }
   }

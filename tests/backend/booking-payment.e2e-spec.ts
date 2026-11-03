@@ -1,0 +1,110 @@
+import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { randomUUID } from 'node:crypto';
+import request from 'supertest';
+import { createAuthTestApp } from './auth-test-app.js';
+import { migrateTestDatabase } from '../database/helpers.js';
+import { PayosService } from '../../src/billing/payos.service.js';
+import { PasswordService } from '../../src/auth/password.service.js';
+
+describe('Full online booking payment with PostgreSQL and simulated payOS', () => {
+  let ctx: Awaited<ReturnType<typeof createAuthTestApp>>;
+  const actors = {} as Record<'guest' | 'other' | 'staff', { id: string; token: string }>;
+  type Link = { id: string; orderCode: number; amount: number; amountPaid: number; amountRemaining: number; status: string };
+  const links = new Map<number, Link>();
+  const api = () => request(ctx.app.getHttpServer());
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const end = new Date(`${today}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 2);
+  beforeAll(async () => {
+    migrateTestDatabase();
+    ctx = await createAuthTestApp();
+    ctx.app.get(ConfigService).set('PAYOS_RETURN_ORIGIN', 'http://localhost:5173');
+    const passwordHash = await ctx.app.get(PasswordService).hash(randomUUID());
+    for (const [name, role] of [['guest', 'GUEST'], ['other', 'GUEST'], ['staff', 'RECEPTIONIST']] as const) {
+      const user = await ctx.prisma.client.user.create({ data: { fullName: `Payment ${name}`, passwordHash, role } });
+      actors[name] = { id: user.id, token: await ctx.app.get(JwtService).signAsync({ sub: user.id, tokenType: 'access' }) };
+    }
+    Object.defineProperty(ctx.app.get(PayosService), 'client', { value: () => ({ paymentRequests: {
+      create: async (data: { orderCode: number; amount: number }) => {
+        const link = { ...data, id: randomUUID().replaceAll('-', ''), amountPaid: 0, amountRemaining: data.amount, status: 'PENDING' };
+        links.set(data.orderCode, link);
+        return { ...link, currency: 'VND', checkoutUrl: `https://pay.payos.vn/web/${link.id}` };
+      },
+      get: async (code: number) => { const link = links.get(code); if (!link) throw new Error('Not created'); return link; },
+      cancel: async (code: number) => { const link = links.get(code)!; if (link.status !== 'PAID') link.status = 'CANCELLED'; return link; },
+    } }) });
+  });
+  afterAll(async () => { if (ctx) await ctx.app.close(); });
+
+  async function booking() {
+    const type = await ctx.prisma.client.roomType.create({ data: { name: `Online ${randomUUID()}`, nightlyPrice: 100000, maxGuests: 2 } });
+    const room = await ctx.prisma.client.room.create({ data: { roomNumber: randomUUID().slice(0, 12), roomTypeId: type.id, floor: 1 } });
+    const response = await api().post('/api/bookings').auth(actors.guest.token, { type: 'bearer' }).send({ roomId: room.id, checkIn: today, checkOut: end.toISOString().slice(0, 10), guests: 1 }).expect(201);
+    return response.body as { id: string; onlinePaymentRequired: boolean; status: string };
+  }
+  const start = (id: string, who: keyof typeof actors = 'guest') => api().post(`/api/bookings/${id}/payos`).auth(actors[who].token, { type: 'bearer' });
+  const sync = (id: string) => api().post(`/api/bookings/${id}/payos/sync`).auth(actors.guest.token, { type: 'bearer' });
+  const action = (id: string, name: string) => api().patch(`/api/bookings/${id}/${name}`).auth(actors.staff.token, { type: 'bearer' });
+  async function remote(id: string) {
+    const attempt = await ctx.prisma.client.bookingPayment.findFirstOrThrow({ where: { bookingId: id } });
+    return links.get(Number(attempt.payosOrderCode))!;
+  }
+  it('requires full payment, verifies ownership, confirms once, and credits the final invoice', async () => {
+    const b = await booking();
+    expect(b.onlinePaymentRequired).toBe(true); expect(b.status).toBe('PENDING');
+    await action(b.id, 'confirm').expect(409); await action(b.id, 'check-in').expect(409);
+    await start(b.id, 'other').expect(404); await start(b.id, 'staff').expect(403);
+    const first = await start(b.id).expect(201);
+    const second = await start(b.id).expect(201);
+    expect(second.body.checkoutUrl).toBe(first.body.checkoutUrl);
+    expect(await ctx.prisma.client.bookingPayment.count({ where: { bookingId: b.id } })).toBe(1);
+    const link = await remote(b.id); expect(link.amount).toBe(200000);
+    link.status = 'UNDERPAID'; link.amountPaid = 100000; link.amountRemaining = 100000;
+    await sync(b.id).expect(201); await action(b.id, 'confirm').expect(409);
+    link.status = 'PAID'; link.amountPaid = 200000; link.amountRemaining = 0;
+    await Promise.all([sync(b.id).expect(201), sync(b.id).expect(201)]);
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({ where: { id: b.id } })).status).toBe('CONFIRMED');
+    await action(b.id, 'check-in').expect(200);
+    const service = await ctx.prisma.client.service.create({ data: { name: randomUUID(), currentPrice: 45000 } });
+    const order = await api().post('/api/service-orders').auth(actors.guest.token, { type: 'bearer' }).send({ bookingId: b.id, items: [{ serviceId: service.id, quantity: 1 }] }).expect(201);
+    await api().patch(`/api/service-orders/${order.body.id}/complete`).auth(actors.staff.token, { type: 'bearer' }).send({}).expect(200);
+    const beforeInvoice = await api().get(`/api/bookings/${b.id}/billing-preview`).auth(actors.staff.token, { type: 'bearer' }).expect(200);
+    expect(beforeInvoice.body.paidAmount).toBe('200000.00'); expect(beforeInvoice.body.balance).toBe('45000.00');
+    expect(beforeInvoice.body.roomPayments).toHaveLength(1); expect(beforeInvoice.body.roomPayments[0].paidAt).toBeTruthy();
+    const invoice = await api().post(`/api/bookings/${b.id}/invoice`).auth(actors.staff.token, { type: 'bearer' }).send({}).expect(201);
+    expect(invoice.body.totalAmount).toBe('245000.00'); expect(invoice.body.paidAmount).toBe('200000.00'); expect(invoice.body.balance).toBe('45000.00');
+    expect(invoice.body.payments).toHaveLength(1);
+    const afterInvoice = await api().get(`/api/bookings/${b.id}/billing-preview`).auth(actors.staff.token, { type: 'bearer' }).expect(200);
+    expect(afterInvoice.body.paidAmount).toBe('200000.00'); expect(afterInvoice.body.balance).toBe('45000.00');
+    await sync(b.id).expect(201);
+    expect(await ctx.prisma.client.payment.count({ where: { invoiceId: invoice.body.id } })).toBe(1);
+  });
+  it('cancels an unpaid link before releasing the room and allows retry after a cancelled link', async () => {
+    const b = await booking(); await start(b.id).expect(201);
+    const link = await remote(b.id); link.status = 'CANCELLED';
+    await start(b.id).expect(201);
+    expect(await ctx.prisma.client.bookingPayment.count({ where: { bookingId: b.id } })).toBe(2);
+    await api().post(`/api/bookings/${b.id}/payos/cancel`).auth(actors.guest.token, { type: 'bearer' }).expect(201);
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({ where: { id: b.id } })).status).toBe('CANCELLED');
+  });
+  it('preserves a paid booking when payment wins a cancellation race', async () => {
+    const b = await booking(); await start(b.id).expect(201);
+    const link = await remote(b.id); link.status = 'PAID'; link.amountPaid = link.amount; link.amountRemaining = 0;
+    await api().post(`/api/bookings/${b.id}/payos/cancel`).auth(actors.guest.token, { type: 'bearer' }).expect(409);
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({ where: { id: b.id } })).status).toBe('CONFIRMED');
+    await api().patch(`/api/bookings/${b.id}/cancel`).auth(actors.guest.token, { type: 'bearer' }).expect(409);
+  });
+  it('shows a fully paid invoice immediately when no extra services were used', async () => {
+    const b = await booking(); await start(b.id).expect(201);
+    const link = await remote(b.id); link.status = 'PAID'; link.amountPaid = link.amount; link.amountRemaining = 0;
+    await sync(b.id).expect(201);
+    const state = await api().get(`/api/bookings/${b.id}/payment-state`).auth(actors.guest.token, { type: 'bearer' }).expect(200);
+    expect(state.body.paid).toBe(true); expect(state.body.paidAmount).toBe('200000.00');
+    await api().get(`/api/bookings/${b.id}/payment-state`).auth(actors.other.token, { type: 'bearer' }).expect(404);
+    await action(b.id, 'check-in').expect(200);
+    const invoice = await api().post(`/api/bookings/${b.id}/invoice`).auth(actors.staff.token, { type: 'bearer' }).send({}).expect(201);
+    expect(invoice.body.status).toBe('PAID'); expect(invoice.body.balance).toBe('0.00');
+    await api().post(`/api/invoices/${invoice.body.id}/payments`).auth(actors.staff.token, { type: 'bearer' }).set('Idempotency-Key', randomUUID()).send({ amount: '200000', method: 'CASH' }).expect(409);
+  });
+});

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { BellRing, CheckCircle2, Clock, ExternalLink, User } from 'lucide-react';
+import { ArrowRight, BellRing, CheckCircle2, Clock, ExternalLink, Receipt, User } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Dialog } from '../../components/ui';
 import { money, type Booking, type Order, type Page } from '../guest/contracts';
@@ -133,10 +133,38 @@ export function RoomRequestsDrawer({
                 </div>
 
                 {order.checkoutBookingId ? (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-3">
-                    <h4 className="font-bold text-amber-900">Yêu cầu trả phòng</h4>
-                    <p className="text-sm text-zinc-600">Khách đang chờ kiểm tra phòng và thanh toán. Yêu cầu được giữ đến khi hoàn tất trả phòng.</p>
-                    <Link className="text-link" to={`${base}/bookings/${order.checkoutBookingId}/billing`} onClick={onClose}>Xử lý trả phòng</Link>
+                  <div className="rounded-2xl bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-amber-50/80 border border-amber-200/90 p-4 space-y-3.5 shadow-2xs">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-amber-900/10">
+                          <Receipt className="size-5" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-amber-950">Yêu cầu trả phòng</h4>
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200/90 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300/80">
+                              Cần thanh toán
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-800/80 mt-0.5">Khách đã yêu cầu làm thủ tục trả phòng</p>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-zinc-600 leading-relaxed bg-white/80 p-2.5 rounded-xl border border-amber-200/60">
+                      Khách đang chờ kiểm tra phòng và thanh toán. Yêu cầu được giữ đến khi hoàn tất trả phòng.
+                    </p>
+                    <div className="pt-0.5 flex flex-wrap items-center justify-between gap-2.5">
+                      <Link
+                        to={`${base}/bookings/${order.checkoutBookingId}/billing`}
+                        onClick={onClose}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 shadow-sm hover:shadow-md transition-all group cursor-pointer"
+                      >
+                        <Receipt className="size-4 text-emerald-200" aria-hidden="true" />
+                        <span>Xử lý trả phòng</span>
+                        <ArrowRight className="size-3.5 opacity-80 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+                      </Link>
+                      <span className="text-[11px] text-zinc-500 font-medium">Chuyển sang hồ sơ thanh toán</span>
+                    </div>
                   </div>
                 ) : <>
                 {/* Item details list */}

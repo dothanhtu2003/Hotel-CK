@@ -70,8 +70,8 @@ export function ReceptionBillingPage() {
   const b = guest.data!, p = preview.data!, i = invoice.data;
   const formatDate = (value: string) => value.split("-").reverse().join("/");
   const amount = i?.totalAmount ?? p.totalAmount;
-  const paid = i?.paidAmount ?? "0";
-  const balance = i?.balance ?? p.totalAmount;
+  const paid = i?.paidAmount ?? p.paidAmount ?? "0";
+  const balance = i?.balance ?? p.balance ?? p.totalAmount;
 
   return (
     <div className="billing-workspace">
@@ -303,7 +303,7 @@ export function ReceptionBillingPage() {
                 {money(balance)}
               </div>
               {Number(balance) <= 0 && (
-                <span className="text-[11px] text-emerald-700 font-medium">Hóa đơn đã được tất toán</span>
+                <span className="text-[11px] text-emerald-700 font-medium">{i ? 'Hóa đơn đã được tất toán' : 'Đã thanh toán đủ chi phí hiện tại · Chưa phát hành hóa đơn'}</span>
               )}
             </div>
 

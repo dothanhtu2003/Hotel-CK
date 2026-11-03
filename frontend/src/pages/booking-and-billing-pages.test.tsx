@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MyBookingsPage, BookingDetailPage } from './booking-pages';
@@ -138,7 +138,7 @@ it('BookingDetailPage renders stay stepper, exact night/guest text and cancel ac
   expect(screen.getAllByText('Đã xác nhận').length).toBeGreaterThanOrEqual(1);
   expect(screen.getByRole('link', { name: /Xem chi phí & hóa đơn/i })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Hủy booking' })).toBeTruthy();
-  expect(await screen.findByText('4.800.000 ₫')).toBeTruthy();
+  expect(await within(screen.getByRole('region', { name: 'Chi phí phòng và dịch vụ' })).findByText('4.800.000 ₫')).toBeTruthy();
   expect(screen.getByText('Giặt ủi × 2 · 150.000 ₫ / đơn vị')).toBeTruthy();
   expect(screen.getByText('100.000 ₫')).toBeTruthy();
   expect(screen.getByText('1 đơn dịch vụ đang chờ, chưa tính vào tổng tiền.')).toBeTruthy();

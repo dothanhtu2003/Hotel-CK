@@ -11,6 +11,8 @@ import { ErrorState, LinkButton, PageHeading } from '../components/ui';
 import { GuestBadge, Skeleton } from '../features/guest/components';
 import { formatBookingReference, money, type Invoice, type Preview } from '../features/guest/contracts';
 import { useGet, useInvoice } from '../features/guest/queries';
+import { PayosPayment } from '../features/guest/payos-payment';
+import { BookingPayment } from '../features/guest/booking-payment';
 
 /* ========================================================
    HELPER FORMATTERS (CLEAN UP UUIDs & ENUMS)
@@ -30,6 +32,7 @@ function friendlyPaymentMethod(method: string) {
 
 function friendlyPaymentStatus(status: string) {
   switch (status) {
+    case 'COMPLETED':
     case 'SUCCESS':
       return 'Đã xác nhận';
     case 'PENDING':
@@ -180,6 +183,7 @@ function InvoiceView({ invoice: i }: { invoice: Invoice }) {
         </div>
       )}
 
+      <PayosPayment invoice={i} />
       {/* Front Desk Assistance Notice */}
       <div className="folio-notice-box">
         <Info size={18} />
@@ -214,6 +218,7 @@ export function BookingBillingPage() {
         ← Chi tiết booking
       </Link>
       <PageHeading eyebrow="CHI PHÍ LƯU TRÚ" title="Chi phí & hóa đơn" />
+      {preview.data?.booking.onlinePaymentRequired && preview.data.booking.status !== 'CANCELLED' && <BookingPayment booking={preview.data.booking} />}
 
       {/* 1. Preliminary Cost Preview (Before Invoice) */}
       {preview.isPending ? (

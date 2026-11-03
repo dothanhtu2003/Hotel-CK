@@ -1,6 +1,7 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 
 export const bookingSelect = {
+  onlinePaymentRequired: true,
   id: true, reference: true, userId: true, roomId: true, checkInDate: true, checkOutDate: true,
   guestCount: true, status: true, checkoutRequestedAt: true, nightlyPrice: true, totalRoomAmount: true, createdAt: true, updatedAt: true,
   room: { select: { roomNumber: true } },

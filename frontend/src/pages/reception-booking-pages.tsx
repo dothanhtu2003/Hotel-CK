@@ -79,6 +79,11 @@ export function ReceptionBookingDetailPage() {
   }
 
   const b = query.data!;
+  const financeReady = !invoice.isPending && !invoice.error && !!preview.data && !preview.error;
+  const paid = invoice.data?.paidAmount ?? preview.data?.paidAmount ?? '0.00';
+  const balance = invoice.data?.balance ?? preview.data?.balance ?? preview.data?.totalAmount ?? b.totalRoomAmount;
+  const hasBalance = Number(balance) > 0;
+  const onlineReceipts = preview.data?.roomPayments ?? [];
   const origin = location.state as { returnTo?: string; returnLabel?: string } | null;
   const returnTo = origin?.returnTo;
   const fromToday = typeof returnTo === 'string' && (returnTo === base || returnTo.startsWith(base + '?'));
@@ -258,6 +263,11 @@ export function ReceptionBookingDetailPage() {
               <div className="flex justify-between"><span className="text-zinc-500">Giá mỗi đêm</span><span>{money(b.nightlyPrice)}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500">Số đêm</span><span>{b.nights} đêm</span></div>
               <div className="flex justify-between border-t border-zinc-200 pt-4 font-bold"><span>Tổng tiền phòng</span><span className="text-lg text-brand-800">{money(b.totalRoomAmount)}</span></div>
+              {financeReady && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2" aria-label="Thanh toán tiền phòng">
+                <div className="flex justify-between"><span>Đã thanh toán{onlineReceipts.length ? ' qua payOS' : ''}</span><strong>{money(paid)}</strong></div>
+                <div className="flex justify-between"><span>Còn phải thu</span><strong>{money(balance)}</strong></div>
+                {onlineReceipts.map(receipt => <p className="text-xs text-emerald-800" key={receipt.id}>payOS · {money(receipt.amount)} · {receipt.paidAt ? new Date(receipt.paidAt).toLocaleString('vi-VN') : 'Đã xác minh'}</p>)}
+              </div>}
             </CardContent>
           </Card>
         </div>
@@ -414,60 +424,49 @@ export function ReceptionBookingDetailPage() {
 
               {/* Trạng thái công nợ / Còn phải thu */}
               <div className="pt-1">
-                {invoice.data ? (
+                {financeReady ? (
                   <div
                     className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
-                      Number(invoice.data.balance) > 0
+                      hasBalance
                         ? "bg-amber-50/80 border-amber-200 text-amber-900"
                         : "bg-emerald-50/80 border-emerald-200 text-emerald-900"
                     }`}
                   >
                     <div>
                       <span className="font-bold block">
-                        {Number(invoice.data.balance) > 0
-                          ? "⚠️ CÒN PHẢI THU:"
-                          : "✓ ĐÃ THANH TOÁN ĐỦ:"}
+                        {hasBalance
+                          ? `CÒN PHẢI THU${invoice.data ? '' : ' (Tạm tính)'}:`
+                          : `ĐÃ THANH TOÁN ĐỦ${invoice.data ? '' : ' CHI PHÍ HIỆN TẠI'}:`}
                       </span>
                       <span className="text-[11px] opacity-75">
-                        Đã thu: {money(invoice.data.paidAmount)}
+                        Đã thu{onlineReceipts.length ? ' (gồm tiền phòng qua payOS)' : ''}: {money(paid)}
+                        {!invoice.data && ' · Chưa phát hành hóa đơn'}
                       </span>
                     </div>
                     <span className="tabular-nums font-extrabold text-base">
-                      {money(invoice.data.balance)}
+                      {money(balance)}
                     </span>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-xl border bg-amber-50/80 border-amber-200 text-amber-900 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-bold block">
-                        ⚠️ CÒN PHẢI THU (Tạm tính):
-                      </span>
-                      <span className="text-[11px] opacity-75">
-                        Chưa phát hành hóa đơn
-                      </span>
-                    </div>
-                    <span className="tabular-nums font-extrabold text-base">
-                      {preview.data
-                        ? money(preview.data.totalAmount)
-                        : money(b.totalRoomAmount)}
-                    </span>
-                  </div>
+                  preview.error || invoice.error
+                    ? <ErrorState message="Chưa tải được thông tin thanh toán." retry={() => { void preview.refetch(); void invoice.refetch(); }} />
+                    : <p role="status">Đang kiểm tra thanh toán…</p>
                 )}
               </div>
+              {onlineReceipts.length > 0 && <div className="space-y-1 text-xs text-emerald-800" aria-label="Biên nhận payOS">
+                {onlineReceipts.map(receipt => <p key={receipt.id}>Đã nhận qua payOS: <strong>{money(receipt.amount)}</strong>{receipt.paidAt ? ` · ${new Date(receipt.paidAt).toLocaleString('vi-VN')}` : ''}</p>)}
+                <p>Tiền phòng đã trả được trừ vào hóa đơn, không thu lại.</p>
+              </div>}
             </div>
 
             {/* Nút thanh toán & trả phòng */}
-            {(b.status === 'CHECKED_IN' || b.status === 'CHECKED_OUT') && <div className="pt-2">
+            {financeReady && (b.status === 'CHECKED_IN' || b.status === 'CHECKED_OUT') && <div className="pt-2">
               <Link
                 to={`${base}/bookings/${id}/billing`}
                 className="w-full h-9 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
               >
                 <LogOut className="size-3.5" />
-                {b.status === 'CHECKED_IN' ? 'Trả phòng & Thu tiền' : 'Xem hóa đơn'} (
-                {preview.data
-                  ? money(preview.data.totalAmount)
-                  : money(b.totalRoomAmount)}
-                )
+                {b.status === 'CHECKED_IN' ? (hasBalance ? `Trả phòng & Thu phần còn lại (${money(balance)})` : 'Trả phòng & Chốt hóa đơn · Không thu thêm') : 'Xem hóa đơn'}
               </Link>
             </div>}
           </CardContent>

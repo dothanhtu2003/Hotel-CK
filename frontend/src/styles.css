@@ -3966,141 +3966,488 @@
   gap: 24px;
 }
 
+/* Guest Bookings Page - Filter Bar */
 .guest-filter-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
-.guest-stay-passes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 24px;
+.guest-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  background: #f0f4ee;
+  padding: 4px 6px;
+  border-radius: 30px;
+  border: 1px solid #dde5d7;
 }
 
-.guest-stay-pass-card {
-  background: #ffffff !important;
-  border: 1px solid #dfe7dc !important;
-  border-radius: 12px !important;
-  padding: 24px !important;
-  margin: 0 !important;
+.guest-filter-tab {
+  background: transparent;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #556c5e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.guest-filter-tab:hover {
+  color: var(--pine);
+}
+
+.guest-filter-tab.is-active {
+  background: #ffffff;
+  color: var(--pine);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(25, 62, 53, 0.08);
+}
+
+.guest-filter-meta-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guest-booking-count-chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: #496353;
+  background: #eef3eb;
+  padding: 5px 12px;
+  border-radius: 12px;
+  border: 1px solid #dbe4d7;
+}
+
+/* ========================================================
+   GUEST BOOKINGS & STAY PASSES (LUXURY RESORT REDESIGN)
+   ======================================================== */
+
+/* Filter Bar */
+.guest-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.guest-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  background: #f4f6f1;
+  padding: 4px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8dd;
+}
+
+.guest-filter-tab {
+  background: transparent;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #5d6d62;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.guest-filter-tab:hover {
+  color: #1a3928;
+}
+
+.guest-filter-tab.is-active {
+  background: #ffffff;
+  color: #1a3928;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(26, 57, 40, 0.08);
+}
+
+.guest-filter-meta-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guest-booking-count-chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3b5a45;
+  background: #eef4eb;
+  padding: 5px 12px;
+  border-radius: 12px;
+  border: 1px solid #dce8d6;
+}
+
+/* Grouped Sections */
+.guest-grouped-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.guest-booking-group-section {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  transition: all 0.25s ease;
-  box-shadow: 0 4px 16px rgba(18, 42, 33, 0.04);
 }
 
-.guest-stay-pass-card:hover {
-  transform: translateY(-3px);
-  border-color: #c9dac6 !important;
-  box-shadow: 0 12px 32px rgba(18, 42, 33, 0.08);
-}
-
-.stay-pass-header {
-  border-bottom: 1px solid #edf2e9;
-  padding-bottom: 14px;
-}
-
-.stay-pass-tag {
-  font-size: 9.5px;
-  letter-spacing: 1.2px;
-  font-weight: 600;
-  color: #73887b;
-  text-transform: uppercase;
-}
-
-.stay-pass-ref-block h2 {
-  font-size: 20px !important;
-  font-family: var(--font-sans) !important;
-  font-weight: 700;
-  color: var(--pine);
-  letter-spacing: 0.5px;
-  margin-top: 2px;
-}
-
-.stay-pass-room-meta {
+.guest-group-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #eef3eb;
 }
 
-.stay-pass-room-number strong {
+.guest-group-header.past-header {
+  border-bottom-color: #f1f0ea;
+}
+
+.guest-group-title {
   font-size: 15px;
-  color: var(--pine);
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
 }
 
-.stay-pass-room-number span {
-  color: #62776a;
+.guest-group-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 9999px;
 }
 
-.stay-pass-nights-pill {
-  font-size: 11.5px;
-  background: #f1f6ed;
-  color: #3b5849;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-weight: 500;
+/* Booking Cards Grid */
+.guest-stay-passes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
 }
 
-.stay-pass-dates {
+/* Guest Card - Clean, Unboxed Luxury Hospitality Aesthetic */
+.guest-card,
+.guest-stay-pass-card {
+  background: #ffffff !important;
+  border: 1px solid #e7ebe4 !important;
+  border-radius: 16px !important;
+  padding: 20px 22px !important;
+  margin: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 8px rgba(26, 57, 40, 0.03);
+}
+
+.guest-card:hover,
+.guest-stay-pass-card:hover {
+  transform: translateY(-2px);
+  border-color: #a4c4af !important;
+  box-shadow: 0 10px 24px -4px rgba(26, 57, 40, 0.08);
+}
+
+.guest-card.is-active-stay,
+.guest-stay-pass-card.is-active-stay {
+  border-color: #7fac90 !important;
+  background: linear-gradient(180deg, #f7fbf8 0%, #ffffff 80px) !important;
+  box-shadow: 0 4px 14px rgba(31, 80, 62, 0.07);
+}
+
+.guest-card.is-active-stay::before,
+.guest-stay-pass-card.is-active-stay::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1f503e, #458e6d);
+  border-radius: 16px 16px 0 0;
+}
+
+/* Card Top: Status & Ref Badge */
+.guest-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #f8faf6;
-  border: 1px solid #e5ede2;
-  border-radius: 8px;
-  padding: 12px 16px;
+  gap: 12px;
 }
 
-.stay-date-col {
+.stay-status-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Status Badges Enhancement */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.status-badge > i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-success {
+  background: #eaf5eb;
+  color: #1e5a2b;
+  border: 1px solid #c8e6cb;
+}
+
+.badge-success > i {
+  background: #16a34a;
+  box-shadow: 0 0 6px rgba(22, 163, 74, 0.45);
+}
+
+.badge-gold {
+  background: #fef8ee;
+  color: #925d10;
+  border: 1px solid #fde7b0;
+}
+
+.badge-gold > i {
+  background: #d97706;
+}
+
+.badge-overdue {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-weight: 600;
+}
+
+.badge-overdue > i {
+  background: #dc2626;
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.45);
+}
+
+/* Ref Code Badge */
+.guest-card-ref-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: #f6f7f4;
+  border: 1px solid #e4e7e1;
+  border-radius: 6px;
+}
+
+.guest-card-ref-title {
+  margin: 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  color: #6b7280 !important;
+  letter-spacing: 0.03em !important;
+  line-height: 1 !important;
+}
+
+.guest-card-copy-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: #9ca3af;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.guest-card-copy-btn:hover {
+  color: #1f2937;
+}
+
+/* Card Meta Line (Phòng · Khách · Đêm) */
+.guest-card-room-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: #4b5563;
+  margin-top: -2px;
+}
+
+.guest-card-room-number {
+  font-weight: 700;
+  color: #1a3928;
+  font-size: 14.5px;
+}
+
+.guest-card-dot {
+  color: #d1d5db;
+  font-weight: 700;
+}
+
+.guest-card-guests,
+.guest-card-nights {
+  color: #5a6572;
+}
+
+/* Dates Block - Airy, Prominent, No Heavy Inner Boxes */
+.guest-card-dates {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px solid #f1f4ee;
+  border-bottom: 1px solid #f1f4ee;
+  margin: 2px 0;
+}
+
+.guest-card-date-col {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.stay-date-col small {
+.guest-card-date-eyebrow {
   font-size: 9.5px;
-  letter-spacing: 0.8px;
-  color: #72877a;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8fa093;
+  text-transform: uppercase;
 }
 
-.stay-date-col strong {
-  font-size: 13.5px;
-  color: var(--pine);
+.guest-card-date-main {
+  font-size: 19px;
+  font-weight: 700;
+  color: #1a3928;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
-.stay-date-arrow {
-  color: #9ab0a2;
-  font-size: 16px;
+.guest-card-date-sub {
+  font-size: 11.5px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
-.stay-pass-price-row {
+.guest-card-date-arrow {
+  color: #a3b8aa;
+  padding: 0 10px;
+  flex-shrink: 0;
+}
+
+/* Card Footer: Pricing & Action Link */
+.guest-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.guest-card-price-group {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  font-size: 12.5px;
-  padding-top: 4px;
-  border-top: 1px dashed #e8efe5;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 
-.stay-pass-rate {
-  color: #63776b;
+.guest-card-price-label {
+  font-size: 12px;
+  color: #6b7280;
 }
 
-.stay-pass-total strong {
-  font-size: 15px;
-  color: var(--pine);
-  margin-left: 4px;
+.guest-card-price-amount {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #1a3928;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.stay-pass-action {
-  margin-top: auto;
-  padding-top: 6px;
+.guest-card-price-sub {
+  font-size: 11.5px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.guest-card-action-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.guest-card-service-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #925d10;
+  background: #fef8ee;
+  border: 1px solid #fde7b0;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.guest-card-service-shortcut:hover {
+  background: #fdf0d5;
+}
+
+.guest-card-main-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f503e;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.guest-card-main-link:hover {
+  color: #143528;
+}
+
+.guest-card-link-arrow {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.guest-card:hover .guest-card-link-arrow {
+  transform: translateX(3px);
 }
 
 /* Booking Detail Header & Card */

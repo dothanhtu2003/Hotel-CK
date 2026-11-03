@@ -66,11 +66,15 @@ export function staySpan(
   return { left, width: right - left };
 }
 
-export function bookingLanes(bookings: DeskRoom['bookings'], start: string, days: number) {
+export function bookingLanes(bookings: DeskRoom['bookings'], start: string, days: number, today?: string) {
   const ends: number[] = [];
   const bars = bookings.flatMap(booking => {
     const span = staySpan(booking.checkIn, booking.checkOut, start, days);
-    return span ? [{ booking, span }] : [];
+    const scheduled = span ? [{ booking, span, kind: 'scheduled' as const }] : [];
+    // Show actual occupancy today separately from the original booked dates.
+    const overdueSpan = today && booking.status === 'CHECKED_IN' && booking.checkOut < today
+      ? staySpan(today, shiftDate(today, 1), start, days) : null;
+    return [...scheduled, ...(overdueSpan ? [{ booking, span: overdueSpan, kind: 'overdue' as const }] : [])];
   }).sort((a, b) => a.span.left - b.span.left || a.booking.checkIn.localeCompare(b.booking.checkIn) || a.booking.id.localeCompare(b.booking.id));
   return bars.map(bar => {
     let lane = ends.findIndex(end => end <= bar.span.left);

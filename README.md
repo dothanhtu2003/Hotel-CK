@@ -1,5 +1,26 @@
 # 🏨 Hotel CK — An Nhiên Hotel Management System
 
+### Thanh toán payOS phía khách hàng
+
+Booking mới trên web yêu cầu **thanh toán 100% tiền phòng qua payOS ngay khi đặt**. Sau khi tạo yêu cầu đặt phòng, khách được chuyển sang payOS. Nếu chưa thanh toán xong, khách mở **Kỳ nghỉ của tôi → Chi tiết booking → Thanh toán ngay qua payOS** để tiếp tục.
+
+Booking ở trạng thái **Chờ thanh toán** cho đến khi máy chủ xác minh nhận đủ tiền, sau đó tự chuyển **Đã xác nhận**. Cơ sở dữ liệu cũng chặn xác nhận/nhận phòng khi chưa trả đủ. Các booking web cũ đang chờ xác nhận được áp dụng chính sách mới khi migration chạy; booking đã xác nhận và booking do lễ tân tạo giữ nguyên quy trình hiện có. Dịch vụ phát sinh tính riêng. Khi phát hành hóa đơn cuối kỳ, hệ thống tự ghi nhận tiền phòng đã trả, chỉ thu phần còn lại. Việc trả phòng vẫn do lễ tân thực hiện.
+
+Khách có thể hủy booking chưa trả tiền; hệ thống hủy liên kết payOS trước khi mở lại phòng. Booking đã nhận tiền cần lễ tân hỗ trợ hủy/hoàn tiền; hệ thống chưa tự hoàn tiền. Các yêu cầu chưa thanh toán chưa có cơ chế tự hết hạn giữ phòng.
+
+Thiết lập trong `.env` của backend (không đưa khóa vào frontend hoặc Git):
+
+```dotenv
+PAYOS_CLIENT_ID=""
+PAYOS_API_KEY=""
+PAYOS_CHECKSUM_KEY=""
+PAYOS_RETURN_ORIGIN="http://localhost:5173"
+```
+
+Chạy `npm run db:migrate` và khởi động lại backend. Khi triển khai, đặt `PAYOS_RETURN_ORIGIN` bằng origin HTTPS của frontend và đăng ký URL `https://BACKEND/api/payments/payos/webhook` trong kênh thanh toán payOS. Webhook cần truy cập được từ Internet; localhost cần một tunnel HTTPS. Khách cũng có thể bấm **Kiểm tra thanh toán** để đối soát trực tiếp với payOS.
+
+API booking: `GET /api/bookings/:id/payment-state`, `POST /api/bookings/:id/payos`, `POST /api/bookings/:id/payos/sync`, `POST /api/bookings/:id/payos/cancel`. Các API đều kiểm tra quyền sở hữu booking. API thanh toán phần phát sinh trên hóa đơn tiếp tục dùng `POST /api/invoices/:id/payos` và `POST /api/invoices/:id/payos/sync`. Webhook xác minh chữ ký bằng SDK payOS và đọc lại trạng thái giao dịch từ payOS; tham số URL quay về không được dùng để xác nhận đã thu tiền. Giao dịch thiếu tiền được giữ chờ; giao dịch đã hủy/hết hạn mà chưa nhận tiền có thể tạo lại.
+
 <div align="center">
 
 A full-stack hotel reservation and guest service management platform built with NestJS, React 19, and PostgreSQL.

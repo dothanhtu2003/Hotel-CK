@@ -158,6 +158,8 @@ model RoomImage {
 }
 
 model Booking {
+  onlinePaymentRequired Boolean @default(false) @map("online_payment_required")
+  bookingPayments BookingPayment[]
   checkoutRequestedAt DateTime? @map("checkout_requested_at") @db.Timestamptz(3)
   createdById     String?        @map("created_by_id") @db.Uuid
   id              String         @id @default(uuid()) @db.Uuid
@@ -288,6 +290,8 @@ model Invoice {
 }
 
 model Payment {
+  payosOrderCode BigInt? @unique @map("payos_order_code")
+  checkoutUrl String? @map("checkout_url") @db.VarChar(2048)
   id        String        @id @default(uuid()) @db.Uuid
   invoiceId String        @map("invoice_id") @db.Uuid
   amount    Decimal       @db.Decimal(14, 2)
@@ -298,5 +302,20 @@ model Payment {
 
   @@index([invoiceId, status])
   @@map("payments")
+  @@schema("hotel")
+}
+
+model BookingPayment {
+  id String @id @default(uuid()) @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  amount Decimal @db.Decimal(14, 2)
+  status PaymentStatus @default(PENDING)
+  payosOrderCode BigInt @unique @map("payos_order_code")
+  checkoutUrl String? @map("checkout_url") @db.VarChar(2048)
+  paidAt DateTime? @map("paid_at") @db.Timestamptz(3)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([bookingId, status])
+  @@map("booking_payments")
   @@schema("hotel")
 }
