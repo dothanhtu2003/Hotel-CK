@@ -11,7 +11,7 @@ function fixture() {
   const attempt = { id: 'payment', invoiceId: 'invoice', status: 'PENDING', payosOrderCode: 123n, amount: new Prisma.Decimal(10000), checkoutUrl: 'https://pay.payos.vn/web/test' };
   const updateMany = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({ count: 1 });
   const tx = { $queryRaw: jest.fn<() => Promise<unknown>>().mockResolvedValue([]), invoice: { findUniqueOrThrow: jest.fn<() => Promise<unknown>>().mockResolvedValue({ bookingId: 'booking' }) }, payment: { updateMany } };
-  const db = { bookingPayment: { findUnique: jest.fn<() => Promise<unknown>>().mockResolvedValue(null) }, payment: {
+  const db = { serviceOrder: { findUnique: jest.fn<() => Promise<unknown>>().mockResolvedValue(null) }, bookingPayment: { findUnique: jest.fn<() => Promise<unknown>>().mockResolvedValue(null) }, payment: {
     findMany: jest.fn<() => Promise<unknown>>().mockResolvedValue([attempt]),
     findUnique: jest.fn<() => Promise<unknown>>().mockResolvedValue(attempt), updateMany,
   }, $transaction: jest.fn<(callback: (value: typeof tx) => Promise<unknown>) => Promise<unknown>>().mockImplementation(fn => fn(tx)) };

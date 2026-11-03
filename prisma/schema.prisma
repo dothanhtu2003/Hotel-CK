@@ -205,6 +205,12 @@ model Service {
 }
 
 model ServiceOrder {
+  payosOrderCode BigInt? @unique @map("payos_order_code")
+  payosCheckoutUrl String? @map("payos_checkout_url")
+  payosQrCode String? @map("payos_qr_code")
+  payosStatus String? @map("payos_status")
+  payosCreatedBy String? @map("payos_created_by") @db.Uuid
+
   id          String             @id @default(uuid()) @db.Uuid
   bookingId   String             @map("booking_id") @db.Uuid
   status      OrderStatus        @default(PENDING)

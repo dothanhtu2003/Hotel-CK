@@ -46,7 +46,7 @@ try {
     }
     // Cloudinary URLs are optional: do not invent assets or upload without configuration.
     const serviceNames = ['Bữa sáng','Cà phê','Giặt ủi','Nước suối','Bữa tối'];
-    const prices = [120000,45000,80000,20000,200000];
+    const prices = [9000,5000,8000,3000,9000];
     for (let i=0;i<5;i++) await tx.service.create({ data: { id:demoId(`service:${i}`),name:serviceNames[i],description:'Dịch vụ tại khách sạn',currentPrice:prices[i] } });
     const specs = [
       {key:'CHECKED-OUT',room:0,start:-10,end:-7,status:'CHECKED_IN'},

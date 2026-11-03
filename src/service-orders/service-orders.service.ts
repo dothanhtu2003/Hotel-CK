@@ -98,6 +98,7 @@ export class ServiceOrdersService {
         if (!target) throw new NotFoundException('Service order not found');
         await this.lockStay(tx, target.bookingId, actor);
         const order = await tx.serviceOrder.findUniqueOrThrow({ where: { id }, select: orderSelect });
+        if (order.payosStatus === 'PENDING') throw new ConflictException('Đang chờ payOS xác nhận. Kiểm tra hoặc hủy liên kết payOS trước khi thu tiền khác');
         if (order.status === 'CANCELLED') throw new ConflictException('Cancelled order cannot be settled');
         if (order.paymentMethod) {
           if (order.paymentMethod !== dto.settlement) throw new ConflictException('Counter receipt is already recorded');
@@ -118,6 +119,7 @@ export class ServiceOrdersService {
         if (!order) throw new NotFoundException('Service order not found');
         await this.lockStay(tx, order.bookingId, actor);
         const current = await tx.serviceOrder.findUniqueOrThrow({ where: { id }, select: orderSelect });
+        if (current.payosStatus === 'PENDING') throw new ConflictException('Cần kiểm tra hoặc hủy liên kết payOS trước khi thay đổi đơn');
         const staff = actor.role === 'RECEPTIONIST' || actor.role === 'ADMIN';
         const cancellingRecorded = action === 'cancel' && staff && current.status === 'COMPLETED';
         if (current.paymentMethod && action === 'cancel' && (!staff || !refundConfirmed)) throw new ConflictException('Confirm full refund before cancelling a paid order');

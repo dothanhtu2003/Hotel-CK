@@ -216,18 +216,99 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
     return { cancelled: true };
   }
 
-  private async createLink(orderCode: number, amount: number, path: string, expiredAt?: number) {
+  private async serviceOrder(id: string, actor?: PublicUser) {
+    if (actor && !['RECEPTIONIST', 'ADMIN'].includes(actor.role)) throw new BadRequestException('Staff required');
+    const order = await this.prisma.client.serviceOrder.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException('Service order not found');
+    return order;
+  }
+
+  async startServiceOrder(id: string, actor: PublicUser) {
+    this.client();
+    const target = await this.serviceOrder(id, actor);
+    if (target.payosOrderCode) await this.syncServiceOrder(id, actor);
+    const reconciled = await this.serviceOrder(id, actor);
+    let renewableCode: bigint | null = null;
+    if (reconciled.payosStatus === 'CLOSED' && reconciled.payosOrderCode) {
+      // Recheck the previous link before replacing it: never create another QR
+      // when the gateway has received funds or its outcome is uncertain.
+      let remote;
+      try { remote = await this.client().paymentRequests.get(Number(reconciled.payosOrderCode)); }
+      catch { throw new ServiceUnavailableException('Chưa thể kiểm tra liên kết cũ. Vui lòng thử lại'); }
+      this.validBookingRemote(remote, { payosOrderCode: reconciled.payosOrderCode, amount: reconciled.totalAmount });
+      if (!['CANCELLED', 'EXPIRED', 'FAILED'].includes(remote.status) || remote.amountPaid !== 0) throw new ConflictException('Liên kết cũ cần đối soát trước khi tạo QR mới');
+      renewableCode = reconciled.payosOrderCode;
+    }
+    await this.prisma.client.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${target.bookingId}::uuid FOR UPDATE`;
+      const booking = await tx.booking.findUniqueOrThrow({ where: { id: target.bookingId }, select: { status: true, invoice: { select: { id: true } } } });
+      const order = await tx.serviceOrder.findUniqueOrThrow({ where: { id } });
+      if (order.paymentMethod) return;
+      if (booking.status !== 'CHECKED_IN' || booking.invoice || order.status === 'CANCELLED') throw new ConflictException('Đơn dịch vụ không còn được thanh toán riêng');
+      if (order.payosStatus === 'CLOSED' && order.payosOrderCode !== renewableCode) throw new ConflictException('Giao dịch đã thay đổi. Vui lòng tải lại');
+      if (!order.totalAmount.isInteger() || !Number.isSafeInteger(order.totalAmount.toNumber()) || order.totalAmount.lte(0)) throw new ConflictException('payOS yêu cầu số tiền nguyên VND dương');
+      if (!order.payosOrderCode || order.payosStatus === 'CLOSED') await tx.serviceOrder.update({ where: { id }, data: { payosCheckoutUrl: null, payosQrCode: null, payosOrderCode: (2n << 48n) + BigInt(randomBytes(6).readUIntBE(0, 6)), payosStatus: 'PENDING', payosCreatedBy: actor.id } });
+    });
+    // Persist the order code before the external call so retries reuse it after a timeout.
+    return this.prisma.client.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${target.bookingId}::uuid FOR UPDATE`;
+      const order = await tx.serviceOrder.findUniqueOrThrow({ where: { id } });
+      if (order.paymentMethod) return { paid: true };
+      if (!order.payosOrderCode || order.payosStatus !== 'PENDING') throw new ConflictException('Giao dịch đã thay đổi');
+      if (order.payosCheckoutUrl) return { paid: false, checkoutUrl: order.payosCheckoutUrl, qrCode: order.payosQrCode ?? order.payosCheckoutUrl };
+      let qrCode: string | undefined;
+      const checkoutUrl = await this.createLink(Number(order.payosOrderCode), order.totalAmount.toNumber(), `/reception/service-orders/${id}`, undefined, qr => { qrCode = qr; });
+      await tx.serviceOrder.update({ where: { id }, data: { payosCheckoutUrl: checkoutUrl, payosQrCode: qrCode ?? checkoutUrl } });
+      return { paid: false, checkoutUrl, qrCode: qrCode ?? checkoutUrl };
+    }, { timeout: 25000 });
+  }
+
+  async syncServiceOrder(id: string, actor?: PublicUser) {
+    const target = await this.serviceOrder(id, actor);
+    if (!target.payosOrderCode || target.payosStatus !== 'PENDING') return { paid: !!target.paymentMethod, closed: !target.payosOrderCode || target.payosStatus === 'CLOSED' };
+    let remote;
+    try { remote = await this.client().paymentRequests.get(Number(target.payosOrderCode)); }
+    catch (error) {
+      if (!target.payosCheckoutUrl && error instanceof PayosNotFoundError) return { paid: false, closed: false };
+      throw new ServiceUnavailableException('Chưa thể kiểm tra giao dịch payOS');
+    }
+    this.validBookingRemote(remote, { payosOrderCode: target.payosOrderCode, amount: target.totalAmount });
+    const closed = ['CANCELLED', 'EXPIRED', 'FAILED'].includes(remote.status) && remote.amountPaid === 0;
+    await this.prisma.client.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${target.bookingId}::uuid FOR UPDATE`;
+      const current = await tx.serviceOrder.findUniqueOrThrow({ where: { id } });
+      if (current.payosStatus !== 'PENDING') return;
+      if (remote.status === 'PAID') {
+        if (current.paymentMethod || !current.payosCreatedBy || current.status === 'CANCELLED') throw new ConflictException('Khoản thanh toán cần đối soát');
+        await tx.serviceOrder.update({ where: { id }, data: { payosStatus: 'PAID', status: 'COMPLETED', paymentMethod: 'BANK_TRANSFER', paidAt: new Date(), receivedBy: current.payosCreatedBy } });
+      } else if (closed) await tx.serviceOrder.update({ where: { id }, data: { payosStatus: 'CLOSED' } });
+    });
+    return { paid: remote.status === 'PAID', closed };
+  }
+
+  async cancelServiceOrderPayment(id: string, actor: PublicUser) {
+    const order = await this.serviceOrder(id, actor);
+    if (order.payosOrderCode && order.payosStatus === 'PENDING') {
+      try { await this.client().paymentRequests.cancel(Number(order.payosOrderCode), 'Huy thanh toan dich vu'); }
+      catch { throw new ServiceUnavailableException('Chưa thể hủy giao dịch payOS. Vui lòng kiểm tra thanh toán'); }
+    }
+    return this.syncServiceOrder(id, actor);
+  }
+
+  private async createLink(orderCode: number, amount: number, path: string, expiredAt?: number, onQr?: (qr: string) => void) {
     const client = this.client();
     const origin = this.config.get<string>('PAYOS_RETURN_ORIGIN');
     let validOrigin = false;
     try { validOrigin = !!origin && ['http:', 'https:'].includes(new URL(origin).protocol) && new URL(origin).origin === origin; } catch { /* Invalid deployment configuration. */ }
     if (!validOrigin) throw new ServiceUnavailableException('PAYOS_RETURN_ORIGIN chưa hợp lệ');
     let checkoutUrl: string;
+    let qrCode: string | undefined;
     try {
       const link = await client.paymentRequests.create({ orderCode, amount, description: `HOTEL ${orderCode}`,
         ...(expiredAt ? { expiredAt } : {}), returnUrl: `${origin}${path}?payos=return`, cancelUrl: `${origin}${path}?payos=cancel` });
       if (link.orderCode !== orderCode || link.amount !== amount || link.currency !== 'VND') throw new Error('Payment link mismatch');
       checkoutUrl = link.checkoutUrl;
+      qrCode = link.qrCode;
     } catch {
       try {
         const existing = await client.paymentRequests.get(orderCode);
@@ -237,6 +318,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
     }
     const url = new URL(checkoutUrl);
     if (url.protocol !== 'https:' || url.hostname !== 'pay.payos.vn' || url.username || url.password) throw new ServiceUnavailableException('Liên kết payOS không hợp lệ');
+    if (qrCode) onQr?.(qrCode);
     return checkoutUrl;
   }
 
@@ -301,6 +383,8 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
     if (payment && data.code === '00') await this.sync(payment.invoiceId);
     const bookingPayment = await this.prisma.client.bookingPayment.findUnique({ where: { payosOrderCode: BigInt(data.orderCode) } });
     if (bookingPayment && data.code === '00') await this.syncBooking(bookingPayment.bookingId);
+    const serviceOrder = await this.prisma.client.serviceOrder.findUnique({ where: { payosOrderCode: BigInt(data.orderCode) } });
+    if (serviceOrder && data.code === '00') await this.syncServiceOrder(serviceOrder.id);
     return { success: true };
   }
 }

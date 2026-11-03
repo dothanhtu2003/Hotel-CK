@@ -53,9 +53,9 @@ const types = [
   { name: 'Suite', price: 2400000, capacity: 6 },
 ];
 const services = [
-  ['Bữa sáng', 120000], ['Cà phê', 45000], ['Giặt ủi', 80000], ['Nước suối', 20000],
-  ['Bữa tối', 200000], ['Đưa đón sân bay', 350000], ['Minibar', 65000], ['Massage', 400000],
-  ['Trái cây', 95000], ['Giường phụ', 250000], ['Trà chào mừng', 0], ['Dịch vụ tạm ngừng', 150000],
+  ['Bữa sáng', 9000], ['Cà phê', 5000], ['Giặt ủi', 8000], ['Nước suối', 3000],
+  ['Bữa tối', 9000], ['Đưa đón sân bay', 9000], ['Minibar', 6000], ['Massage', 9000],
+  ['Trái cây', 8000], ['Giường phụ', 9000], ['Trà chào mừng', 0], ['Dịch vụ tạm ngừng', 9000],
 ] as const;
 const bookingRows: { reference: string; room: string; scenario: string }[] = [];
 const roomNumber = (i: number) => `T${batch.slice(2)}-${Math.floor(i / 6) + 1}0${i % 6 + 1}`;

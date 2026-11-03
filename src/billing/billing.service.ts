@@ -58,7 +58,7 @@ export class BillingService {
         await this.lockBooking(tx, id);
         const booking = await tx.booking.findUniqueOrThrow({ where: { id }, select: { status: true, invoice: { select: { id: true } } } });
         if (booking.status !== 'CHECKED_IN' || booking.invoice) throw new ConflictException('Invoice requires a checked-in booking without an existing invoice');
-        if (await tx.serviceOrder.count({ where: { bookingId: id, status: 'PENDING' } })) throw new ConflictException('Resolve pending service orders before issuing the invoice');
+        if (await tx.serviceOrder.count({ where: { bookingId: id, OR: [{ status: 'PENDING' }, { payosStatus: 'PENDING' }] } })) throw new ConflictException('Resolve pending service orders and payOS payments before issuing the invoice');
         const invoice = await tx.invoice.create({ data: { bookingId: id }, select: { id: true } });
         return invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id: invoice.id }, select: invoiceSelect }));
       });

@@ -27,6 +27,12 @@ export class PayosController {
   start(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.start(id, user); }
   @Post('invoices/:id/payos/sync') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   sync(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.sync(id, user); }
+  @Post('service-orders/:id/payos') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  startServiceOrder(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.startServiceOrder(id, user); }
+  @Post('service-orders/:id/payos/sync') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  syncServiceOrder(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.syncServiceOrder(id, user); }
+  @Post('service-orders/:id/payos/cancel') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  cancelServiceOrder(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.cancelServiceOrderPayment(id, user); }
   @Post('payments/payos/webhook') @Public()
   webhook(@Body() body: unknown) { return this.payos.webhook(body); }
 }

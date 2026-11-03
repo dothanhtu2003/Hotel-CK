@@ -12,7 +12,7 @@ vi.mock('../../components/ui', async importOriginal => ({
   ...await importOriginal<typeof import('../../components/ui')>(),
   Dialog: ({ open, title, children }: { open: boolean; title: string; children: ReactNode }) => open ? <div role="dialog" aria-label={title}>{children}</div> : null,
 }));
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 const order: Order = { id: 'order-1', bookingId: 'booking-1', status: 'COMPLETED', totalAmount: '45000.00', orderedAt: '2026-10-30T00:00:00Z', items: [] };
 function mount(element: ReactNode) {
   return render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{element}</QueryClientProvider></MemoryRouter>);
@@ -70,4 +70,29 @@ it('rechecks funds after quantity changes and retries creation with the same req
   expect(calls).toHaveLength(2);
   expect(calls[0][1]?.body).toEqual(calls[1][1]?.body);
   expect(calls[0][1]?.body).toMatchObject({ settlement: 'CASH', expectedAmount: '90000.00', paymentVerified: true, requestId: expect.any(String) });
+});
+
+
+it('creates a payOS QR and waits for gateway verification without manual collection', async () => {
+  const request = vi.spyOn(api, 'request').mockImplementation(async path => {
+    if (path.endsWith('/payos/sync')) return { paid: false, closed: false };
+    return { paid: false, checkoutUrl: 'https://pay.payos.vn/web/test', qrCode: 'payos-qr-payload' };
+  });
+  mount(<ServiceOrderActions order={order} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Thu tiền ngay' }));
+  fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: 'BANK_TRANSFER' } });
+  expect(await screen.findByRole('link', { name: 'Mở trang thanh toán payOS' })).toBeTruthy();
+  expect(request).toHaveBeenCalledWith('/service-orders/order-1/payos', { method: 'POST' });
+  expect(screen.queryByRole('checkbox')).toBeNull();
+  expect((screen.getByRole('button', { name: 'Lưu thanh toán' }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: 'CASH' } });
+  expect(screen.queryByRole('region', { name: 'QR thanh toán payOS' })).toBeNull();
+});
+
+it('closes the payment dialog after payOS confirms funds', async () => {
+  vi.spyOn(api, 'request').mockImplementation(async path => path.endsWith('/payos/sync') ? { paid: true, closed: false } : { paid: false, checkoutUrl: 'https://pay.payos.vn/web/test', qrCode: 'payload' });
+  mount(<ServiceOrderActions order={order} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Thu tiền ngay' }));
+  fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: 'BANK_TRANSFER' } });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });

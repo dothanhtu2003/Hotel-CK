@@ -11,6 +11,7 @@ export class ServiceOrderItemResponseDto {
   @ApiProperty({ type: String, example: '90000.50' }) subtotal!: string;
 }
 export class ServiceOrderResponseDto {
+  @ApiProperty({ enum: ['PENDING', 'PAID', 'CLOSED'], nullable: true }) payosStatus!: string | null;
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) bookingId!: string;
   @ApiProperty({ enum: OrderStatus }) status!: OrderStatus;
