@@ -358,9 +358,16 @@ export class FrontDeskService {
             tasks: { where: { status: { not: "DONE" } }, select: { id: true } },
             bookings: {
               where: start && end ? {
-                status: { not: "CANCELLED" },
-                checkInDate: { lt: end },
-                checkOutDate: { gt: start },
+                OR: [
+                  // Occupancy ends only when staff check the guest out, even
+                  // when the scheduled stay no longer overlaps the board.
+                  { status: "CHECKED_IN" },
+                  {
+                    status: { not: "CANCELLED" },
+                    checkInDate: { lt: end },
+                    checkOutDate: { gt: start },
+                  },
+                ],
               } : {
                 OR: [
                   { status: "CHECKED_IN" },

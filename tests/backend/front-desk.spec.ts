@@ -1,8 +1,10 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
+import type { PrismaService } from "../../src/database/prisma.service.js";
 import {
   hotelDay,
   deskWhere,
   readyWhere,
+  FrontDeskService,
 } from "../../src/front-desk/front-desk.service.js";
 import {
   DeskQuery,
@@ -13,6 +15,31 @@ import {
 import { createValidationPipe } from "../../src/configure-app.js";
 
 describe("Front desk date boundaries and validation", () => {
+  it("keeps unchecked-out guests in dated room boards after their scheduled departure", async () => {
+    const findMany = jest.fn<(...args: unknown[]) => Promise<unknown[]>>().mockResolvedValue([]);
+    const tx = { room: { findMany, count: async () => 0 } };
+    const service = new FrontDeskService({
+      client: { $transaction: async (read: (client: typeof tx) => Promise<unknown>) => read(tx) },
+    } as unknown as PrismaService);
+
+    await service.rooms(Object.assign(new RoomQuery(), {
+      start: "2026-11-03", end: "2026-11-10",
+    }));
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        bookings: expect.objectContaining({
+          where: { OR: [
+            { status: "CHECKED_IN" },
+            {
+              status: { not: "CANCELLED" },
+              checkInDate: { lt: new Date("2026-11-10T00:00:00Z") },
+              checkOutDate: { gt: new Date("2026-11-03T00:00:00Z") },
+            },
+          ] },
+        }),
+      }),
+    }));
+  });
   it("uses Vietnam midnight independently from the server timezone", () => {
     expect(hotelDay(new Date("2026-10-28T16:59:59Z"))).toBe("2026-10-28");
     expect(hotelDay(new Date("2026-10-28T17:00:00Z"))).toBe("2026-10-29");
