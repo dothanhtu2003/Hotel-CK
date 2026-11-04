@@ -115,7 +115,6 @@ export function ServicesPage() {
   return (
     <div className="guest-services-space">
       <PageHeading
-        eyebrow="CHĂM CHÚT KỲ NGHỈ"
         title="Dịch vụ phòng"
         action={
           <LinkButton to="/guest/service-orders" variant="secondary">
@@ -163,9 +162,12 @@ export function ServicesPage() {
 
                       {/* Stepper Quantity Control */}
                       <div className="service-quantity-control-wrap">
-                        <label htmlFor={s.id} className="service-qty-label">
+                        <label htmlFor={s.id} className="service-qty-label sr-only">
                           Số lượng {s.name}
                         </label>
+                        <span className="service-qty-caption" aria-hidden="true">
+                          Số lượng
+                        </span>
 
                         <div className="service-qty-stepper">
                           <button
@@ -232,9 +234,7 @@ export function ServicesPage() {
               </div>
             </div>
 
-            <p className="cart-summary-note">
-              Tối đa 50 dịch vụ mỗi đơn.
-            </p>
+
 
             <div className="cart-summary-action">
               <Button
