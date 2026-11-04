@@ -266,8 +266,10 @@ describe("Unified Room Board & Booking Flow", () => {
     expect(screen.getByText("Mã đặt phòng: CK-INHOUSE")).toBeTruthy();
     expect(screen.getAllByText("Trần Thị Khách").length).toBeGreaterThan(0);
     expect(screen.getByText("Trả phòng & Hóa đơn")).toBeTruthy();
-    expect(screen.getAllByText("Chi tiết booking").length).toBeGreaterThan(0);
-    expect(screen.getByText("Đặt phòng cho ngày tương lai")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Chi tiết booking" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Gọi món cho phòng" })).toBeTruthy();
+    expect(screen.queryByText("THAO TÁC KHẢ DỤNG")).toBeNull();
+    expect(screen.getByRole("button", { name: "Đặt phòng" })).toBeTruthy();
 
     // Verify Guest Dispatch (Điều phối khách) section is completely removed from dashboard
     expect(screen.queryByText("Điều phối khách")).toBeNull();

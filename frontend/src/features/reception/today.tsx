@@ -38,6 +38,7 @@ import {
   roomState,
   shiftDate,
 } from "./room-state";
+import { CreateServiceOrder } from "./create-service-order";
 import { UnifiedBookingModal } from "./unified-booking-modal";
 
 import { RoomRequestsDrawer, useRoomRequests } from "./room-requests";
@@ -53,6 +54,7 @@ export function ReceptionDashboard() {
   const [params, setParams] = useSearchParams();
 
   const requests = useRoomRequests();
+  const [serviceBooking, setServiceBooking] = useState<DeskBooking | null>(null);
   const [requestRoom, setRequestRoom] = useState<string | null>(null);
   const [requestsOnly, setRequestsOnly] = useState(false);
   const pendingOrders = requests.data ?? [];
@@ -293,9 +295,12 @@ export function ReceptionDashboard() {
                         ))}
                       </div>
 
+                      <div className="flex items-center gap-3">
+                      {requestsOnly && <Link to={`${base}/service-orders`} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</Link>}
                       <button type="button" aria-pressed={requestsOnly} disabled={!requests.data} onClick={() => setRequestsOnly(!requestsOnly)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ${requestsOnly ? "border-amber-400 bg-amber-100 text-amber-900" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
                         <BellRing className="size-3.5" /> Có yêu cầu ({requests.data ? requestRooms.size : '…'})
                       </button>
+                      </div>
                       {stateParam && (
                         <div className="flex items-center gap-1.5 text-xs text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md">
                           <span>
@@ -861,6 +866,10 @@ export function ReceptionDashboard() {
                                 Mã đặt phòng: {occupiedBooking.reference}
                               </span>
                             </div>
+                            <div className="room-guest-shortcuts">
+                            <Link to={`${base}/bookings/${occupiedBooking.id}`} state={bookingOrigin} onClick={() => setSelectedRoom(null)} aria-label="Chi tiết booking" title="Chi tiết booking"><FileText className="size-4" /></Link>
+                            <button type="button" onClick={() => { setServiceBooking({ ...occupiedBooking, roomNumber: selectedRoom.roomNumber }); setSelectedRoom(null); }} aria-label="Gọi món cho phòng" title="Gọi món cho phòng"><BellRing className="size-4" /></button>
+                          </div>
                           </div>
 
                           <dl className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3 pt-3 border-t border-zinc-100">
@@ -896,8 +905,8 @@ export function ReceptionDashboard() {
                         </div>
                       )}
 
-                      {/* 4. SMART QUICK ACTIONS HUB */}
-                      <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 space-y-3 shadow-xs">
+                      {/* Actions for rooms without an in-house guest. */}
+                      {!occupiedBooking && <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 space-y-3 shadow-xs">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
                             <Sparkles className="size-3.5 text-emerald-600" />
@@ -932,38 +941,6 @@ export function ReceptionDashboard() {
                             </Button>
                           )}
 
-                          {occupiedBooking && (
-                            <>
-                              <LinkButton
-                                to={`${base}/bookings/${occupiedBooking.id}/billing`}
-                                onClick={() => setSelectedRoom(null)}
-                                className="sm:col-span-2 justify-center bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 rounded-xl shadow-xs hover:shadow-md transition-all text-sm"
-                              >
-                                <Receipt className="size-4 mr-1.5" /> Trả phòng & Hóa đơn
-                              </LinkButton>
-                              <LinkButton
-                                variant="secondary"
-                                to={`${base}/bookings/${occupiedBooking.id}`}
-                                state={bookingOrigin}
-                                onClick={() => setSelectedRoom(null)}
-                                className="justify-center py-2.5 rounded-xl font-medium"
-                              >
-                                <FileText className="size-4 mr-1.5 text-zinc-500" /> Chi tiết booking
-                              </LinkButton>
-                              <Button
-                                variant="secondary"
-                                onClick={() => {
-                                  const r = selectedRoom;
-                                  setSelectedRoom(null);
-                                  setBookingRoom(r);
-                                }}
-                                className="justify-center py-2.5 rounded-xl font-medium"
-                              >
-                                <Plus className="size-4 mr-1.5 text-emerald-700" /> Đặt phòng cho ngày tương lai
-                              </Button>
-                            </>
-                          )}
-
                           {!isClean && !occupiedBooking && (
                             <Button
                               onClick={() => {
@@ -988,7 +965,7 @@ export function ReceptionDashboard() {
                             </LinkButton>
                           )}
                         </div>
-                      </div>
+                      </div>}
 
                       {/* 5. UPCOMING 7-DAY MINI TIMELINE */}
                       <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 space-y-3 text-xs shadow-xs">
@@ -1002,9 +979,10 @@ export function ReceptionDashboard() {
                               {formatStayDateDisplay(todayStr)} → {formatStayDateDisplay(shiftDate(todayStr, 6))}
                             </span>
                           </div>
-                          <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                            Còn {vacantNightsCount} đêm trống
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-emerald-800">Còn {vacantNightsCount} đêm trống</span>
+                            {occupiedBooking && <Button variant="secondary" onClick={() => { const r = selectedRoom; setSelectedRoom(null); setBookingRoom(r); }}><Plus className="size-3.5" /> Đặt phòng</Button>}
+                          </div>
                         </div>
 
                         {/* 7-day strip */}
@@ -1065,11 +1043,16 @@ export function ReceptionDashboard() {
                           </div>
                         )}
                       </div>
+                      {occupiedBooking && <div className="room-checkout-footer">
+                        <LinkButton to={`${base}/bookings/${occupiedBooking.id}/billing`} onClick={() => setSelectedRoom(null)} className="w-full justify-center"><Receipt className="size-4" /> Trả phòng & Hóa đơn</LinkButton>
+                      </div>}
                     </div>
                   );
                 })()}
               </Dialog>
             )}
+
+            {serviceBooking && <CreateServiceOrder booking={serviceBooking} onClose={() => setServiceBooking(null)} onCreated={() => { setServiceBooking(null); void refresh(); }} />}
 
             {/* Unified Booking Modal */}
             <UnifiedBookingModal

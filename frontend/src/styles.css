@@ -6780,3 +6780,9 @@
 .order-review-delivery-room { padding: 1rem; background: #edf4eb; border-radius: 8px; margin-bottom: 1rem; }
 .order-review-room-number { font-size: 1.2rem; color: #18483c; }
 .order-review-delivery-room .billing-help { font-size: .85rem; margin: .5rem 0 0; }
+
+.room-guest-shortcuts { display: flex; justify-content: flex-end; gap: .5rem; margin-left: auto; flex-shrink: 0; }
+.room-guest-shortcuts a, .room-guest-shortcuts button { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid #dce7e1; border-radius: 10px; color: #12644d; background: white; }
+.room-guest-shortcuts a:hover, .room-guest-shortcuts button:hover { background: #edf7f1; }
+.room-guest-shortcuts a:focus-visible, .room-guest-shortcuts button:focus-visible { outline: 2px solid #12644d; outline-offset: 2px; }
+.room-checkout-footer { position: sticky; bottom: -1px; z-index: 2; padding: 12px 0; background: #fafafa; border-top: 1px solid #e4e7e5; }

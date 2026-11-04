@@ -6,7 +6,6 @@ import {
   CalendarDays,
   ChevronDown,
   ClipboardList,
-  ConciergeBell,
   LayoutDashboard,
   LayoutGrid,
   LogOut,
@@ -143,22 +142,9 @@ export function WorkspaceLayout() {
 
       <div>
         <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-          DỊCH VỤ & BUỒNG PHÒNG
+          BUỒNG PHÒNG
         </div>
         <div className="space-y-0.5">
-          <NavLink
-            to={`${home}/service-orders`}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-brand-50 text-brand-700 font-semibold'
-                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
-              }`
-            }
-          >
-            <ConciergeBell className="size-4 shrink-0" />
-            <span>Đơn dịch vụ phòng</span>
-          </NavLink>
           <NavLink
             to={`${home}/housekeeping`}
             className={({ isActive }) =>

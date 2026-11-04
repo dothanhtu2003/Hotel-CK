@@ -102,6 +102,7 @@ export function ReceptionBookingDetailPage() {
     <div className="desk-page space-y-4 max-w-6xl mx-auto pb-10" data-booking-id={b.id}>
       {createOrderOpen && (
         <CreateServiceOrder
+          booking={b}
           onClose={() => setCreateOrderOpen(false)}
           onCreated={() => {
             setCreateOrderOpen(false);

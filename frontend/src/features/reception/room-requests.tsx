@@ -77,6 +77,8 @@ export function RoomRequestsDrawer({
           </div>
         </div>
 
+        <div className="flex justify-end"><Link to={`${base}/service-orders`} onClick={onClose} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</Link></div>
+
         {/* Empty state if all processed */}
         {!orders.length ? (
           <div

@@ -129,13 +129,16 @@ function matchCategory(name: string, catId: string) {
 export function CreateServiceOrder({
   onClose,
   onCreated,
+  booking,
 }: {
+  booking?: DeskBooking;
   onClose: () => void;
   onCreated: (order: Order) => void;
 }) {
   const [bookingPage, setBookingPage] = useState(1);
   const [servicePage, setServicePage] = useState(1);
-  const [bookingId, setBookingId] = useState('');
+  const [selectedBookingId, setBookingId] = useState('');
+  const bookingId = booking?.id ?? selectedBookingId;
   const [items, setItems] = useState<Record<string, number>>({});
   const [selectedServices, setSelectedServices] = useState<Record<string, Service>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -190,8 +193,8 @@ export function CreateServiceOrder({
   }, [allServices, selectedCategory, searchQuery]);
 
   const selectedBooking = useMemo(() => {
-    return bookings.data?.data.find((b) => b.id === bookingId);
-  }, [bookings.data, bookingId]);
+    return booking ?? bookings.data?.data.find((b) => b.id === bookingId);
+  }, [booking, bookings.data, bookingId]);
 
   const updateQuantity = (serviceId: string, delta: number) => {
     const service = allServices.find(s => s.id === serviceId);
@@ -431,14 +434,14 @@ export function CreateServiceOrder({
                   <BedDouble className="size-4 text-brand-700" />
                   1. Phòng nhận dịch vụ
                 </label>
-                {bookings.error ? (
+                {!booking && bookings.error ? (
                   <ErrorState
                     message={bookings.error.message}
                     retry={() => void bookings.refetch()}
                   />
                 ) : (
                   <>
-                    <select
+                    {!booking && <select
                       aria-label="Phòng nhận dịch vụ"
                       className="w-full h-10 px-3 text-xs sm:text-sm border border-zinc-200 rounded-xl bg-white focus:border-brand-600 focus:outline-none transition-colors text-zinc-900 cursor-pointer"
                       value={bookingId}
@@ -456,7 +459,7 @@ export function CreateServiceOrder({
                           P.{b.roomNumber} · {b.customer?.fullName ?? b.reference} ({b.reference})
                         </option>
                       ))}
-                    </select>
+                    </select>}
 
                     {selectedBooking && (
                       <div className="mt-2 p-2.5 rounded-xl bg-brand-50 border border-brand-200/80 text-xs sm:text-sm flex items-center justify-between">
@@ -474,12 +477,12 @@ export function CreateServiceOrder({
                       </div>
                     )}
 
-                    {bookings.data?.meta.total === 0 && (
+                    {!booking && bookings.data?.meta.total === 0 && (
                       <p className="text-xs text-amber-700 mt-1.5">
                         Hiện chưa có phòng nào đang có khách lưu trú (CHECKED_IN).
                       </p>
                     )}
-                    {bookings.data && bookings.data.meta.totalPages > 1 && (
+                    {!booking && bookings.data && bookings.data.meta.totalPages > 1 && (
                       <div className="mt-1">
                         <Pagination
                           {...bookings.data.meta}
