@@ -1,3 +1,4 @@
+import { StaleBookingQueue } from '../features/reception/cashier';
 import { CashierPage } from "../features/reception/cashier";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
@@ -103,6 +104,7 @@ function ReceptionBookingList() {
 
   return (
     <div className="space-y-4">
+      <StaleBookingQueue />
       {/* Header with Title and Date Switcher matching Kamra InHouse.tsx */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

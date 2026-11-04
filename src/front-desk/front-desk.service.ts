@@ -161,9 +161,9 @@ export class FrontDeskService {
       });
       const date = q.date ?? hotelDay();
       const matches = (r: typeof rows[number], group: string) => group === "all" ||
-        (group === "paid" ? r.paymentState === "PAID" : group === "outstanding" ? r.paymentState === "OUTSTANDING" :
-          r.paymentState === "OUTSTANDING" && r.status === "CHECKED_IN" && r.checkOut === date);
-      const counts = Object.fromEntries(["departures", "outstanding", "paid", "all"].map(group => [group, rows.filter(r => matches(r, group)).length]));
+        (group === "history" ? r.paymentState !== "OUTSTANDING" || r.status === "CHECKED_OUT" : group === "paid" ? r.paymentState === "PAID" : group === "outstanding" ? r.paymentState === "OUTSTANDING" :
+          r.status === "CHECKED_IN" && r.checkOut === date);
+      const counts = Object.fromEntries(["departures", "outstanding", "paid", "all", "history"].map(group => [group, rows.filter(r => matches(r, group)).length]));
       const filtered = rows.filter(r => matches(r, q.group ?? "departures"));
       return { data: filtered.slice((q.page - 1) * q.pageSize, q.page * q.pageSize), meta: paginationMeta(q, filtered.length), counts };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });

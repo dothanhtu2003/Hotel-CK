@@ -24,7 +24,7 @@ describe("Cashier page", () => {
     expect(screen.queryByText("Khách đến (Arrivals)")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /^Còn phải thu/ }));
     await screen.findByRole("button", { name: /^Còn phải thu/, pressed: true });
-    fireEvent.click(await screen.findByRole("button", { name: "Chi tiết" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Xem chi phí phòng 101" }));
     expect(await screen.findByRole("dialog", { name: "Chi tiết chi phí và thanh toán" })).toBeTruthy();
     expect(await screen.findByRole("link", { name: "Mở chi phí & phát hành hóa đơn" })).toHaveProperty("pathname", "/reception/bookings/booking-1/billing");
   });

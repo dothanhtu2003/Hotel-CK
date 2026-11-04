@@ -37,7 +37,7 @@ export class BillingService {
       const completed = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: null, requestedPaymentMethod: null }, select: orderSelect, orderBy: [{ orderedAt: 'asc' }, { id: 'asc' }] });
       const serviceAmount = completed.reduce((sum, order) => order.items.reduce((subtotal, item) => subtotal.add(item.subtotal), sum), new Prisma.Decimal(0));
       const pendingOrderCount = await tx.serviceOrder.count({ where: { bookingId: id, ...checkoutServiceOrdersWhere } });
-      const counterPaid = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: { not: null } }, select: { totalAmount: true } });
+      const counterPaid = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: { not: null } }, select: orderSelect, orderBy: [{ orderedAt: 'asc' }, { id: 'asc' }] });
       const counterPaidAmount = counterPaid.reduce((sum, order) => sum.add(order.totalAmount), new Prisma.Decimal(0)).toFixed(2);
       const roomPayments = await tx.bookingPayment.findMany({ where: { bookingId: id, status: 'COMPLETED' }, select: { id: true, amount: true, paidAt: true } });
       const prepaid = roomPayments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0));
@@ -57,7 +57,7 @@ export class BillingService {
       } : undefined;
       const total = booking.totalRoomAmount.add(serviceAmount);
       const view = billingBookingView(booking);
-      return { guestSummary, booking: view, completedOrders: completed.map(orderView), pendingOrderCount, counterPaidAmount,
+      return { guestSummary, booking: view, completedOrders: completed.map(orderView), pendingOrderCount, counterPaidAmount, counterPaidOrders: counterPaid.map(orderView),
         prepaidAmount: prepaid.toFixed(2), paidAmount: paid.toFixed(2), balance: total.sub(paid).toFixed(2),
         roomPayments: roomPayments.map(payment => ({ ...payment, amount: payment.amount.toFixed(2) })),
         roomAmount: booking.totalRoomAmount.toFixed(2), serviceAmount: serviceAmount.toFixed(2), totalAmount: booking.totalRoomAmount.add(serviceAmount).toFixed(2) };

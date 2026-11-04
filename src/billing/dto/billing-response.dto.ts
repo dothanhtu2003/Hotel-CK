@@ -13,6 +13,7 @@ export class GuestCostSummaryDto {
   @ApiProperty() balance!: string;
 }
 export class BillingPreviewDto {
+  @ApiProperty({ type: [ServiceOrderResponseDto] }) counterPaidOrders!: ServiceOrderResponseDto[];
   @ApiPropertyOptional({ type: GuestCostSummaryDto }) guestSummary?: GuestCostSummaryDto;
   @ApiProperty({ type: BillingBookingDto }) booking!: BillingBookingDto;
   @ApiProperty({ type: [ServiceOrderResponseDto] }) completedOrders!: ServiceOrderResponseDto[];

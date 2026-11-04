@@ -68,6 +68,7 @@ export function ReceptionBillingPage() {
   const error = guest.error || preview.error || invoice.error;
   if (error) return <ErrorState message={error.message} retry={() => { void guest.refetch(); void preview.refetch(); void invoice.refetch(); }} />;
   const b = guest.data!, p = preview.data!, i = invoice.data;
+  const usedOrders = [...p.completedOrders, ...(p.counterPaidOrders ?? [])];
   const formatDate = (value: string) => value.split("-").reverse().join("/");
   const amount = i?.totalAmount ?? p.totalAmount;
   const paid = i?.paidAmount ?? p.paidAmount ?? "0";
@@ -168,7 +169,7 @@ export function ReceptionBillingPage() {
             <section className="billing-box border-emerald-200 bg-emerald-50/40">
               <h2 className="text-emerald-950 flex items-center gap-2 mb-1.5">
                 <CheckCircle2 className="size-4 text-emerald-600" />
-                Dịch vụ đã thu riêng tại quầy
+                Dịch vụ đã thanh toán riêng
               </h2>
               <p className="text-xs text-emerald-800">
                 <strong>{money(p.counterPaidAmount!)}</strong>
@@ -200,11 +201,11 @@ export function ReceptionBillingPage() {
                 Dịch vụ đã sử dụng
               </h2>
               <span className="text-xs text-zinc-500">
-                {p.completedOrders.length} đơn hoàn thành
+                {usedOrders.length} đơn dịch vụ
               </span>
             </div>
-            {!p.completedOrders.length ? (
-              <p className="billing-help">Chưa phát sinh dịch vụ ghi vào hóa đơn phòng.</p>
+            {!usedOrders.length ? (
+              <p className="billing-help">Chưa có dịch vụ đã xác nhận.</p>
             ) : (
               <div className="rounded-lg border border-zinc-200/80 overflow-hidden">
                 <table className="w-full text-xs">
@@ -217,9 +218,9 @@ export function ReceptionBillingPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
-                    {p.completedOrders.flatMap(o => o.items.map(item => ({ ...item, key: `${o.id}-${item.id ?? item.serviceName}` }))).map(item => (
+                    {usedOrders.flatMap(o => o.items.map(item => ({ ...item, paymentMethod: o.paymentMethod, key: `${o.id}-${item.id ?? item.serviceName}` }))).map(item => (
                       <tr key={item.key} className="hover:bg-zinc-50/50 transition-colors">
-                        <td className="py-2.5 px-3.5 font-medium text-zinc-900">{cleanServiceName(item.serviceName)}</td>
+                        <td className="py-2.5 px-3.5 font-medium text-zinc-900">{cleanServiceName(item.serviceName)}<small className="block text-zinc-500 font-normal">{item.paymentMethod ? `Đã thu riêng · ${item.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}` : 'Ghi vào hóa đơn phòng'}</small></td>
                         <td className="py-2.5 px-3 text-center tabular-nums text-zinc-600">{item.quantity}</td>
                         <td className="py-2.5 px-3.5 text-right tabular-nums text-zinc-600">{money(item.unitPrice)}</td>
                         <td className="py-2.5 px-3.5 text-right tabular-nums font-semibold text-zinc-900">{money(item.subtotal)}</td>
@@ -425,9 +426,7 @@ export function ReceptionInvoicePage() {
           <ArrowLeft className="size-3.5" />
           Quay lại chi phí booking
         </Link>
-        <span className="text-xs text-zinc-400 font-mono">
-          Mã hóa đơn: {i.id}
-        </span>
+
       </div>
 
       {/* Header & Status */}
@@ -464,34 +463,7 @@ export function ReceptionInvoicePage() {
           </div>
         </div>
 
-        <p className="text-xs text-zinc-600">Thu tại quầy: thu đủ tiền và trả phòng trong cùng một thao tác. Khách thanh toán online: chờ xác minh đủ tiền rồi lễ tân xác nhận trả phòng.</p>
-        {/* Step Flow indicator */}
-        <div className="grid grid-cols-3 gap-2 pt-1">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-2.5 text-center">
-            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide block">
-              ✓ Bước 1
-            </span>
-            <span className="text-xs font-medium text-emerald-900">
-              Hóa đơn đã phát hành
-            </span>
-          </div>
-          <div className={`rounded-lg border p-2.5 text-center ${isPaid ? "border-emerald-200 bg-emerald-50/70" : "border-brand-200 bg-brand-50/70"}`}>
-            <span className={`text-[11px] font-bold uppercase tracking-wide block ${isPaid ? "text-emerald-800" : "text-brand-800"}`}>
-              {isPaid ? "✓ Bước 2" : "Bước 2"}
-            </span>
-            <span className={`text-xs font-medium ${isPaid ? "text-emerald-900" : "text-brand-900"}`}>
-              {isPaid ? "Đã thu đủ tiền" : "Ghi nhận khoản thu"}
-            </span>
-          </div>
-          <div className={`rounded-lg border p-2.5 text-center ${i.booking.status === "CHECKED_OUT" ? "border-emerald-200 bg-emerald-50/70" : "border-zinc-200 bg-zinc-50"}`}>
-            <span className={`text-[11px] font-bold uppercase tracking-wide block ${i.booking.status === "CHECKED_OUT" ? "text-emerald-800" : "text-zinc-500"}`}>
-              {i.booking.status === "CHECKED_OUT" ? "✓ Bước 3" : "Bước 3"}
-            </span>
-            <span className={`text-xs font-medium ${i.booking.status === "CHECKED_OUT" ? "text-emerald-900" : "text-zinc-700"}`}>
-              Xác nhận trả phòng
-            </span>
-          </div>
-        </div>
+
       </div>
 
       {/* Guest Summary pill */}
@@ -535,19 +507,16 @@ export function ReceptionInvoicePage() {
           label="Tổng hóa đơn"
           value={money(i.totalAmount)}
           icon={<Receipt className="size-4" />}
-          sub="Đã chốt phát hành"
         />
         <StatCard
           label="Đã thanh toán"
           value={money(i.paidAmount)}
           icon={<CreditCard className="size-4" />}
-          delta={{ value: `${i.payments.length} lần giao dịch`, dir: "up" }}
         />
         <StatCard
           label="Số dư còn lại"
           value={money(i.balance)}
           icon={<Clock className="size-4" />}
-          delta={{ value: isPaid ? "Đã tất toán" : "Cần thu đủ", dir: isPaid ? "up" : "down" }}
         />
       </div>
 
@@ -557,7 +526,7 @@ export function ReceptionInvoicePage() {
         <Card>
           <CardHeader className="pb-3 border-b border-zinc-100">
             <CardTitle className="text-sm font-semibold text-zinc-900 flex items-center justify-between">
-              <span>Bảng kê chi phí (Folio)</span>
+              <span>Bảng kê chi phí</span>
               <span className="text-xs text-zinc-500 font-normal">
                 Phòng {i.booking.roomNumber}
               </span>
@@ -566,11 +535,11 @@ export function ReceptionInvoicePage() {
           <CardContent className="pt-3 space-y-3">
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between py-1.5 border-b border-zinc-50">
-                <span className="text-zinc-600">Tiền phòng ({guest.data?.checkIn} → {guest.data?.checkOut})</span>
+                <span className="text-zinc-600">Tiền phòng</span>
                 <span className="font-semibold text-zinc-900 tabular-nums">{money(i.roomAmount)}</span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-zinc-50">
-                <span className="text-zinc-600">Dịch vụ phòng & đồ uống</span>
+                <span className="text-zinc-600">Dịch vụ phòng</span>
                 <span className="font-semibold text-zinc-900 tabular-nums">{money(i.serviceAmount)}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-t border-zinc-200 text-sm font-bold">

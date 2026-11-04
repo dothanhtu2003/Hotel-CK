@@ -149,6 +149,6 @@ export class DeskOrderQuery extends ServiceOrderQueryDto {
 
 export class BillingQuery extends DeskQuery {
   @IsOptional()
-  @IsIn(["departures", "outstanding", "paid", "all"])
+  @IsIn(["departures", "outstanding", "paid", "all", "history"])
   group?: string;
 }
