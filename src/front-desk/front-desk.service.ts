@@ -1,3 +1,4 @@
+import { visibleServiceOrdersWhere, checkoutServiceOrdersWhere } from '../service-orders/reception-order-filter.js';
 import { nextBookingReference } from '../bookings/booking-reference.js';
 import {
   BadRequestException,
@@ -26,9 +27,6 @@ import type {
   WalkInDto,
 } from "./desk.dto.js";
 
-const visibleServiceOrdersWhere: Prisma.ServiceOrderWhereInput = { OR: [
-  { requestedPaymentMethod: null }, { requestedPaymentMethod: 'CASH' }, { paymentMethod: { not: null } },
-] };
 const serviceRequestsWhere: Prisma.ServiceOrderWhereInput = { AND: [visibleServiceOrdersWhere], OR: [
   { status: 'PENDING' },
   { status: 'COMPLETED', requestedPaymentMethod: { not: null }, deliveredAt: null },
@@ -141,7 +139,7 @@ export class FrontDeskService {
         where: deskWhere({ ...q, view: undefined }),
         select: { ...deskSelect,
           bookingPayments: { where: { status: 'COMPLETED' }, select: { amount: true } },
-          serviceOrders: { where: { status: { in: ["COMPLETED", "PENDING"] }, paymentMethod: null }, select: { status: true, totalAmount: true } },
+          serviceOrders: { where: { AND: [visibleServiceOrdersWhere], status: { in: ["COMPLETED", "PENDING"] }, paymentMethod: null }, select: { status: true, totalAmount: true } },
           invoice: { select: { id: true, roomAmount: true, serviceAmount: true, totalAmount: true,
             payments: { where: { status: "COMPLETED" }, select: { amount: true } } } },
         },
@@ -410,15 +408,16 @@ export class FrontDeskService {
     );
   }
   async orders(q: DeskOrderQuery) {
+    const checkout = q.view === 'checkout';
     const where: Prisma.ServiceOrderWhereInput = {
-      AND: [visibleServiceOrdersWhere],
+      AND: checkout ? [] : [visibleServiceOrdersWhere],
       ...(q.q?.trim() ? { booking: { OR: [
         { reference: { contains: q.q.trim(), mode: 'insensitive' } },
         { room: { roomNumber: { contains: q.q.trim(), mode: 'insensitive' } } },
         { user: { fullName: { contains: q.q.trim(), mode: 'insensitive' } } },
       ] } } : {}),
       ...(q.date ? { orderedAt: { gte: new Date(`${q.date}T00:00:00+07:00`), lt: new Date(new Date(`${q.date}T00:00:00+07:00`).getTime() + 86400000) } } : {}),
-      ...(q.status === "PENDING" ? serviceRequestsWhere : q.status ? { status: q.status } : {}),
+      ...(checkout ? checkoutServiceOrdersWhere : q.status === "PENDING" ? serviceRequestsWhere : q.status ? { status: q.status } : {}),
       ...(q.bookingId ? { bookingId: q.bookingId } : {}),
     };
     return this.prisma.client.$transaction(
@@ -437,7 +436,7 @@ export class FrontDeskService {
         });
         const counts = await tx.serviceOrder.groupBy({ by: ['status'], where: { ...where, status: undefined, OR: undefined }, _count: { _all: true } });
         return {
-          counts: { ...Object.fromEntries(counts.map(row => [row.status, row._count._all])), PENDING: await tx.serviceOrder.count({ where: { ...where, status: undefined, ...serviceRequestsWhere } }) },
+          counts: { ...Object.fromEntries(counts.map(row => [row.status, row._count._all])), PENDING: await tx.serviceOrder.count({ where: checkout ? where : { ...where, status: undefined, ...serviceRequestsWhere } }) },
           data: rows.map(({ booking, ...o }) => ({
             ...orderView(o),
             reference: booking.reference,

@@ -187,7 +187,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
     this.sweepingServicePayments = true;
     try {
       const orders = await this.prisma.client.serviceOrder.findMany({
-        where: { payosStatus: 'PENDING', payosOrderCode: { not: null }, ...(this.servicePaymentCursor ? { id: { gt: this.servicePaymentCursor } } : {}) },
+        where: { OR: [{ payosStatus: 'PENDING', payosOrderCode: { not: null } }, { requestedPaymentMethod: 'BANK_TRANSFER', status: 'PENDING', paymentMethod: null, orderedAt: { lte: new Date(Date.now() - 15 * 60_000) } }], ...(this.servicePaymentCursor ? { id: { gt: this.servicePaymentCursor } } : {}) },
         select: { id: true }, orderBy: { id: 'asc' }, take: 20,
       });
       this.servicePaymentCursor = orders.length === 20 ? orders[orders.length - 1].id : undefined;
@@ -250,6 +250,8 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
   async startServiceOrder(id: string, actor: PublicUser) {
     this.client();
     const target = await this.serviceOrder(id, actor);
+    const check = await this.syncServiceOrder(id, actor);
+    if ('expired' in check && check.expired) return { ...check, checkoutUrl: undefined, qrCode: undefined };
     if (target.payosOrderCode) await this.syncServiceOrder(id, actor);
     const reconciled = await this.serviceOrder(id, actor);
     let renewableCode: bigint | null = null;
@@ -281,7 +283,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       if (!order.payosOrderCode || order.payosStatus !== 'PENDING') throw new ConflictException('Giao dịch đã thay đổi');
       if (order.payosCheckoutUrl) return { paid: false, checkoutUrl: order.payosCheckoutUrl, qrCode: order.payosQrCode ?? order.payosCheckoutUrl };
       let qrCode: string | undefined;
-      const checkoutUrl = await this.createLink(Number(order.payosOrderCode), order.totalAmount.toNumber(), actor.role === 'GUEST' ? '/guest/service-orders' : `/reception/service-orders/${id}`, undefined, qr => { qrCode = qr; });
+      const checkoutUrl = await this.createLink(Number(order.payosOrderCode), order.totalAmount.toNumber(), actor.role === 'GUEST' ? '/guest/service-orders' : `/reception/service-orders/${id}`, order.requestedPaymentMethod === 'BANK_TRANSFER' ? Math.floor((order.orderedAt.getTime() + 15 * 60_000) / 1000) : undefined, qr => { qrCode = qr; });
       await tx.serviceOrder.update({ where: { id }, data: { payosCheckoutUrl: checkoutUrl, payosQrCode: qrCode ?? checkoutUrl } });
       return { paid: false, checkoutUrl, qrCode: qrCode ?? checkoutUrl };
     }, { timeout: 25000 });
@@ -289,6 +291,17 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
 
   async syncServiceOrder(id: string, actor?: PublicUser) {
     const target = await this.serviceOrder(id, actor);
+    const expired = target.requestedPaymentMethod === 'BANK_TRANSFER' && !target.paymentMethod && target.orderedAt.getTime() + 15 * 60_000 <= Date.now();
+    const cancelExpired = async () => this.prisma.client.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${target.bookingId}::uuid FOR UPDATE`;
+      const current = await tx.serviceOrder.findUniqueOrThrow({ where: { id } });
+      if (current.paymentMethod || current.status !== 'PENDING') return;
+      await tx.serviceOrder.update({ where: { id }, data: { status: 'CANCELLED', payosStatus: 'CLOSED', payosCheckoutUrl: null, payosQrCode: null } });
+    });
+    if (expired && (!target.payosOrderCode || target.payosStatus === 'CLOSED')) {
+      await cancelExpired();
+      return { paid: false, closed: true, expired: true };
+    }
     if (!target.payosOrderCode || target.payosStatus !== 'PENDING') return { paid: !!target.paymentMethod, closed: !target.payosOrderCode || target.payosStatus === 'CLOSED' };
     let remote;
     try { remote = await this.client().paymentRequests.get(Number(target.payosOrderCode)); }
@@ -297,6 +310,12 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       throw new ServiceUnavailableException('Chưa thể kiểm tra giao dịch payOS');
     }
     this.validBookingRemote(remote, { payosOrderCode: target.payosOrderCode, amount: target.totalAmount });
+    if (expired && remote.status !== 'PAID' && !['CANCELLED', 'EXPIRED', 'FAILED'].includes(remote.status)) {
+      try { await this.client().paymentRequests.cancel(Number(target.payosOrderCode), 'Qua han thanh toan dich vu 15 phut'); }
+      catch { throw new ServiceUnavailableException('Đang đối soát giao dịch hết hạn. Vui lòng không thanh toán thêm.'); }
+      remote = await this.client().paymentRequests.get(Number(target.payosOrderCode));
+      this.validBookingRemote(remote, { payosOrderCode: target.payosOrderCode, amount: target.totalAmount });
+    }
     const closed = ['CANCELLED', 'EXPIRED', 'FAILED'].includes(remote.status) && remote.amountPaid === 0;
     await this.prisma.client.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${target.bookingId}::uuid FOR UPDATE`;
@@ -307,7 +326,8 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
         await tx.serviceOrder.update({ where: { id }, data: { payosStatus: 'PAID', status: 'COMPLETED', paymentMethod: 'BANK_TRANSFER', paidAt: new Date(), receivedBy: current.payosCreatedBy } });
       } else if (closed) await tx.serviceOrder.update({ where: { id }, data: { payosStatus: 'CLOSED' } });
     });
-    return { paid: remote.status === 'PAID', closed };
+    if (expired && closed) await cancelExpired();
+    return { paid: remote.status === 'PAID', closed, ...(expired && remote.status !== 'PAID' ? { expired: true } : {}) };
   }
 
   async cancelServiceOrderPayment(id: string, actor: PublicUser) {

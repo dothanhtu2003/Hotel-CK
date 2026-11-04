@@ -151,7 +151,7 @@ it('ServicesPage renders room service catalog, allows stepper increment, and ena
   // Open review dialog
   fireEvent.click(reviewBtn);
   expect(screen.getByText('Xác nhận đơn dịch vụ')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Xác nhận đặt dịch vụ' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: `Đặt dịch vụ · Phòng ${mockBooking.roomNumber}` })).toBeTruthy();
 });
 
 it('MyServiceOrdersPage renders order cards with clean heading, items breakdown and cancel button for pending orders', async () => {
@@ -188,7 +188,7 @@ it.each(['CASH', 'BANK_TRANSFER'] as const)('lets an invoiced in-house guest ord
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options) => {
     if (path.endsWith('/payos/sync')) return { paid: false, closed: false };
     if (path.endsWith('/payos')) return { paid: false, checkoutUrl: 'https://pay.payos.vn/web/test', qrCode: 'payload' };
-    if (path === '/service-orders' && options?.method === 'POST') return { ...mockOrder, requestedPaymentMethod };
+    if (path === '/service-orders' && options?.method === 'POST') return { ...mockOrder, orderedAt: new Date().toISOString(), requestedPaymentMethod };
     if (path.includes('/bookings/my')) return { data: [mockBooking], meta: { totalPages: 1 } };
     if (path.includes('/services')) return { data: mockServices, meta: { totalPages: 1 } };
     if (path.includes('/invoice')) return { id: 'paid-room-invoice', status: 'PAID' };
@@ -198,7 +198,7 @@ it.each(['CASH', 'BANK_TRANSFER'] as const)('lets an invoiced in-house guest ord
   fireEvent.click(await screen.findByRole('button', { name: 'Tăng số lượng Cà phê Phin An Nhiên' }));
   fireEvent.click(screen.getByRole('button', { name: 'Xem lại đơn dịch vụ' }));
   fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: requestedPaymentMethod } });
-  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đặt dịch vụ' }));
+  fireEvent.click(screen.getByRole('button', { name: `Đặt dịch vụ · Phòng ${mockBooking.roomNumber}` }));
   await screen.findByText('Đơn dịch vụ đã được tạo');
   expect(request).toHaveBeenCalledWith('/service-orders', expect.objectContaining({ method: 'POST', body: expect.objectContaining({ requestedPaymentMethod, requestId: expect.any(String) }) }));
   if (requestedPaymentMethod === 'CASH') expect(screen.getByText('Chờ thu tiền mặt')).toBeTruthy();
@@ -206,4 +206,23 @@ it.each(['CASH', 'BANK_TRANSFER'] as const)('lets an invoiced in-house guest ord
     expect(await screen.findByRole('dialog', { name: 'Thanh toán dịch vụ qua payOS' })).toBeTruthy();
     expect(await screen.findByRole('link', { name: 'Mở trang thanh toán payOS' })).toBeTruthy();
   }
+});
+
+it('requires a delivery room when multiple rooms are occupied', async () => {
+  const second = { ...mockBooking, id: 'booking-second', roomNumber: '103', reference: 'CK-SECOND' };
+  const request = vi.spyOn(api, 'request').mockImplementation(async (path, options) => {
+    if (path === '/service-orders' && options?.method === 'POST') return { ...mockOrder, bookingId: second.id, requestedPaymentMethod: 'CASH' };
+    if (path.includes('/bookings/my')) return { data: [mockBooking, second, { ...mockBooking, id: 'unreceived', roomNumber: '104', status: 'CONFIRMED' }], meta: { totalPages: 1 } };
+    if (path.includes('/services')) return { data: mockServices, meta: { totalPages: 1 } };
+    return null;
+  });
+  renderServices(<ServicesPage />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Tăng số lượng Cà phê Phin An Nhiên' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Xem lại đơn dịch vụ' }));
+  expect((screen.getByRole('button', { name: 'Chọn phòng để đặt dịch vụ' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByRole('option', { name: /Phòng 104/ })).toBeNull();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Giao đến phòng' }), { target: { value: second.id } });
+  fireEvent.click(screen.getByRole('button', { name: 'Đặt dịch vụ · Phòng 103' }));
+  await screen.findByText('Đơn dịch vụ đã được tạo');
+  expect(request).toHaveBeenCalledWith('/service-orders', expect.objectContaining({ body: expect.objectContaining({ bookingId: second.id, items: [{ serviceId: mockServices[0].id, quantity: 1 }] }) }));
 });

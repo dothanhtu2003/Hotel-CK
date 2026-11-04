@@ -134,6 +134,8 @@ export class CustomerQuery {
   page = 1;
 }
 export class DeskOrderQuery extends ServiceOrderQueryDto {
+  @ApiPropertyOptional({ enum: ['checkout'] }) @IsOptional() @IsIn(['checkout'])
+  view?: 'checkout';
   @ApiPropertyOptional({ maxLength: 120 }) @IsOptional() @IsString() @MaxLength(120)
   q?: string;
   @ApiPropertyOptional({ format: "date" }) @IsOptional() @IsStayDate()

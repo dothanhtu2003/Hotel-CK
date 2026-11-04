@@ -9,7 +9,7 @@ import type { PublicUser } from '../../src/users/public-user.js';
 
 const actor = { id: 'staff', role: 'RECEPTIONIST' } as PublicUser;
 function fixture(pending = true) {
-  const order = { id: 'order', bookingId: 'booking', status: 'COMPLETED', totalAmount: new Prisma.Decimal(9000), paymentMethod: null as string | null,
+  const order = { orderedAt: new Date(), requestedPaymentMethod: null as string | null, id: 'order', bookingId: 'booking', status: 'COMPLETED', totalAmount: new Prisma.Decimal(9000), paymentMethod: null as string | null,
     payosOrderCode: pending ? 123n : null as bigint | null, payosStatus: pending ? 'PENDING' : null as string | null,
     payosCheckoutUrl: null as string | null, payosQrCode: null as string | null, payosCreatedBy: pending ? actor.id : null as string | null };
   const update = jest.fn<(args: { data: Partial<typeof order> }) => Promise<unknown>>().mockImplementation(async ({ data }) => { Object.assign(order, data); return { ...order }; });
@@ -18,9 +18,10 @@ function fixture(pending = true) {
   const db = { serviceOrder: orders, $transaction: jest.fn<(fn: (value: typeof tx) => Promise<unknown>) => Promise<unknown>>().mockImplementation(fn => fn(tx)) };
   const service = new PayosService({ client: db } as unknown as PrismaService, {} as BillingService, new ConfigService({ PAYOS_RETURN_ORIGIN: 'http://localhost:5173' }));
   const get = jest.fn<() => Promise<unknown>>().mockResolvedValue({ orderCode: 123, amount: 9000, amountPaid: 9000, amountRemaining: 0, status: 'PAID' });
+  const cancel = jest.fn<() => Promise<unknown>>().mockResolvedValue({});
   const create = jest.fn<(input: { orderCode: number; amount: number }) => Promise<unknown>>().mockImplementation(async input => ({ ...input, currency: 'VND', checkoutUrl: 'https://pay.payos.vn/web/test', qrCode: 'bank-qr-payload' }));
-  Object.defineProperty(service, 'client', { value: () => ({ paymentRequests: { get, create } }) });
-  return { service, order, update, get, create, tx };
+  Object.defineProperty(service, 'client', { value: () => ({ paymentRequests: { get, create, cancel } }) });
+  return { service, order, update, get, create, cancel, tx };
 }
 
 describe('service payOS payments', () => {
@@ -82,4 +83,19 @@ describe('service payOS payments', () => {
     await expect(f.service.startServiceOrder('order', actor)).rejects.toBeInstanceOf(ConflictException);
     expect(f.create).not.toHaveBeenCalled();
   });
+});
+
+it('expires an unpaid guest transfer only after remote cancellation is confirmed', async () => {
+  const f = fixture(); f.order.status = 'PENDING'; f.order.requestedPaymentMethod = 'BANK_TRANSFER'; f.order.orderedAt = new Date(Date.now() - 16 * 60_000);
+  f.get.mockResolvedValueOnce({ orderCode: 123, amount: 9000, amountPaid: 0, amountRemaining: 9000, status: 'PENDING' }).mockResolvedValueOnce({ orderCode: 123, amount: 9000, amountPaid: 0, amountRemaining: 9000, status: 'CANCELLED' });
+  expect(await f.service.syncServiceOrder('order', actor)).toEqual({ paid: false, closed: true, expired: true });
+  expect(f.cancel).toHaveBeenCalledTimes(1);
+  expect(f.order.status).toBe('CANCELLED');
+  expect(f.order.payosQrCode).toBeNull();
+});
+it('preserves a successful transfer even when the 15-minute deadline has passed', async () => {
+  const f = fixture(); f.order.status = 'PENDING'; f.order.requestedPaymentMethod = 'BANK_TRANSFER'; f.order.orderedAt = new Date(Date.now() - 16 * 60_000);
+  expect(await f.service.syncServiceOrder('order', actor)).toEqual({ paid: true, closed: false });
+  expect(f.order.status).toBe('COMPLETED');
+  expect(f.cancel).not.toHaveBeenCalled();
 });

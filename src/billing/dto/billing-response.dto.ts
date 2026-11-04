@@ -1,11 +1,19 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { InvoiceStatus, PaymentMethod, PaymentStatus, HousekeepingStatus, OperationalStatus, TaskStatus } from '../../../generated/prisma/enums.js';
 import { BookingResponseDto } from '../../bookings/dto/booking-response.dto.js';
 import { ServiceOrderResponseDto } from '../../service-orders/dto/service-order-response.dto.js';
 import { OmitType } from '@nestjs/swagger';
 
 export class BillingBookingDto extends OmitType(BookingResponseDto, ['userId'] as const) {}
+export class GuestCostSummaryDto {
+  @ApiProperty({ type: [ServiceOrderResponseDto] }) orders!: ServiceOrderResponseDto[];
+  @ApiProperty() serviceAmount!: string;
+  @ApiProperty() totalAmount!: string;
+  @ApiProperty() paidAmount!: string;
+  @ApiProperty() balance!: string;
+}
 export class BillingPreviewDto {
+  @ApiPropertyOptional({ type: GuestCostSummaryDto }) guestSummary?: GuestCostSummaryDto;
   @ApiProperty({ type: BillingBookingDto }) booking!: BillingBookingDto;
   @ApiProperty({ type: [ServiceOrderResponseDto] }) completedOrders!: ServiceOrderResponseDto[];
   @ApiProperty() pendingOrderCount!: number;

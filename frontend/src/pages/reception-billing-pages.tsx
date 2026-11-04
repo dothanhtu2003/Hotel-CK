@@ -185,7 +185,7 @@ export function ReceptionBillingPage() {
                 </div>
                 <div>
                   <h2>Cần xử lý {p.pendingOrderCount} đơn dịch vụ</h2>
-                  
+                  <p className="billing-help">Các đơn dưới đây còn chờ ghi nhận hoặc thanh toán nên chưa thể trả phòng.</p>
                 </div>
               </div>
               <PendingServiceQueue bookingId={id} />
@@ -784,7 +784,7 @@ export function ReceptionInvoicePage() {
 function PendingServiceQueue({ bookingId }: { bookingId: string }) {
   const [page, setPage] = useState(1);
   const query = useDeskGet<Page<Order>>(
-    `/front-desk/orders?bookingId=${bookingId}&status=PENDING&page=${page}&pageSize=5`,
+    `/front-desk/orders?bookingId=${bookingId}&view=checkout&page=${page}&pageSize=5`,
   );
 
   if (query.isPending) return <Skeleton />;
@@ -812,7 +812,7 @@ function PendingServiceQueue({ bookingId }: { bookingId: string }) {
               <span className="font-bold text-zinc-900 font-mono">
                 Đơn #{o.id.slice(0, 8)}
               </span>
-              <Badge tone="amber">Đang chờ</Badge>
+              <Badge tone="amber">{o.requestedPaymentMethod && !o.paymentMethod ? 'Chờ thanh toán' : 'Chờ ghi nhận'}</Badge>
             </div>
             <div className="text-xs font-semibold text-zinc-600">
               Tổng đơn: <strong className="text-sm font-bold text-zinc-900 tabular-nums">{money(o.totalAmount)}</strong>

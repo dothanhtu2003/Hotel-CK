@@ -47,7 +47,10 @@ export function ServicesPage() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const bookingId = selected || stays.data?.[0]?.id || '';
+  const activeStays = (stays.data ?? []).filter(b => b.status === 'CHECKED_IN');
+  const bookingId = activeStays.some(b => b.id === selected) ? selected : activeStays.length === 1 ? activeStays[0].id : '';
+  const deliveryRoom = activeStays.find(b => b.id === bookingId);
+  const hasStays = activeStays.length > 0;
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH');
   const requestId = useRef<string | null>(null);
   const eligible = stays.data?.some((b) => b.id === bookingId);
@@ -132,37 +135,7 @@ export function ServicesPage() {
         />
       ) : (
         <>
-          {/* Booking Stay Selector Bar */}
-          <div className="guest-room-stay-selector-card">
-            <label className="filter-label">
-              Booking đang lưu trú
-              <select
-                className="input quick-select"
-                value={bookingId}
-                onChange={(e) => {
-                  setSelected(e.target.value);
-                  setQuantities({});
-                  create.reset();
-                }}
-              >
-                {!stays.data?.length && (
-                  <option value="">Chưa có booking đang lưu trú</option>
-                )}
-                {stays.data?.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.reference} · Phòng {b.roomNumber} ({b.checkIn} → {b.checkOut})
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {!stays.data?.length && (
-              <p className="notice">
-                Bạn chỉ có thể đặt dịch vụ sau khi nhận phòng.
-              </p>
-            )}
-
-          </div>
+          {!hasStays && <p className="notice">Bạn chỉ có thể đặt dịch vụ sau khi nhận phòng.</p>}
 
           {/* Service Menu Grid */}
           {catalog.data?.length ? (
@@ -198,7 +171,7 @@ export function ServicesPage() {
                             type="button"
                             className="qty-btn"
                             aria-label={`Giảm số lượng ${s.name}`}
-                            disabled={!eligible || create.isPending || qty <= 0}
+                            disabled={!hasStays || create.isPending || qty <= 0}
                             onClick={() => updateQuantity(s.id, -1)}
                           >
                             <Minus size={14} />
@@ -210,7 +183,7 @@ export function ServicesPage() {
                             min="0"
                             max="2147483647"
                             step="1"
-                            disabled={!eligible || create.isPending}
+                            disabled={!hasStays || create.isPending}
                             value={quantities[s.id] ?? 0}
                             onChange={(e) =>
                               setQuantities((prev) => ({
@@ -225,7 +198,7 @@ export function ServicesPage() {
                             type="button"
                             className="qty-btn"
                             aria-label={`Tăng số lượng ${s.name}`}
-                            disabled={!eligible || create.isPending}
+                            disabled={!hasStays || create.isPending}
                             onClick={() => updateQuantity(s.id, 1)}
                           >
                             <Plus size={14} />
@@ -264,7 +237,7 @@ export function ServicesPage() {
 
             <div className="cart-summary-action">
               <Button
-                disabled={!eligible || !valid || create.isPending}
+                disabled={!hasStays || !valid || create.isPending}
                 onClick={() => {
                   requestId.current = null;
                   create.reset();
@@ -312,9 +285,15 @@ export function ServicesPage() {
         title="Xác nhận đơn dịch vụ"
       >
         <div className="guest-dialog-order-review">
-          <p className="order-review-booking-ref">
-            Booking: <strong>{stays.data?.find((b) => b.id === bookingId)?.reference}</strong>
-          </p>
+          <div className="order-review-delivery-room">
+            {activeStays.length > 1 ? <label className="filter-label">Giao đến phòng
+              <select aria-label="Giao đến phòng" className="input" value={bookingId} disabled={create.isPending || !!create.error} onChange={event => { setSelected(event.target.value); requestId.current = null; }}>
+                <option value="">Chọn phòng nhận dịch vụ</option>
+                {activeStays.map(b => <option key={b.id} value={b.id}>Phòng {b.roomNumber} · {b.reference}</option>)}
+              </select>
+            </label> : <p>Giao đến <strong className="order-review-room-number">{deliveryRoom ? `Phòng ${deliveryRoom.roomNumber}` : 'phòng chưa được chọn'}</strong></p>}
+            {deliveryRoom && <small>{deliveryRoom.reference} · Đang lưu trú</small>}
+          </div>
 
           <div className="order-review-items-list">
             {items.map((i) => {
@@ -368,7 +347,7 @@ export function ServicesPage() {
             disabled={!!create.error || !eligible || !valid}
             onClick={() => create.mutate()}
           >
-            Xác nhận đặt dịch vụ
+            {deliveryRoom ? `Đặt dịch vụ · Phòng ${deliveryRoom.roomNumber}` : 'Chọn phòng để đặt dịch vụ'}
           </Button>
         </div>
       </Dialog>
@@ -387,7 +366,7 @@ function OrderContents({ order: o, showPayment = true }: { order: Order; showPay
         <GuestBadge status={o.status} />
         {o.status !== 'CANCELLED' && o.requestedPaymentMethod && <p>{(o.paymentMethod || paid) ? 'Đã thanh toán' : o.requestedPaymentMethod === 'CASH' ? 'Chờ thu tiền mặt' : 'Chờ thanh toán chuyển khoản'}</p>}
         {o.status !== 'CANCELLED' && !o.paymentMethod && o.requestedPaymentMethod === 'CASH' && <p>Vui lòng thanh toán cho nhân viên giao dịch vụ hoặc tại quầy lễ tân.</p>}
-        {showPayment && o.status !== 'CANCELLED' && !o.paymentMethod && !paid && o.requestedPaymentMethod === 'BANK_TRANSFER' && <BankTransferQr orderId={o.id} amount={o.totalAmount} guest onPaid={() => setPaid(true)} onClosed={() => {}} />}
+        {showPayment && o.status !== 'CANCELLED' && !o.paymentMethod && !paid && o.requestedPaymentMethod === 'BANK_TRANSFER' && <BankTransferQr orderId={o.id} amount={o.totalAmount} expiresAt={Date.parse(o.orderedAt) + 15 * 60_000} guest onPaid={() => setPaid(true)} onClosed={() => {}} />}
 
       </div>
 

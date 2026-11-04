@@ -1,3 +1,4 @@
+import { checkoutServiceOrdersWhere } from '../service-orders/reception-order-filter.js';
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
 import type { PublicUser } from '../users/public-user.js';
@@ -35,16 +36,28 @@ export class BillingService {
       if (!booking) throw new NotFoundException('Booking not found');
       const completed = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: null, requestedPaymentMethod: null }, select: orderSelect, orderBy: [{ orderedAt: 'asc' }, { id: 'asc' }] });
       const serviceAmount = completed.reduce((sum, order) => order.items.reduce((subtotal, item) => subtotal.add(item.subtotal), sum), new Prisma.Decimal(0));
-      const pendingOrderCount = await tx.serviceOrder.count({ where: { bookingId: id, OR: [{ status: 'PENDING' }, { requestedPaymentMethod: { not: null }, paymentMethod: null, status: { not: 'CANCELLED' } }] } });
+      const pendingOrderCount = await tx.serviceOrder.count({ where: { bookingId: id, ...checkoutServiceOrdersWhere } });
       const counterPaid = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: { not: null } }, select: { totalAmount: true } });
       const counterPaidAmount = counterPaid.reduce((sum, order) => sum.add(order.totalAmount), new Prisma.Decimal(0)).toFixed(2);
       const roomPayments = await tx.bookingPayment.findMany({ where: { bookingId: id, status: 'COMPLETED' }, select: { id: true, amount: true, paidAt: true } });
       const prepaid = roomPayments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0));
       const invoice = await tx.invoice.findUnique({ where: { bookingId: id }, select: { payments: { where: { status: 'COMPLETED' }, select: { amount: true } } } });
       const paid = invoice ? invoice.payments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0)) : prepaid;
+      const guestOrders = actor.role === 'GUEST' ? await tx.serviceOrder.findMany({
+        where: { bookingId: id, status: { not: 'CANCELLED' } }, select: orderSelect,
+        orderBy: [{ orderedAt: 'asc' }, { id: 'asc' }],
+      }) : [];
+      const guestServices = guestOrders.reduce((sum, order) => sum.add(order.totalAmount), new Prisma.Decimal(0));
+      const guestTotal = booking.totalRoomAmount.add(guestServices);
+      const guestPaid = paid.add(counterPaidAmount);
+      const guestSummary = actor.role === 'GUEST' ? {
+        orders: guestOrders.map(orderView), serviceAmount: guestServices.toFixed(2),
+        totalAmount: guestTotal.toFixed(2), paidAmount: guestPaid.toFixed(2),
+        balance: Prisma.Decimal.max(0, guestTotal.sub(guestPaid)).toFixed(2),
+      } : undefined;
       const total = booking.totalRoomAmount.add(serviceAmount);
       const view = billingBookingView(booking);
-      return { booking: view, completedOrders: completed.map(orderView), pendingOrderCount, counterPaidAmount,
+      return { guestSummary, booking: view, completedOrders: completed.map(orderView), pendingOrderCount, counterPaidAmount,
         prepaidAmount: prepaid.toFixed(2), paidAmount: paid.toFixed(2), balance: total.sub(paid).toFixed(2),
         roomPayments: roomPayments.map(payment => ({ ...payment, amount: payment.amount.toFixed(2) })),
         roomAmount: booking.totalRoomAmount.toFixed(2), serviceAmount: serviceAmount.toFixed(2), totalAmount: booking.totalRoomAmount.add(serviceAmount).toFixed(2) };
@@ -58,7 +71,7 @@ export class BillingService {
         await this.lockBooking(tx, id);
         const booking = await tx.booking.findUniqueOrThrow({ where: { id }, select: { status: true, invoice: { select: { id: true } } } });
         if (booking.status !== 'CHECKED_IN' || booking.invoice) throw new ConflictException('Invoice requires a checked-in booking without an existing invoice');
-        if (await tx.serviceOrder.count({ where: { bookingId: id, OR: [{ status: 'PENDING' }, { payosStatus: 'PENDING' }] } })) throw new ConflictException('Resolve pending service orders and payOS payments before issuing the invoice');
+        if (await tx.serviceOrder.count({ where: { bookingId: id, ...checkoutServiceOrdersWhere } })) throw new ConflictException('Resolve pending service orders and payOS payments before issuing the invoice');
         const invoice = await tx.invoice.create({ data: { bookingId: id }, select: { id: true } });
         return invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id: invoice.id }, select: invoiceSelect }));
       });
@@ -91,7 +104,7 @@ export class BillingService {
           if (booking.status !== 'CHECKED_IN') throw new ConflictException('Booking must be checked in');
           const paid = invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect }));
           if (paid.status !== 'PAID' || new Prisma.Decimal(paid.balance).gt(0)) throw new ConflictException('Full payment required for checkout');
-          if (await tx.serviceOrder.count({ where: { bookingId: target.bookingId, OR: [{ status: 'PENDING' }, { requestedPaymentMethod: { not: null }, paymentMethod: null, status: { not: 'CANCELLED' } }] } })) throw new ConflictException('Resolve pending service orders before checkout');
+          if (await tx.serviceOrder.count({ where: { bookingId: target.bookingId, ...checkoutServiceOrdersWhere } })) throw new ConflictException('Resolve pending service orders before checkout');
           await tx.booking.update({ where: { id: target.bookingId }, data: { status: 'CHECKED_OUT' } });
         };
         const prior = await tx.payment.findUnique({ where: { id: key }, select: paymentSelect });
@@ -123,7 +136,7 @@ export class BillingService {
         await this.lockInvoice(tx, booking.invoice.id);
         const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: booking.invoice.id }, select: invoiceSelect });
         if (invoice.status !== 'PAID' || new Prisma.Decimal(invoiceView(invoice).balance).gt(0)) throw new ConflictException('Invoice must be fully paid before checkout');
-        if (await tx.serviceOrder.count({ where: { bookingId: id, OR: [{ status: 'PENDING' }, { requestedPaymentMethod: { not: null }, paymentMethod: null, status: { not: 'CANCELLED' } }] } })) throw new ConflictException('Resolve unpaid service orders before checkout');
+        if (await tx.serviceOrder.count({ where: { bookingId: id, ...checkoutServiceOrdersWhere } })) throw new ConflictException('Resolve unpaid service orders before checkout');
         const result = await tx.booking.updateMany({ where: { id, status: 'CHECKED_IN' }, data: { status: 'CHECKED_OUT' } });
         if (result.count !== 1) throw new ConflictException('Booking changed concurrently');
         const view = billingBookingView(await tx.booking.findUniqueOrThrow({ where: { id }, select: bookingSelect }));

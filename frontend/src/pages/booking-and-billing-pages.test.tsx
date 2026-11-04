@@ -3,7 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MyBookingsPage, BookingDetailPage } from './booking-pages';
-import { InvoicePage } from './billing-pages';
+import { BookingBillingPage, InvoicePage } from './billing-pages';
 import { AuthContext } from '../features/auth/auth-context';
 import { ToastContext } from '../components/toast-context';
 import { api } from '../lib/api';
@@ -172,4 +172,20 @@ it('hides billing and outstanding charges for a cancelled booking', async () => 
   expect(screen.queryByRole('link',{name:/Xem chi phí & hóa đơn/})).toBeNull();
   expect(screen.queryByText(/Còn phải thanh toán/)).toBeNull();
   expect(screen.queryByRole('region',{name:'Chi phí phòng và dịch vụ'})).toBeNull();
+});
+
+it('summarizes room and separately paid services once, with pending service details collapsed', async () => {
+  const order = { id: 'service-1', status: 'COMPLETED', totalAmount: '9000', requestedPaymentMethod: 'BANK_TRANSFER', paymentMethod: 'BANK_TRANSFER', items: [{ id: 'item-1', serviceName: 'Nước suối', quantity: 1, unitPrice: '9000', subtotal: '9000' }] };
+  vi.spyOn(api, 'request').mockImplementation(async path => {
+    if (path.endsWith('/invoice')) return null;
+    return { booking: mockBooking, roomAmount: '4500000', serviceAmount: '0', totalAmount: '4500000', paidAmount: '4500000', balance: '0', prepaidAmount: '4500000', counterPaidAmount: '9000', completedOrders: [], pendingOrderCount: 0,
+      guestSummary: { orders: [order], serviceAmount: '9000', totalAmount: '4509000', paidAmount: '4509000', balance: '0' } };
+  });
+  render(<MemoryRouter initialEntries={['/guest/bookings/b-101/billing']}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Routes><Route path="/guest/bookings/:id/billing" element={<BookingBillingPage />} /></Routes></QueryClientProvider></MemoryRouter>);
+  const summary = await screen.findByRole('region', { name: 'Tổng chi phí kỳ nghỉ' });
+  expect(within(summary).getAllByText('4.509.000 ₫')).toHaveLength(2);
+  expect(within(summary).getByText('0 ₫')).toBeTruthy();
+  expect(screen.getByText('Chi tiết 1 đơn dịch vụ').closest('details')?.open).toBe(false);
+  expect(screen.queryByText('Thanh toán toàn bộ tiền phòng')).toBeNull();
+  expect(screen.queryByText('Chưa phát hành hóa đơn')).toBeNull();
 });

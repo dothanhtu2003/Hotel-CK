@@ -1,11 +1,9 @@
 import { Link, useParams } from 'react-router';
 import {
   Banknote,
-  Clock,
   CreditCard,
   Info,
   Printer,
-  ReceiptText,
 } from 'lucide-react';
 import { ErrorState, LinkButton, PageHeading } from '../components/ui';
 import { GuestBadge, Skeleton } from '../features/guest/components';
@@ -223,110 +221,45 @@ export function BookingBillingPage() {
         ← Chi tiết booking
       </Link>
       <PageHeading eyebrow="CHI PHÍ LƯU TRÚ" title="Chi phí & hóa đơn" />
-      {preview.data?.booking.onlinePaymentRequired && (preview.data.booking.status !== 'CANCELLED' || preview.data.booking.holdState === 'EXPIRED') && <BookingPayment booking={preview.data.booking} />}
-
-      {/* 1. Preliminary Cost Preview (Before Invoice) */}
-      {preview.isPending ? (
-        <Skeleton />
-      ) : preview.error ? (
-        <ErrorState
-          message={preview.error.message}
-          retry={() => void preview.refetch()}
-        />
-      ) : (
-        preview.data && (
-          <section className="panel guest-box folio-preview-sheet">
-            <div className="preview-heading-row">
-              <div>
-                <h2>{invoice.data ? 'Bảng kê chi phí lưu trú' : 'Chi phí dự kiến · Chưa phải hóa đơn'}</h2>
-                <p className="preview-meta">
-                  {formatBookingReference(preview.data.booking.reference)} · Phòng {preview.data.booking.roomNumber}
-                </p>
-              </div>
-              <span className="preview-draft-badge">{invoice.data ? 'Đã phát hành hóa đơn' : 'Dự kiến'}</span>
+      {preview.isPending || invoice.isPending ? <Skeleton /> : preview.error || invoice.error ? (
+        <ErrorState message={(preview.error || invoice.error)!.message} retry={() => { void preview.refetch(); void invoice.refetch(); }} />
+      ) : preview.data && (() => {
+        const p = preview.data;
+        const summary = p.guestSummary;
+        const orders = summary?.orders ?? p.completedOrders;
+        const hasPending = orders.some(o => o.status === 'PENDING');
+        return <>
+          <section className="panel guest-box guest-cost-overview" aria-label="Tổng chi phí kỳ nghỉ">
+            <div className="guest-row">
+              <div><h2>Phòng {p.booking.roomNumber}</h2><p className="preview-meta">{formatBookingReference(p.booking.reference)} · {p.booking.checkIn.split('-').reverse().join('/')} → {p.booking.checkOut.split('-').reverse().join('/')}</p></div>
+              <GuestBadge status={p.booking.status} />
             </div>
-
-            <Amounts
-              room={preview.data.roomAmount}
-              services={preview.data.serviceAmount}
-              total={preview.data.totalAmount}
-            />
-
-            <dl className="guest-facts folio-balance-summary">
-              <div><dt>Đã thanh toán</dt><dd>{money(preview.data.paidAmount ?? '0')}</dd></div>
-              <div><dt>Còn phải thanh toán{invoice.data ? '' : ' · tạm tính'}</dt><dd><strong>{money(preview.data.balance ?? preview.data.totalAmount)}</strong></dd></div>
+            <dl className="guest-facts">
+              <div><dt>Tiền phòng · {p.booking.nights} đêm</dt><dd>{money(p.roomAmount)}</dd></div>
+              <div><dt>Dịch vụ đã đặt{hasPending ? ' · tạm tính' : ''}</dt><dd>{money(summary?.serviceAmount ?? p.serviceAmount)}</dd></div>
+              <div className="folio-total-row"><dt>Tổng chi phí{hasPending ? ' dự kiến' : ''}</dt><dd><strong>{money(summary?.totalAmount ?? p.totalAmount)}</strong></dd></div>
+              <div><dt>Đã thanh toán</dt><dd>{money(summary?.paidAmount ?? p.paidAmount ?? '0')}</dd></div>
+              <div className={Number(summary?.balance ?? p.balance ?? p.totalAmount) === 0 ? 'balance-zero-highlight' : 'balance-due-highlight'}><dt>Còn phải thanh toán{hasPending ? ' · dự kiến' : ''}</dt><dd><strong>{money(summary?.balance ?? p.balance ?? p.totalAmount)}</strong></dd></div>
             </dl>
-            {Number(preview.data.counterPaidAmount ?? 0) > 0 && <p className="notice">Dịch vụ đã thanh toán riêng: {money(preview.data.counterPaidAmount!)}.</p>}
-
-            {preview.data.pendingOrderCount > 0 ? (
-              <div className="pending-orders-alert">
-                <Clock size={16} />
-                <p>
-                  {preview.data.pendingOrderCount} đơn dịch vụ đang chờ, chưa tính vào tổng. Chi phí có thể thay đổi trước khi phát hành hóa đơn.
-                </p>
-              </div>
-            ) : (
-              <p className="pending-orders-quiet">
-                {preview.data.pendingOrderCount} đơn dịch vụ đang chờ, chưa tính vào tổng. Chi phí có thể thay đổi trước khi phát hành hóa đơn.
-              </p>
-            )}
-
-            {preview.data.completedOrders.length > 0 && (
-              <div className="completed-orders-section">
-                <h3>Chi tiết dịch vụ đã sử dụng</h3>
-                <div className="completed-orders-list">
-                  {preview.data.completedOrders.map((o) => (
-                    <div key={o.id} className="completed-order-group">
-                      {o.items.map((item) => (
-                        <p key={item.id} className="completed-item-line">
-                          <span>
-                            {item.serviceName} × {item.quantity} · {money(item.unitPrice)} / đơn vị
-                          </span>
-                          <strong>{money(item.subtotal)}</strong>
-                        </p>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {!orders.length && <p className="billing-help">Chưa có dịch vụ đặt cho kỳ nghỉ này.</p>}
+            {hasPending && <p className="billing-help">Tổng dự kiến gồm cả dịch vụ đang chờ. Chỉ các khoản thanh toán thành công được tính vào số tiền đã thanh toán.</p>}
+            {orders.length > 0 && <details className="guest-cost-details"><summary>Chi tiết {orders.length} đơn dịch vụ</summary>
+              {orders.map(o => <div key={o.id} className="guest-cost-order">
+                {o.items.map(item => <div className="guest-row" key={item.id}><span>{item.serviceName} × {item.quantity}</span><strong>{money(item.subtotal)}</strong></div>)}
+                <small>{o.paymentMethod ? 'Đã thanh toán riêng' : o.requestedPaymentMethod === 'CASH' ? 'Thanh toán tiền mặt khi nhận dịch vụ' : o.requestedPaymentMethod === 'BANK_TRANSFER' ? 'Chưa thanh toán chuyển khoản' : o.status === 'PENDING' ? 'Chờ xác nhận · Chưa ghi vào hóa đơn' : 'Ghi vào hóa đơn phòng'}</small>
+              </div>)}
+              <Link to="/guest/service-orders" className="text-link">Xem và quản lý đơn dịch vụ</Link>
+            </details>}
+            <p className="billing-help">{invoice.data ? 'Hóa đơn phòng và các khoản dịch vụ thu riêng được tổng hợp ở trên.' : 'Đây là bảng chi phí của kỳ nghỉ. Hóa đơn chính thức sẽ được lễ tân phát hành.'}</p>
           </section>
-        )
-      )}
+          {p.booking.onlinePaymentRequired && Number(p.prepaidAmount ?? p.paidAmount ?? '0') < Number(p.roomAmount) && p.booking.status === 'PENDING' && <BookingPayment booking={p.booking} />}
+          {invoice.data && <details className="panel guest-box guest-cost-details"><summary>Hóa đơn & lịch sử thanh toán</summary>
+            <InvoiceView invoice={invoice.data} />
+            <LinkButton variant="secondary" to={'/guest/invoices/' + invoice.data.id}>Mở hóa đơn</LinkButton>
+          </details>}
+        </>;
+      })()}
 
-      {/* 2. Official Staged Invoice (If Issued) */}
-      {invoice.isPending ? (
-        <Skeleton />
-      ) : invoice.error ? (
-        <ErrorState
-          message={invoice.error.message}
-          retry={() => void invoice.refetch()}
-        />
-      ) : invoice.data ? (
-        <div className="official-invoice-wrap">
-          <InvoiceView invoice={invoice.data} />
-          <div className="invoice-action-bar">
-            <LinkButton
-              variant="secondary"
-              to={'/guest/invoices/' + invoice.data.id}
-            >
-              Mở hóa đơn
-            </LinkButton>
-          </div>
-        </div>
-      ) : (
-        <section className="panel guest-box unissued-invoice-notice-card">
-          <div className="unissued-icon-wrap">
-            <ReceiptText size={28} />
-          </div>
-          <div>
-            <h2>Chưa phát hành hóa đơn</h2>
-            <p>
-              Các khoản đã thanh toán được ghi nhận ở trên. Số dư hiện tại là tạm tính; lễ tân sẽ chốt hóa đơn khi bạn trả phòng.
-            </p>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

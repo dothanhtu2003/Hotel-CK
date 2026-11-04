@@ -6764,3 +6764,19 @@
   .guest-portal-nav { display:none; }
   .guest-portal-mobile-menu-btn { display:inline-flex; }
 }
+
+/* A single compact overview for guest stay costs. */
+.guest-billing-page-space { gap: 1.25rem; }
+.guest-cost-overview { padding: clamp(1rem, 3vw, 2rem); }
+.guest-cost-overview h2 { margin: 0; font-size: 1.6rem; }
+.guest-cost-overview .preview-meta { margin: .35rem 0 1rem; font-size: .9rem; }
+.guest-cost-overview .guest-facts > div { padding: .8rem 0; }
+.guest-cost-overview .billing-help { margin: .8rem 0 0; font-size: .875rem; color: #62736b; }
+.guest-cost-details summary { cursor: pointer; padding: .8rem 0; font-weight: 600; }
+.guest-cost-order { padding: .8rem 0; border-top: 1px solid #e2e7df; }
+.guest-cost-order small { color: #62736b; }
+@media (max-width: 600px) { .guest-cost-overview > .guest-row { align-items: flex-start; flex-wrap: wrap; gap: .5rem; } }
+
+.order-review-delivery-room { padding: 1rem; background: #edf4eb; border-radius: 8px; margin-bottom: 1rem; }
+.order-review-room-number { font-size: 1.2rem; color: #18483c; }
+.order-review-delivery-room .billing-help { font-size: .85rem; margin: .5rem 0 0; }
