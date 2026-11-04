@@ -39,7 +39,7 @@ export class BillingService {
       const pendingOrderCount = await tx.serviceOrder.count({ where: { bookingId: id, ...checkoutServiceOrdersWhere } });
       const counterPaid = await tx.serviceOrder.findMany({ where: { bookingId: id, status: 'COMPLETED', paymentMethod: { not: null } }, select: orderSelect, orderBy: [{ orderedAt: 'asc' }, { id: 'asc' }] });
       const counterPaidAmount = counterPaid.reduce((sum, order) => sum.add(order.totalAmount), new Prisma.Decimal(0)).toFixed(2);
-      const roomPayments = await tx.bookingPayment.findMany({ where: { bookingId: id, status: 'COMPLETED' }, select: { id: true, amount: true, paidAt: true } });
+      const roomPayments = await tx.bookingPayment.findMany({ where: { bookingId: id, status: 'COMPLETED' }, select: { id: true, amount: true, paidAt: true, method: true } });
       const prepaid = roomPayments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0));
       const invoice = await tx.invoice.findUnique({ where: { bookingId: id }, select: { payments: { where: { status: 'COMPLETED' }, select: { amount: true } } } });
       const paid = invoice ? invoice.payments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0)) : prepaid;

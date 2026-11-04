@@ -50,11 +50,47 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
     const attempt = await ctx.prisma.client.bookingPayment.findFirstOrThrow({ where: { bookingId: id } });
     return links.get(Number(attempt.payosOrderCode))!;
   }
+  async function deskBooking(method: 'CASH' | 'BANK_TRANSFER', extra = {}) {
+    const type = await ctx.prisma.client.roomType.create({ data: { name: randomUUID(), nightlyPrice: 100000, maxGuests: 2 } });
+    const room = await ctx.prisma.client.room.create({ data: { roomNumber: randomUUID().slice(0, 12), roomTypeId: type.id, floor: 1 } });
+    return api().post('/api/front-desk/walk-in').auth(actors.staff.token, { type: 'bearer' }).send({
+      roomId: room.id, customerId: actors.other.id, checkIn: today, checkOut: end.toISOString().slice(0, 10), guests: 1,
+      paymentMethod: method, expectedAmount: '200000.00', ...extra,
+    });
+  }
+  it('requires cash receipt confirmation, credits the invoice once with CASH, and rejects stale prices', async () => {
+    const rejected = await deskBooking('CASH'); expect(rejected.status).toBe(400);
+    const stale = await deskBooking('CASH', { paymentVerified: true, expectedAmount: '1.00' }); expect(stale.status).toBe(409);
+    const response = await deskBooking('CASH', { paymentVerified: true }); expect(response.status).toBe(201);
+    const id = response.body.id; expect(response.body.status).toBe('CHECKED_IN');
+    const receipt = await ctx.prisma.client.bookingPayment.findFirstOrThrow({ where: { bookingId: id } });
+    expect(receipt).toMatchObject({ method: 'CASH', status: 'COMPLETED', collectedById: actors.staff.id, payosOrderCode: null });
+    const invoice = await api().post(`/api/bookings/${id}/invoice`).auth(actors.staff.token, { type: 'bearer' }).send({}).expect(201);
+    expect(invoice.body.balance).toBe('0.00'); expect(invoice.body.payments).toHaveLength(1);
+    expect(invoice.body.payments[0].method).toBe('CASH');
+  });
+  it('confirms a future cash reservation without check-in and blocks cancellation of collected money', async () => {
+    const next = new Date(`${today}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
+    const response = await deskBooking('CASH', { checkIn: next.toISOString().slice(0, 10), expectedAmount: '100000.00', paymentVerified: true, receiveNow: false });
+    expect(response.status).toBe(201); expect(response.body.status).toBe('CONFIRMED');
+    await action(response.body.id, 'cancel').expect(409);
+  });
+  it('keeps a desk transfer pending until payOS confirms, then allows check-in', async () => {
+    const response = await deskBooking('BANK_TRANSFER'); expect(response.status).toBe(201);
+    const id = response.body.id; expect(response.body.status).toBe('PENDING');
+    await action(id, 'check-in').expect(409);
+    await start(id, 'staff').expect(201);
+    const state = await api().get(`/api/bookings/${id}/payment-state`).auth(actors.staff.token, { type: 'bearer' }).expect(200);
+    expect(state.body.paid).toBe(false);
+    const link = await remote(id); link.status = 'PAID'; link.amountPaid = 200000; link.amountRemaining = 0;
+    await api().post(`/api/bookings/${id}/payos/sync`).auth(actors.staff.token, { type: 'bearer' }).expect(201);
+    await action(id, 'check-in').expect(200);
+  });
   it('requires full payment, verifies ownership, confirms once, and credits the final invoice', async () => {
     const b = await booking();
     expect(b.onlinePaymentRequired).toBe(true); expect(b.status).toBe('PENDING');
     await action(b.id, 'confirm').expect(409); await action(b.id, 'check-in').expect(409);
-    await start(b.id, 'other').expect(404); await start(b.id, 'staff').expect(403);
+    await start(b.id, 'other').expect(404); await start(b.id, 'staff').expect(201);
     const first = await start(b.id).expect(201);
     const second = await start(b.id).expect(201);
     expect(second.body.checkoutUrl).toBe(first.body.checkoutUrl);

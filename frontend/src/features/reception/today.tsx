@@ -754,7 +754,7 @@ export function ReceptionDashboard() {
                       return;
                     }
                     let dates = [date];
-                    if (selectedNights.length === 1) {
+                    if (selectedNights.length > 0) {
                       const start = selectedNights[0] < date ? selectedNights[0] : date;
                       const end = selectedNights[0] > date ? selectedNights[0] : date;
                       const range = next7Days.filter(d => d.dateStr >= start && d.dateStr <= end).map(d => d.dateStr);
@@ -976,7 +976,7 @@ export function ReceptionDashboard() {
                               className="sm:col-span-2 justify-center bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl shadow-xs"
                             >
                               <LogIn className="size-4 mr-1.5" />
-                              {awaitingOnlinePayment(reservedBooking) ? "Xem booking · Chờ thanh toán" : "Xem booking · Nhận phòng"}
+                              {awaitingOnlinePayment(reservedBooking) ? "Xem booking · Chờ thanh toán" : "Nhận phòng"}
                             </LinkButton>
                           )}
 
@@ -1047,17 +1047,22 @@ export function ReceptionDashboard() {
                         <div role="list" aria-label="Các đêm lưu trú" className="grid grid-cols-[repeat(auto-fit,minmax(75px,1fr))] gap-2 text-center">
                           {next7Days.map((d, idx) => {
                             const isToday = d.dateStr === todayStr;
-                            const isBooked = d.status === "booked" || d.status === "occupied";
+                            const isOccupied = d.status === "occupied";
+                            const isBooked = d.status === "booked";
                             const isHk = d.status === "dirty" || d.status === "cleaning";
                             const bgClass = isHk
                               ? "border-amber-300 bg-amber-50 text-amber-900"
+                              : isOccupied
+                              ? "border-emerald-700 bg-emerald-100 text-emerald-950"
                               : isBooked
-                              ? "border-sky-300 bg-sky-50 text-sky-900"
-                              : "border-emerald-200/80 bg-emerald-50/50 text-emerald-900";
+                              ? "border-blue-400 bg-blue-50 text-blue-950"
+                              : "border-dashed border-zinc-300 bg-white text-zinc-600";
                             const tagLabel = isHk
-                              ? "Dọn"
+                              ? "Cần dọn"
+                              : isOccupied
+                              ? "Đang ở"
                               : isBooked
-                              ? (d.status === "occupied" ? "Ở" : "Đặt")
+                              ? "Đã đặt"
                               : "Trống";
 
                             return (
@@ -1065,18 +1070,20 @@ export function ReceptionDashboard() {
                                 key={d.dateStr}
                                 role="listitem"
                                 aria-current={isToday ? 'date' : undefined}
-                                aria-label={`${d.isStayNight ? `Đêm ${idx + 1}, ` : `${tagLabel}, `}${formatStayDateDisplay(d.dateStr)}${isToday ? ', Hôm nay' : ''}`}
+                                aria-label={`${d.isStayNight ? `Đêm ${idx + 1}, ` : ''}${formatStayDateDisplay(d.dateStr)}, ${tagLabel}${isToday ? ', Hôm nay' : ''}`}
                                 className={`rounded-xl border ${bgClass} ${selectedNights.includes(d.dateStr) ? 'ring-2 ring-sky-600 !bg-sky-100' : ''} ${
-                                  isToday ? "ring-2 ring-emerald-700 shadow-2xs font-bold !bg-emerald-100 !text-emerald-950" : ""
+                                  isToday ? "ring-2 ring-zinc-800 ring-offset-2 shadow-2xs font-bold" : ""
                                 } transition-all`}
                               >
                                 <button type="button" className="h-full w-full rounded-xl p-2 disabled:cursor-default enabled:cursor-pointer enabled:hover:bg-emerald-100/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
                                   disabled={!canSelectNight(d.dateStr)} aria-pressed={selectedNights.includes(d.dateStr)}
                                   aria-label={`Chọn đêm ${formatStayDateDisplay(d.dateStr)}`} onClick={() => selectNight(d.dateStr)}>
-                                <span className="text-[10px] text-zinc-400 block font-medium">{d.dayOfWeek}</span>
+                                <span className="text-[10px] block font-medium opacity-75">{d.dayOfWeek}</span>
                                 <strong className="text-xs block my-0.5">{formatStayDateDisplay(d.dateStr)}</strong>
-                                <span className="text-[9.5px] font-semibold block">{d.isStayNight ? `Đêm ${idx + 1}` : tagLabel}</span>
-                                {isToday && <span className="mt-1 inline-block rounded bg-emerald-800 px-1.5 py-0.5 text-[9px] font-bold text-white">Hôm nay</span>}
+                                <span className={`mt-1 block rounded px-1 py-1 text-[11px] font-bold ${isOccupied ? 'bg-emerald-700 text-white' : isBooked ? 'bg-blue-600 text-white' : isHk ? 'bg-amber-200 text-amber-950' : ''}`}>{tagLabel}</span>
+                                {d.isStayNight && <span className="mt-1 block text-[10px]">Đêm {idx + 1}</span>}
+                                {isBooked && <span className="mt-1 block text-[10px]">Chưa nhận</span>}
+                                {isToday && <span className="mt-1 inline-block rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] font-bold text-white">Hôm nay</span>}
                                 {selectedNights.includes(d.dateStr) && <span className="block text-[9px] font-bold text-sky-800">Đã chọn</span>}
                                 </button>
                               </div>

@@ -493,6 +493,8 @@ export class FrontDeskService {
   }
   async walkIn(actorId: string, dto: WalkInDto) {
     const { start, end } = parseStay(dto.checkIn, dto.checkOut);
+    if (dto.paymentMethod === 'CASH' && dto.paymentVerified !== true)
+      throw new BadRequestException('Xác nhận đã nhận đủ tiền mặt trước khi đặt phòng.');
     if (
       !dto.customerId &&
       (!dto.fullName?.trim() || !dto.phone?.trim())
@@ -543,6 +545,12 @@ export class FrontDeskService {
         }
         if (dto.guests > room.roomType.maxGuests)
           throw new BadRequestException("Guest count exceeds room capacity");
+        if (dto.paymentMethod) {
+          const total = room.roomType.nightlyPrice.mul((end.getTime() - start.getTime()) / 86400000);
+          if (!total.gt(0) || !total.isInteger()) throw new BadRequestException('Tiền phòng phải là số nguyên VND dương.');
+          if (!dto.expectedAmount || !/^\d+(\.\d{1,2})?$/.test(dto.expectedAmount) || !total.eq(dto.expectedAmount))
+            throw new ConflictException('Giá phòng đã thay đổi. Vui lòng kiểm tra lại trước khi thu tiền.');
+        }
         let customer;
         if (dto.customerId)
           customer = await tx.user.findFirst({
@@ -579,6 +587,7 @@ export class FrontDeskService {
           data: {
             userId: customer.id,
             createdById: actorId,
+            onlinePaymentRequired: dto.paymentMethod === "BANK_TRANSFER",
             roomId: dto.roomId,
             checkInDate: start,
             checkOutDate: end,
@@ -587,10 +596,19 @@ export class FrontDeskService {
           },
           select: bookingSelect,
         });
+        if (dto.paymentMethod === 'CASH') {
+          const receipt = await tx.bookingPayment.create({ data: { bookingId: booking.id, amount: booking.totalRoomAmount, method: 'CASH', collectedById: actorId } });
+          await tx.bookingPayment.update({ where: { id: receipt.id }, data: { status: 'COMPLETED', receivedAmount: booking.totalRoomAmount } });
+        }
+        if (dto.paymentMethod === 'BANK_TRANSFER') return { ...bookingView(booking), customer };
         if (dto.receiveNow ?? dto.checkIn === hotelDay()) {
           await tx.booking.update({ where: { id: booking.id }, data: { status: 'CONFIRMED' } });
           const checkedIn = await tx.booking.update({ where: { id: booking.id }, data: { status: 'CHECKED_IN' }, select: bookingSelect });
           return { ...bookingView(checkedIn), customer };
+        }
+        if (dto.paymentMethod === 'CASH') {
+          const confirmed = await tx.booking.findUniqueOrThrow({ where: { id: booking.id }, select: bookingSelect });
+          return { ...bookingView(confirmed), customer };
         }
         return { ...bookingView(booking), customer };
       });

@@ -83,6 +83,12 @@ export class RoomQuery extends PaginationQueryDto {
   state?: string;
 }
 export class WalkInDto extends CreateBookingDto {
+  @IsOptional() @IsIn(['CASH', 'BANK_TRANSFER'])
+  paymentMethod?: 'CASH' | 'BANK_TRANSFER';
+  @IsOptional() @IsIn([true, false])
+  paymentVerified?: boolean;
+  @IsOptional() @IsString()
+  expectedAmount?: string;
   @IsOptional() @IsIn([true, false])
   receiveNow?: boolean;
   @ApiPropertyOptional({

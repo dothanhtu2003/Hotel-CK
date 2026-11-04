@@ -377,12 +377,17 @@ describe("Unified Room Board & Booking Flow", () => {
       screen.getByText("Xác nhận sẽ tạo booking và nhận phòng ngay. Phòng chuyển sang Đang ở."),
     ).toBeTruthy();
 
+    expect((screen.getByRole("button", { name: "Xác nhận tạo booking" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Đã nhận đủ.*tiền mặt/ }));
     // Confirm creation
     fireEvent.click(screen.getByRole("button", { name: "Xác nhận tạo booking" }));
 
     await waitFor(() => {
       expect(mockPost).toHaveBeenCalledWith({
         receiveNow: true,
+        paymentMethod: "CASH",
+        paymentVerified: true,
+        expectedAmount: "2400000.00",
         roomId: "room-abc",
         checkIn: today,
         checkOut: tomorrow,
@@ -393,6 +398,33 @@ describe("Unified Room Board & Booking Flow", () => {
       });
       expect(onSuccess).toHaveBeenCalled();
     });
+  });
+
+  it('keeps the payOS step open after creating a pending booking', async () => {
+    vi.spyOn(api, 'request').mockImplementation(async (path: string) => {
+      if (path === '/front-desk/walk-in') return { id: 'payos-booking', reference: 'CK-PAY', status: 'PENDING' };
+      if (path.endsWith('/payment-state')) return { paid: false, totalAmount: '5000.00', holdState: 'ACTIVE', bookingStatus: 'PENDING' };
+      if (path.endsWith('/payos')) return { checkoutUrl: 'https://pay.payos.vn/web/test' };
+      return { checked: true };
+    });
+    const onClose = vi.fn(), onSuccess = vi.fn();
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastContext.Provider value={() => {}}>
+      <UnifiedBookingModal open onClose={onClose} onSuccess={onSuccess} room={{ id: 'r1', roomNumber: '101', floor: 1, roomType: { id: 't1', name: 'Standard', nightlyPrice: '5000.00', maxGuests: 2 } }} initialCheckIn={hotelToday()} initialCheckOut={shiftDate(hotelToday(), 1)} initialGuests={1} />
+    </ToastContext.Provider></QueryClientProvider></MemoryRouter>);
+    fireEvent.click(screen.getByText('Tạo hồ sơ mới'));
+    fireEvent.change(screen.getByPlaceholderText('Ví dụ: Nguyễn Văn An'), { target: { value: 'Khách chuyển khoản' } });
+    fireEvent.change(screen.getByPlaceholderText('Ví dụ: 0901234567'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Phương thức thanh toán' }), { target: { value: 'BANK_TRANSFER' } });
+    fireEvent.click(screen.getByText('Xem lại & Xác nhận'));
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận tạo booking' }));
+    await screen.findByRole('heading', { name: 'Thanh toán chuyển khoản payOS' });
+    expect(onClose).not.toHaveBeenCalled(); expect(onSuccess).not.toHaveBeenCalled();
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Tạo / lấy lại liên kết payOS' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo / lấy lại liên kết payOS' }));
+    const link = await screen.findByRole('link', { name: /Mở trang thanh toán payOS/ });
+    expect(link.getAttribute('href')).toBe('https://pay.payos.vn/web/test');
+    expect(api.request).toHaveBeenCalledWith('/front-desk/walk-in', expect.objectContaining({ body: expect.objectContaining({ paymentMethod: 'BANK_TRANSFER', expectedAmount: '5000.00' }) }));
   });
 
   it("Validates checkOut > checkIn and blocks checkOut <= checkIn", () => {
@@ -649,7 +681,7 @@ it.each([
   expect(card.textContent).toContain('Khách vừa đặt');
   expect(card.textContent).toContain(paymentLabel);
   fireEvent.click(card);
-  expect(screen.getByRole('link', { name: 'Xem booking · Nhận phòng' }).getAttribute('href')).toBe('/reception/bookings/reserved-booking');
+  expect(screen.getByRole('link', { name: 'Nhận phòng' }).getAttribute('href')).toBe('/reception/bookings/reserved-booking');
   expect(screen.queryByRole('button', { name: /Đặt phòng này/ })).toBeNull();
 });
 
@@ -696,7 +728,7 @@ it('opens occupied room details instead of a new booking form in booking mode', 
   expect(nights[1].getAttribute('aria-current')).toBe('date');
   expect(nights[1].textContent).toContain('Hôm nay');
   expect(nights[2].getAttribute('aria-label')).toContain(`Đêm 3, ${formatStayDateDisplay(shiftDate(today, 1))}`);
-  expect(nights[3].getAttribute('aria-label')).toContain(`Trống, ${formatStayDateDisplay(shiftDate(today, 2))}`);
+  expect(nights[3].getAttribute('aria-label')).toContain(`${formatStayDateDisplay(shiftDate(today, 2))}, Trống`);
   expect(nights[6].textContent).toContain('Trống');
   const occupiedNight = screen.getByRole('button', { name: `Chọn đêm ${formatStayDateDisplay(today)}` }) as HTMLButtonElement;
   expect(occupiedNight.disabled).toBe(true);
@@ -708,10 +740,21 @@ it('opens occupied room details instead of a new booking form in booking mode', 
   fireEvent.click(firstFree);
   fireEvent.click(screen.getByRole('button', { name: `Chọn đêm ${formatStayDateDisplay(shiftDate(today, 3))}` }));
   expect(firstFree.getAttribute('aria-pressed')).toBe('true');
-  fireEvent.click(screen.getByRole('button', { name: 'Đặt phòng (2 đêm)' }));
+  expect(screen.getByRole('button', { name: 'Đặt phòng (2 đêm)' })).toBeTruthy();
+  const thirdFree = screen.getByRole('button', { name: `Chọn đêm ${formatStayDateDisplay(shiftDate(today, 4))}` });
+  fireEvent.click(thirdFree);
+  expect(screen.getByRole('button', { name: 'Đặt phòng (3 đêm)' })).toBeTruthy();
+  expect(firstFree.getAttribute('aria-pressed')).toBe('true');
+  expect(thirdFree.getAttribute('aria-pressed')).toBe('true');
+  // Adjust the endpoint again without dropping the first selected night.
+  fireEvent.click(screen.getByRole('button', { name: `Chọn đêm ${formatStayDateDisplay(shiftDate(today, 5))}` }));
+  expect(screen.getByRole('button', { name: 'Đặt phòng (4 đêm)' })).toBeTruthy();
+  fireEvent.click(thirdFree);
+  expect(screen.getByRole('button', { name: 'Đặt phòng (3 đêm)' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Đặt phòng (3 đêm)' }));
   expect(await screen.findByText('Đặt phòng 102 (Standard)')).toBeTruthy();
   expect((screen.getByLabelText('Ngày nhận phòng') as HTMLInputElement).value).toBe(shiftDate(today, 2));
-  expect((screen.getByLabelText('Ngày trả phòng') as HTMLInputElement).value).toBe(shiftDate(today, 4));
+  expect((screen.getByLabelText('Ngày trả phòng') as HTMLInputElement).value).toBe(shiftDate(today, 5));
 });
 
 it('filters by bed count, combines floor selection and toggles off', async () => {

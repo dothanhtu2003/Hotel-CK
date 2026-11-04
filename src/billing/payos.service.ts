@@ -70,13 +70,14 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       const attempt = await tx.bookingPayment.findUniqueOrThrow({ where:{ id:payment.id } });
       if (attempt.status !== 'PENDING') throw new ConflictException('Giao dịch đã thay đổi');
       if (attempt.checkoutUrl) return { checkoutUrl:attempt.checkoutUrl };
-      const checkoutUrl = await this.createLink(Number(attempt.payosOrderCode), attempt.amount.toNumber(), `/guest/bookings/${id}`, Math.floor(booking.holdExpiresAt.getTime()/1000));
+      const checkoutUrl = await this.createLink(Number(attempt.payosOrderCode), attempt.amount.toNumber(), actor.role === 'GUEST' ? `/guest/bookings/${id}` : `/reception/bookings/${id}`, Math.floor(booking.holdExpiresAt.getTime()/1000));
       await tx.bookingPayment.update({ where:{ id:attempt.id }, data:{ checkoutUrl } });
       return { checkoutUrl };
     }, { timeout:25000 });
   }
 
-  private async remoteBookingPayment(attempt: { id:string; checkoutUrl:string|null; payosOrderCode:bigint; amount:Prisma.Decimal }) {
+  private async remoteBookingPayment(attempt: { id:string; checkoutUrl:string|null; payosOrderCode:bigint|null; amount:Prisma.Decimal }) {
+    if (attempt.payosOrderCode === null) throw new ConflictException('Không phải giao dịch payOS');
     try { return await this.client().paymentRequests.get(Number(attempt.payosOrderCode)); }
     catch (error) {
       // A definitive 404 can clear an attempt that never created a link.
@@ -86,7 +87,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private validBookingRemote(remote: { orderCode: number; amount: number; amountPaid: number; amountRemaining: number; status: string }, attempt: { payosOrderCode: bigint; amount: Prisma.Decimal }) {
+  private validBookingRemote(remote: { orderCode: number; amount: number; amountPaid: number; amountRemaining: number; status: string }, attempt: { payosOrderCode: bigint|null; amount: Prisma.Decimal }) {
     if (remote.orderCode !== Number(attempt.payosOrderCode) || remote.amount !== attempt.amount.toNumber() || !Number.isSafeInteger(remote.amountPaid) || remote.amountPaid < 0) throw new ConflictException('Thông tin giao dịch không khớp');
     if (remote.status === 'PAID' && (remote.amountPaid < remote.amount || remote.amountRemaining !== 0)) throw new ConflictException('Giao dịch chưa đủ tiền');
   }

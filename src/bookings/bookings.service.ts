@@ -112,6 +112,11 @@ export class BookingsService {
     const scope = { id, ...this.scope(actor) };
     try {
       return await this.prisma.client.$transaction(async tx => {
+        if (action === 'cancel') {
+          await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
+          if (await tx.bookingPayment.count({ where: { bookingId: id, status: 'COMPLETED' } }))
+            throw new ConflictException('Booking đã nhận tiền. Cần xử lý khoản thu trước khi hủy.');
+        }
         // Keep the database's guarded transitions atomic behind one reception action.
         if (action === 'check-in') {
           const snapshot = await tx.booking.findFirst({ where: scope, select: { roomId: true } });

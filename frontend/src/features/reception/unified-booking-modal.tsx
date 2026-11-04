@@ -1,3 +1,4 @@
+import { DeskBookingPayment } from "./booking-payment";
 import { hotelToday } from "./room-state";
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
@@ -59,6 +60,9 @@ export function UnifiedBookingModal({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH');
+  const [paymentVerified, setPaymentVerified] = useState(false);
+  const [createdBooking, setCreatedBooking] = useState<DeskBooking | null>(null);
   const [review, setReview] = useState<Record<string, unknown> | null>(null);
   const [uncertain, setUncertain] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -95,8 +99,13 @@ export function UnifiedBookingModal({
         body: { ...data, receiveNow: data.checkIn === hotelToday() },
       }),
     onSuccess: async (b) => {
-      toast(b.status === "CHECKED_IN" ? "Đã nhận phòng thành công." : "Đã tạo đặt phòng trước.");
+      toast(paymentMethod === "BANK_TRANSFER" ? "Đã giữ phòng, chờ thanh toán payOS." : b.status === "CHECKED_IN" ? "Đã nhận phòng thành công." : "Đã tạo đặt phòng trước.");
       await refresh();
+      if (paymentMethod === 'BANK_TRANSFER') {
+        setReview(null);
+        setCreatedBooking(b);
+        return;
+      }
       onClose();
       if (onSuccess) {
         onSuccess(b);
@@ -160,6 +169,7 @@ export function UnifiedBookingModal({
         return;
       }
 
+      setPaymentVerified(false);
       setReview({
         roomId: room.id,
         checkIn,
@@ -175,6 +185,7 @@ export function UnifiedBookingModal({
         return;
       }
 
+      setPaymentVerified(false);
       setReview({
         roomId: room.id,
         checkIn,
@@ -186,6 +197,14 @@ export function UnifiedBookingModal({
   };
 
   if (!open || !room) return null;
+
+  if (createdBooking) return <Dialog open onClose={() => { onClose(); onSuccess?.(createdBooking); }} title={`Thanh toán đặt phòng ${room.roomNumber}`} className="desk-room-action-modal">
+    <div className="drawer-body p-4 space-y-4">
+      <p>Mã đặt phòng: <strong>{createdBooking.reference}</strong></p>
+      <DeskBookingPayment bookingId={createdBooking.id} />
+      <Button onClick={() => { onClose(); onSuccess?.(createdBooking); navigate(`${base}/bookings/${createdBooking.id}`); }}>Mở chi tiết đặt phòng</Button>
+    </div>
+  </Dialog>;
 
   return (
     <>
@@ -452,6 +471,16 @@ export function UnifiedBookingModal({
               )}
             </div>
 
+            <section className="rounded-lg border border-zinc-200 p-3.5 space-y-3" aria-label="Phương thức thanh toán khi đặt">
+              <h3 className="text-xs font-semibold">3. Thanh toán toàn bộ tiền phòng</h3>
+              <label className="block text-sm">Phương thức thanh toán
+                <select className="input w-full mt-1" value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value as 'CASH' | 'BANK_TRANSFER'); setPaymentVerified(false); }}>
+                  <option value="CASH">Tiền mặt</option>
+                  <option value="BANK_TRANSFER">Chuyển khoản payOS</option>
+                </select>
+              </label>
+              <p className="text-xs text-zinc-600">{paymentMethod === 'CASH' ? 'Xác nhận đã nhận đủ tiền mặt ở bước xem lại. Khoản thu sẽ được trừ vào hóa đơn cuối kỳ.' : 'Sau khi tạo booking, mở payOS để khách thanh toán. Booking chờ xác nhận và chưa nhận phòng cho đến khi payOS ghi nhận đủ tiền.'}</p>
+            </section>
             {/* Price Breakdown */}
             <div className="pt-3 border-t border-zinc-200 flex items-center justify-between">
               <div>
@@ -524,9 +553,10 @@ export function UnifiedBookingModal({
             </div>
 
             <p className="text-xs text-zinc-500 bg-amber-50 p-2.5 rounded border border-amber-200 text-amber-800">
-              {checkIn === hotelToday() ? "Xác nhận sẽ tạo booking và nhận phòng ngay. Phòng chuyển sang Đang ở." : "Đặt trước cho ngày tương lai. Khách sẽ nhận phòng vào ngày đến."}
+              {paymentMethod === 'BANK_TRANSFER' ? "Booking được giữ 15 phút để thanh toán payOS. Chưa nhận phòng khi chưa thanh toán đủ." : checkIn === hotelToday() ? "Xác nhận sẽ tạo booking và nhận phòng ngay. Phòng chuyển sang Đang ở." : "Đặt trước cho ngày tương lai. Khách sẽ nhận phòng vào ngày đến."}
             </p>
 
+            {paymentMethod === 'CASH' && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={paymentVerified} disabled={mutation.isPending} onChange={e => setPaymentVerified(e.target.checked)} />Đã nhận đủ {money(estimatedTotal)} tiền mặt.</label>}
             {mutation.error && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded text-rose-800 text-xs" role="alert">
                 {deskError(mutation.error, "booking")}
@@ -543,11 +573,11 @@ export function UnifiedBookingModal({
               </Button>
               <Button
                 busy={mutation.isPending}
-                disabled={uncertain || !!mutation.error}
+                disabled={uncertain || !!mutation.error || (paymentMethod === 'CASH' && !paymentVerified)}
                 onClick={() => {
                   if (lock.current) return;
                   lock.current = true;
-                  mutation.mutate(review);
+                  mutation.mutate({ ...review, paymentMethod, expectedAmount: estimatedTotal, ...(paymentMethod === 'CASH' ? { paymentVerified } : {}) });
                 }}
               >
                 Xác nhận tạo booking

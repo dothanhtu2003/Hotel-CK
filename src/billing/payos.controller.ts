@@ -15,11 +15,11 @@ export class PayosController {
   reviews() { return this.payos.paymentReviews(); }
   @Post('payments/booking-reviews/:id/resolve') @Roles('RECEPTIONIST','ADMIN')
   resolveReview(@Param('id', ParseUUIDPipe) id:string, @Body() body: ResolvePaymentReviewDto, @CurrentUser() user:PublicUser) { return this.payos.resolvePaymentReview(id, body.refundReference, user); }
-  @Get('bookings/:id/payment-state') @Roles('GUEST') @Header('Cache-Control', 'no-store')
+  @Get('bookings/:id/payment-state') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   bookingState(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.bookingState(id, user); }
-  @Post('bookings/:id/payos') @Roles('GUEST') @Header('Cache-Control', 'no-store')
+  @Post('bookings/:id/payos') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   startBooking(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.startBooking(id, user); }
-  @Post('bookings/:id/payos/sync') @Roles('GUEST') @Header('Cache-Control', 'no-store')
+  @Post('bookings/:id/payos/sync') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   syncBooking(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.syncBooking(id, user); }
   @Post('bookings/:id/payos/cancel') @Roles('GUEST') @Header('Cache-Control', 'no-store')
   cancelBooking(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.cancelBooking(id, user); }

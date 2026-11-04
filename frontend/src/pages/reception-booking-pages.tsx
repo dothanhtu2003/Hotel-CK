@@ -1,3 +1,4 @@
+import { DeskBookingPayment } from "../features/reception/booking-payment";
 import { StayHistory } from '../features/reception/stay-history';
 import { awaitingOnlinePayment, deskBookingStatusLabel } from '../features/reception/contracts';
 import { useState } from "react";
@@ -263,6 +264,7 @@ export function ReceptionBookingDetailPage() {
               </dl>
             </CardContent>
           </Card>
+          {awaitingOnlinePayment(b) && <DeskBookingPayment bookingId={b.id} />}
           <Card className="rounded-2xl border-zinc-200/90 shadow-2xs">
             <CardHeader><CardTitle>Tiền phòng dự kiến</CardTitle></CardHeader>
             <CardContent className="space-y-4 text-sm">
@@ -270,9 +272,9 @@ export function ReceptionBookingDetailPage() {
               <div className="flex justify-between"><span className="text-zinc-500">Số đêm</span><span>{b.nights} đêm</span></div>
               <div className="flex justify-between border-t border-zinc-200 pt-4 font-bold"><span>Tổng tiền phòng</span><span className="text-lg text-brand-800">{money(b.totalRoomAmount)}</span></div>
               {financeReady && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2" aria-label="Thanh toán tiền phòng">
-                <div className="flex justify-between"><span>Đã thanh toán{onlineReceipts.length ? ' (gồm tiền phòng qua payOS)' : ''}</span><strong>{money(paid)}</strong></div>
+                <div className="flex justify-between"><span>Đã thanh toán{onlineReceipts.some(p => p.method !== 'CASH') ? ' (gồm tiền phòng qua payOS)' : ''}</span><strong>{money(paid)}</strong></div>
                 <div className="flex justify-between"><span>Còn phải thu</span><strong>{money(balance)}</strong></div>
-                {onlineReceipts.map(receipt => <p className="text-xs text-emerald-800" key={receipt.id}>payOS · {money(receipt.amount)} · {receipt.paidAt ? new Date(receipt.paidAt).toLocaleString('vi-VN') : 'Đã xác minh'}</p>)}
+                {onlineReceipts.map(receipt => <p className="text-xs text-emerald-800" key={receipt.id}>{receipt.method === "CASH" ? "Tiền mặt" : "payOS"} · {money(receipt.amount)} · {receipt.paidAt ? new Date(receipt.paidAt).toLocaleString('vi-VN') : 'Đã xác minh'}</p>)}
               </div>}
             </CardContent>
           </Card>
@@ -445,7 +447,7 @@ export function ReceptionBookingDetailPage() {
                           : `ĐÃ THANH TOÁN ĐỦ${invoice.data ? '' : ' CHI PHÍ HIỆN TẠI'}:`}
                       </span>
                       <span className="text-[11px] opacity-75">
-                        Đã thu{onlineReceipts.length ? ' (gồm tiền phòng qua payOS)' : ''}: {money(paid)}
+                        Đã thu{onlineReceipts.some(p => p.method !== 'CASH') ? ' (gồm tiền phòng qua payOS)' : ''}: {money(paid)}
                         {!invoice.data && ' · Chưa phát hành hóa đơn'}
                       </span>
                     </div>
@@ -459,8 +461,8 @@ export function ReceptionBookingDetailPage() {
                     : <p role="status">Đang kiểm tra thanh toán…</p>
                 )}
               </div>
-              {onlineReceipts.length > 0 && <div className="space-y-1 text-xs text-emerald-800" aria-label="Biên nhận payOS">
-                {onlineReceipts.map(receipt => <p key={receipt.id}>Đã nhận qua payOS: <strong>{money(receipt.amount)}</strong>{receipt.paidAt ? ` · ${new Date(receipt.paidAt).toLocaleString('vi-VN')}` : ''}</p>)}
+              {onlineReceipts.length > 0 && <div className="space-y-1 text-xs text-emerald-800" aria-label={onlineReceipts.some(p => p.method !== "CASH") ? "Biên nhận payOS" : "Biên nhận tiền mặt"}>
+                {onlineReceipts.map(receipt => <p key={receipt.id}>{receipt.method === "CASH" ? "Đã nhận tiền mặt" : "Đã nhận qua payOS"}: <strong>{money(receipt.amount)}</strong>{receipt.paidAt ? ` · ${new Date(receipt.paidAt).toLocaleString('vi-VN')}` : ''}</p>)}
 
               </div>}
             </div>

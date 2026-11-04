@@ -332,7 +332,9 @@ model BookingPayment {
   bookingId String @map("booking_id") @db.Uuid
   amount Decimal @db.Decimal(14, 2)
   status PaymentStatus @default(PENDING)
-  payosOrderCode BigInt @unique @map("payos_order_code")
+  method PaymentMethod @default(BANK_TRANSFER)
+  collectedById String? @map("collected_by_id") @db.Uuid
+  payosOrderCode BigInt? @unique @map("payos_order_code")
   checkoutUrl String? @map("checkout_url") @db.VarChar(2048)
   paidAt DateTime? @map("paid_at") @db.Timestamptz(3)
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
