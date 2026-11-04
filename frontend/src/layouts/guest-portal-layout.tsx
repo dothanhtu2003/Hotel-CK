@@ -1,3 +1,4 @@
+import { ServicePaymentBadge, ServicePaymentNotice, usePendingServicePayments } from '../features/guest/service-payment-notice';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
@@ -24,6 +25,7 @@ export function GuestPortalLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
+  const unpaidServiceOrders = usePendingServicePayments(user?.role === 'GUEST');
   if (!user) return null;
   const home = homeForRole[user.role] ?? '/guest';
 
@@ -82,6 +84,7 @@ export function GuestPortalLayout() {
                 >
                   <Icon size={16} strokeWidth={1.8} />
                   <span>{label}</span>
+                  {label === 'Dịch vụ phòng' && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
                 </NavLink>
               );
             })}
@@ -144,6 +147,7 @@ export function GuestPortalLayout() {
             <Link key={to} to={to} className="guest-mobile-nav-item">
               <Icon size={18} />
               <span>{label}</span>
+                  {label === 'Dịch vụ phòng' && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
             </Link>
           ))}
           <Link to="/rooms" className="guest-mobile-nav-item highlight">
@@ -167,6 +171,7 @@ export function GuestPortalLayout() {
       {/* Main Content Area */}
       <main id="guest-portal-content" className="guest-portal-main">
         <div className="site-container guest-portal-container">
+          <ServicePaymentNotice count={unpaidServiceOrders.length} />
           <Outlet />
         </div>
       </main>
@@ -183,6 +188,7 @@ export function GuestPortalLayout() {
             >
               <Icon size={19} strokeWidth={active ? 2.2 : 1.7} />
               <span>{label}</span>
+                  {label === 'Dịch vụ phòng' && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
             </NavLink>
           );
         })}

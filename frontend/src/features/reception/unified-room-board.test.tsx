@@ -404,7 +404,7 @@ describe("Unified Room Board & Booking Flow", () => {
     vi.spyOn(api, 'request').mockImplementation(async (path: string) => {
       if (path === '/front-desk/walk-in') return { id: 'payos-booking', reference: 'CK-PAY', status: 'PENDING' };
       if (path.endsWith('/payment-state')) return { paid: false, totalAmount: '5000.00', holdState: 'ACTIVE', bookingStatus: 'PENDING' };
-      if (path.endsWith('/payos')) return { checkoutUrl: 'https://pay.payos.vn/web/test' };
+      if (path.endsWith('/payos/qr')) return { checkoutUrl: 'https://pay.payos.vn/web/test', qrCode: 'TEST-VIETQR', accountNumber: '123456789', accountName: 'AN NHIEN', description: 'HOTEL TEST' };
       return { checked: true };
     });
     const onClose = vi.fn(), onSuccess = vi.fn();
@@ -418,12 +418,11 @@ describe("Unified Room Board & Booking Flow", () => {
     fireEvent.click(screen.getByText('Xem lại & Xác nhận'));
     expect(screen.queryByRole('checkbox')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận tạo booking' }));
-    await screen.findByRole('heading', { name: 'Thanh toán chuyển khoản payOS' });
+    await screen.findByRole('region', { name: 'QR thanh toán tiền phòng' });
     expect(onClose).not.toHaveBeenCalled(); expect(onSuccess).not.toHaveBeenCalled();
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Tạo / lấy lại liên kết payOS' }) as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(screen.getByRole('button', { name: 'Tạo / lấy lại liên kết payOS' }));
-    const link = await screen.findByRole('link', { name: /Mở trang thanh toán payOS/ });
-    expect(link.getAttribute('href')).toBe('https://pay.payos.vn/web/test');
+    await screen.findByRole('img', { name: 'Mã VietQR thanh toán tiền phòng qua payOS' });
+    expect(screen.getByText('123456789')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Mở trang thanh toán payOS/ })).toBeNull();
     expect(api.request).toHaveBeenCalledWith('/front-desk/walk-in', expect.objectContaining({ body: expect.objectContaining({ paymentMethod: 'BANK_TRANSFER', expectedAmount: '5000.00' }) }));
   });
 
@@ -685,7 +684,7 @@ it.each([
   expect(screen.queryByRole('button', { name: /Đặt phòng này/ })).toBeNull();
 });
 
-it('shows an unpaid online reservation on the room board as awaiting payment', async () => {
+it('hides unpaid online guest details on the room card while retaining the payment hold', async () => {
   setupDialog();
   const today = hotelToday(), tomorrow = shiftDate(today, 1);
   const booking = { id: 'unpaid', status: 'PENDING', onlinePaymentRequired: true, checkIn: today, checkOut: tomorrow, nights: 1, customer: { fullName: 'Khách chưa trả tiền' } };
@@ -696,8 +695,10 @@ it('shows an unpaid online reservation on the room board as awaiting payment', a
     return { data: [], meta: { total: 0, page: 1, totalPages: 1 } };
   });
   render(<MemoryRouter initialEntries={['/reception']}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastContext.Provider value={() => {}}><ReceptionDashboard /></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
-  const room = await screen.findByRole('button', { name: /104.*CHỜ THANH TOÁN/ });
-  expect(room.textContent).toContain('Chưa thanh toán tiền phòng');
+  const room = await screen.findByRole('button', { name: /104.*TRỐNG SẠCH/ });
+  expect(room.textContent).not.toContain('Chưa thanh toán tiền phòng');
+  expect(room.textContent).not.toContain('Khách chưa trả tiền');
+  expect(room.textContent).not.toContain('CHỜ THANH TOÁN');
   expect(screen.queryByText('Sắp đến')).toBeNull();
   expect(screen.queryByText('CHỜ NHẬN PHÒNG')).toBeNull();
   fireEvent.click(room);

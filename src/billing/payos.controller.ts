@@ -19,6 +19,8 @@ export class PayosController {
   bookingState(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.bookingState(id, user); }
   @Post('bookings/:id/payos') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   startBooking(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.startBooking(id, user); }
+  @Post('bookings/:id/payos/qr') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  startBookingQr(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.startBooking(id, user, true); }
   @Post('bookings/:id/payos/sync') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   syncBooking(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.syncBooking(id, user); }
   @Post('bookings/:id/payos/cancel') @Roles('GUEST') @Header('Cache-Control', 'no-store')

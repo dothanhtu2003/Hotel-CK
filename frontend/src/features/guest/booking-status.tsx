@@ -24,7 +24,7 @@ export function BookingStatus({ booking, detail = false }: { booking: Booking; d
       ) : (
         <GuestBadge
           status={booking.status}
-          label={booking.holdState === 'EXPIRED' ? 'Hết hạn thanh toán' : booking.holdState === 'CHECKING_PAYMENT' ? 'Đang đối soát thanh toán' : booking.status === 'PENDING' ? (booking.onlinePaymentRequired ? 'Chờ thanh toán' : 'Chờ xác nhận') : undefined}
+          label={booking.status === 'CANCELLED' ? 'Đã hủy' : booking.holdState === 'CHECKING_PAYMENT' ? 'Đang đối soát thanh toán' : booking.status === 'PENDING' ? (booking.onlinePaymentRequired ? 'Chờ thanh toán' : 'Chờ xác nhận') : undefined}
         />
       )}
       {overdue === 'departure' && (

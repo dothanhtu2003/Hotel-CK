@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router';
 import {
+  ArrowLeft,
   Banknote,
   CreditCard,
   Info,
@@ -210,17 +211,41 @@ export function BookingBillingPage() {
   const preview = useGet<Preview>(`/bookings/${id}/billing-preview`);
   const invoice = useInvoice(id);
 
-  if (preview.data?.booking.status === 'CANCELLED' && !invoice.isPending && !invoice.error && !invoice.data) return <div className="guest-billing-page-space">
-    <Link to={'/guest/bookings/'+id} className="text-link">← Chi tiết booking</Link>
-    <PageHeading eyebrow="THÔNG TIN BOOKING" title="Booking đã hủy" />
-    {preview.data.booking.onlinePaymentRequired ? <BookingPayment booking={preview.data.booking} /> : <p className="notice">Booking đã hủy. Không có hóa đơn lưu trú cần thanh toán.</p>}
-  </div>;
+  if (preview.data?.booking.status === 'CANCELLED' && !invoice.isPending && !invoice.error && !invoice.data) return (
+    <div className="guest-billing-page-space">
+      <div className="guest-detail-top-nav">
+        <Link to={'/guest/bookings/' + id} className="guest-detail-back-link">
+          <ArrowLeft size={16} />
+          <span>Chi tiết booking</span>
+        </Link>
+      </div>
+      <div className="guest-detail-header-card">
+        <div className="guest-detail-header-info">
+          <span className="guest-detail-ref-label">THÔNG TIN BOOKING</span>
+          <h1 className="guest-detail-title">Booking đã hủy</h1>
+        </div>
+      </div>
+      {preview.data.booking.onlinePaymentRequired ? <BookingPayment booking={preview.data.booking} /> : <p className="notice">Booking đã hủy. Không có hóa đơn lưu trú cần thanh toán.</p>}
+    </div>
+  );
+
   return (
     <div className="guest-billing-page-space">
-      <Link to={'/guest/bookings/' + id} className="text-link">
-        ← Chi tiết booking
-      </Link>
-      <PageHeading eyebrow="CHI PHÍ LƯU TRÚ" title="Chi phí & hóa đơn" />
+      <div className="guest-detail-top-nav">
+        <Link to={'/guest/bookings/' + id} className="guest-detail-back-link">
+          <ArrowLeft size={16} />
+          <span>Chi tiết booking</span>
+        </Link>
+      </div>
+
+      <div className="guest-detail-header-card">
+        <div className="guest-detail-header-info">
+          <span className="guest-detail-ref-label">THANH TOÁN & HÓA ĐƠN</span>
+          <h1 className="guest-detail-title">Chi phí & hóa đơn</h1>
+        </div>
+        {preview.data?.booking && <GuestBadge status={preview.data.booking.status} />}
+      </div>
+
       {preview.isPending || invoice.isPending ? <Skeleton /> : preview.error || invoice.error ? (
         <ErrorState message={(preview.error || invoice.error)!.message} retry={() => { void preview.refetch(); void invoice.refetch(); }} />
       ) : preview.data && (() => {
@@ -231,8 +256,12 @@ export function BookingBillingPage() {
         return <>
           <section className="panel guest-box guest-cost-overview" aria-label="Tổng chi phí kỳ nghỉ">
             <div className="guest-row">
-              <div><h2>Phòng {p.booking.roomNumber}</h2><p className="preview-meta">{formatBookingReference(p.booking.reference)} · {p.booking.checkIn.split('-').reverse().join('/')} → {p.booking.checkOut.split('-').reverse().join('/')}</p></div>
-              <GuestBadge status={p.booking.status} />
+              <div>
+                <h2>Phòng {p.booking.roomNumber}</h2>
+                <p className="preview-meta">
+                  {formatBookingReference(p.booking.reference)} · {p.booking.checkIn.split('-').reverse().join('/')} → {p.booking.checkOut.split('-').reverse().join('/')}
+                </p>
+              </div>
             </div>
             <dl className="guest-facts">
               <div><dt>Tiền phòng · {p.booking.nights} đêm</dt><dd>{money(p.roomAmount)}</dd></div>
@@ -241,21 +270,27 @@ export function BookingBillingPage() {
               <div><dt>Đã thanh toán</dt><dd>{money(summary?.paidAmount ?? p.paidAmount ?? '0')}</dd></div>
               <div className={Number(summary?.balance ?? p.balance ?? p.totalAmount) === 0 ? 'balance-zero-highlight' : 'balance-due-highlight'}><dt>Còn phải thanh toán{hasPending ? ' · dự kiến' : ''}</dt><dd><strong>{money(summary?.balance ?? p.balance ?? p.totalAmount)}</strong></dd></div>
             </dl>
-            {!orders.length && <p className="billing-help">Chưa có dịch vụ đặt cho kỳ nghỉ này.</p>}
-            {hasPending && <p className="billing-help">Tổng dự kiến gồm cả dịch vụ đang chờ. Chỉ các khoản thanh toán thành công được tính vào số tiền đã thanh toán.</p>}
+            {hasPending && <p className="billing-help">* Đã bao gồm dịch vụ đang chờ xử lý.</p>}
             {orders.length > 0 && <details className="guest-cost-details"><summary>Chi tiết {orders.length} đơn dịch vụ</summary>
-              {orders.map(o => <div key={o.id} className="guest-cost-order">
-                {o.items.map(item => <div className="guest-row" key={item.id}><span>{item.serviceName} × {item.quantity}</span><strong>{money(item.subtotal)}</strong></div>)}
-                <small>{o.paymentMethod ? 'Đã thanh toán riêng' : o.requestedPaymentMethod === 'CASH' ? 'Thanh toán tiền mặt khi nhận dịch vụ' : o.requestedPaymentMethod === 'BANK_TRANSFER' ? 'Chưa thanh toán chuyển khoản' : o.status === 'PENDING' ? 'Chờ xác nhận · Chưa ghi vào hóa đơn' : 'Ghi vào hóa đơn phòng'}</small>
-              </div>)}
-              <Link to="/guest/service-orders" className="text-link">Xem và quản lý đơn dịch vụ</Link>
+              <div className="guest-cost-orders-list">
+                {orders.map(o => <div key={o.id} className="guest-cost-order">
+                  {o.items.map(item => <div className="guest-row" key={item.id}><span>{item.serviceName} × {item.quantity}</span><strong>{money(item.subtotal)}</strong></div>)}
+                  <small>{o.paymentMethod ? 'Đã thanh toán riêng' : o.requestedPaymentMethod === 'CASH' ? 'Tiền mặt' : o.requestedPaymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : o.status === 'PENDING' ? 'Chờ xác nhận' : 'Ghi vào phòng'}</small>
+                </div>)}
+                <div className="guest-cost-orders-footer">
+                  <Link to="/guest/service-orders" className="guest-cost-orders-link">Xem và quản lý đơn dịch vụ →</Link>
+                </div>
+              </div>
             </details>}
-            <p className="billing-help">{invoice.data ? 'Hóa đơn phòng và các khoản dịch vụ thu riêng được tổng hợp ở trên.' : 'Đây là bảng chi phí của kỳ nghỉ. Hóa đơn chính thức sẽ được lễ tân phát hành.'}</p>
           </section>
           {p.booking.onlinePaymentRequired && Number(p.prepaidAmount ?? p.paidAmount ?? '0') < Number(p.roomAmount) && p.booking.status === 'PENDING' && <BookingPayment booking={p.booking} />}
           {invoice.data && <details className="panel guest-box guest-cost-details"><summary>Hóa đơn & lịch sử thanh toán</summary>
-            <InvoiceView invoice={invoice.data} />
-            <LinkButton variant="secondary" to={'/guest/invoices/' + invoice.data.id}>Mở hóa đơn</LinkButton>
+            <div className="guest-cost-orders-list">
+              <InvoiceView invoice={invoice.data} />
+              <div className="guest-cost-orders-footer">
+                <LinkButton variant="secondary" to={'/guest/invoices/' + invoice.data.id}>Mở hóa đơn</LinkButton>
+              </div>
+            </div>
           </details>}
         </>;
       })()}

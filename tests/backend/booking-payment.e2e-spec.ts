@@ -13,12 +13,14 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
   const actors = {} as Record<'guest' | 'other' | 'staff', { id: string; token: string }>;
   type Link = { id: string; orderCode: number; amount: number; amountPaid: number; amountRemaining: number; status: string };
   const links = new Map<number, Link>();
+  const testIp = `10.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*254)+1}`;
   const api = () => request(ctx.app.getHttpServer());
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const end = new Date(`${today}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 2);
   beforeAll(async () => {
     migrateTestDatabase();
     ctx = await createAuthTestApp();
+    ctx.app.getHttpAdapter().getInstance().set('trust proxy', 1);
     ctx.app.get(ConfigService).set('PAYOS_RETURN_ORIGIN', 'http://localhost:5173');
     const passwordHash = await ctx.app.get(PasswordService).hash(randomUUID());
     for (const [name, role] of [['guest', 'GUEST'], ['other', 'GUEST'], ['staff', 'RECEPTIONIST']] as const) {
@@ -29,7 +31,7 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
       create: async (data: { orderCode: number; amount: number }) => {
         const link = { ...data, id: randomUUID().replaceAll('-', ''), amountPaid: 0, amountRemaining: data.amount, status: 'PENDING' };
         links.set(data.orderCode, link);
-        return { ...link, currency: 'VND', checkoutUrl: `https://pay.payos.vn/web/${link.id}` };
+        return { ...link, currency: 'VND', qrCode: '000201-TEST-QR', accountNumber: '123456789', accountName: 'AN NHIEN', bin: '970422', description: 'HOTEL TEST', checkoutUrl: `https://pay.payos.vn/web/${link.id}` };
       },
       get: async (code: number) => { const link = links.get(code); if (!link) throw new Error('Not created'); return link; },
       cancel: async (code: number) => { const link = links.get(code)!; if (link.status !== 'PAID') link.status = 'CANCELLED'; return link; },
@@ -40,7 +42,7 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
   async function booking() {
     const type = await ctx.prisma.client.roomType.create({ data: { name: `Online ${randomUUID()}`, nightlyPrice: 100000, maxGuests: 2 } });
     const room = await ctx.prisma.client.room.create({ data: { roomNumber: randomUUID().slice(0, 12), roomTypeId: type.id, floor: 1 } });
-    const response = await api().post('/api/bookings').auth(actors.guest.token, { type: 'bearer' }).send({ roomId: room.id, checkIn: today, checkOut: end.toISOString().slice(0, 10), guests: 1 }).expect(201);
+    const response = await api().post('/api/bookings').set('X-Forwarded-For', testIp).auth(actors.guest.token, { type: 'bearer' }).send({ roomId: room.id, checkIn: today, checkOut: end.toISOString().slice(0, 10), guests: 1 }).expect(201);
     return response.body as { id: string; onlinePaymentRequired: boolean; status: string };
   }
   const start = (id: string, who: keyof typeof actors = 'guest') => api().post(`/api/bookings/${id}/payos`).auth(actors[who].token, { type: 'bearer' });
@@ -86,6 +88,21 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
     await api().post(`/api/bookings/${id}/payos/sync`).auth(actors.staff.token, { type: 'bearer' }).expect(201);
     await action(id, 'check-in').expect(200);
   });
+  it('replaces an unpaid legacy link with a QR link and preserves a paid legacy receipt', async () => {
+    const response = await deskBooking('BANK_TRANSFER'); const id = response.body.id;
+    await start(id, 'staff').expect(201);
+    const old = await ctx.prisma.client.bookingPayment.findFirstOrThrow({ where: { bookingId: id, status: 'PENDING' } });
+    await ctx.prisma.client.bookingPayment.update({ where: { id: old.id }, data: { checkoutData: {} } });
+    const result = await api().post(`/api/bookings/${id}/payos/qr`).auth(actors.staff.token, { type: 'bearer' }).expect(201);
+    expect(result.body.qrCode).toBe('000201-TEST-QR');
+    expect((await ctx.prisma.client.bookingPayment.findUniqueOrThrow({ where: { id: old.id } })).status).toBe('FAILED');
+    expect(links.get(Number(old.payosOrderCode))!.status).toBe('CANCELLED');
+    const current = await ctx.prisma.client.bookingPayment.findFirstOrThrow({ where: { bookingId: id, status: 'PENDING' } });
+    const active = links.get(Number(current.payosOrderCode))!; active.status = 'PAID'; active.amountPaid = active.amount; active.amountRemaining = 0;
+    await api().post(`/api/bookings/${id}/payos/qr`).auth(actors.staff.token, { type: 'bearer' }).expect(409);
+    expect((await ctx.prisma.client.booking.findUniqueOrThrow({ where: { id } })).status).toBe('CONFIRMED');
+    expect(await ctx.prisma.client.bookingPayment.count({ where: { bookingId: id } })).toBe(2);
+  });
   it('requires full payment, verifies ownership, confirms once, and credits the final invoice', async () => {
     const b = await booking();
     expect(b.onlinePaymentRequired).toBe(true); expect(b.status).toBe('PENDING');
@@ -94,6 +111,8 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
     const first = await start(b.id).expect(201);
     const second = await start(b.id).expect(201);
     expect(second.body.checkoutUrl).toBe(first.body.checkoutUrl);
+    expect(first.body.qrCode).toBe('000201-TEST-QR'); expect(second.body.qrCode).toBe(first.body.qrCode);
+    expect(second.body.accountNumber).toBe('123456789');
     expect(await ctx.prisma.client.bookingPayment.count({ where: { bookingId: b.id } })).toBe(1);
     const link = await remote(b.id); expect(link.amount).toBe(200000);
     link.status = 'UNDERPAID'; link.amountPaid = 100000; link.amountRemaining = 100000;
@@ -150,9 +169,9 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
     const link=await remote(b.id);
     expect((link as unknown as {expiredAt:number}).expiredAt).toBe(Math.floor(deadline.getTime()/1000));
     const service=ctx.app.get(PayosService);
-    await service.expireBooking(b.id,new Date(deadline.getTime()+119999));
+    await service.expireBooking(b.id,new Date(deadline.getTime()-1));
     expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}})).holdState).toBe('ACTIVE');
-    await Promise.all([service.expireBooking(b.id,new Date(deadline.getTime()+120001)),service.expireBooking(b.id,new Date(deadline.getTime()+120001))]);
+    await Promise.all([service.expireBooking(b.id,new Date(deadline.getTime())),service.expireBooking(b.id,new Date(deadline.getTime()))]);
     expect(link.status).toBe('CANCELLED');
     expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}}))).toMatchObject({status:'CANCELLED',holdState:'EXPIRED'});
     link.status='PAID'; link.amountPaid=link.amount; link.amountRemaining=0;
@@ -164,7 +183,7 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
     const stored=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}});
     const attempt=await ctx.prisma.client.bookingPayment.findFirstOrThrow({where:{bookingId:b.id}});
     const link=links.get(Number(attempt.payosOrderCode))!; links.delete(Number(attempt.payosOrderCode));
-    await expect(ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()+120001))).rejects.toThrow();
+    await expect(ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()))).rejects.toThrow();
     expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}}))).toMatchObject({status:'PENDING',holdState:'CHECKING_PAYMENT'});
     links.set(Number(attempt.payosOrderCode),link);
     await ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()+190001));
@@ -173,7 +192,7 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
   it('routes late money to review if the expired room was sold again',async()=>{
     const b=await booking(); await start(b.id).expect(201);
     const stored=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}});
-    await ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()+120001));
+    await ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()));
     await ctx.prisma.client.booking.create({data:{reference:randomUUID(),userId:actors.other.id,roomId:stored.roomId,checkInDate:stored.checkInDate,checkOutDate:stored.checkOutDate,guestCount:1}});
     const link=await remote(b.id);link.status='PAID';link.amountPaid=link.amount;link.amountRemaining=0;
     await sync(b.id).expect(201);await sync(b.id).expect(201);
@@ -186,12 +205,12 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
   it('expires a hold without a link, and keeps a paid booking when payment wins expiry',async()=>{
     const b=await booking();
     const stored=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}});
-    await ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()+120001));
+    await ctx.app.get(PayosService).expireBooking(b.id,new Date(stored.holdExpiresAt!.getTime()));
     expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:b.id}})).holdState).toBe('EXPIRED');
     const paid=await booking();await start(paid.id).expect(201);
     const value=await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:paid.id}});
     const link=await remote(paid.id);link.status='PAID';link.amountPaid=link.amount;link.amountRemaining=0;
-    await Promise.all([ctx.app.get(PayosService).expireBooking(paid.id,new Date(value.holdExpiresAt!.getTime()+120001)),sync(paid.id).expect(201)]);
+    await Promise.all([ctx.app.get(PayosService).expireBooking(paid.id,new Date(value.holdExpiresAt!.getTime())),sync(paid.id).expect(201)]);
     expect((await ctx.prisma.client.booking.findUniqueOrThrow({where:{id:paid.id}})).status).toBe('CONFIRMED');
   });
 

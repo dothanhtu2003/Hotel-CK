@@ -201,7 +201,7 @@ export function UnifiedBookingModal({
   if (createdBooking) return <Dialog open onClose={() => { onClose(); onSuccess?.(createdBooking); }} title={`Thanh toán đặt phòng ${room.roomNumber}`} className="desk-room-action-modal">
     <div className="drawer-body p-4 space-y-4">
       <p>Mã đặt phòng: <strong>{createdBooking.reference}</strong></p>
-      <DeskBookingPayment bookingId={createdBooking.id} />
+      <DeskBookingPayment bookingId={createdBooking.id} embedded />
       <Button onClick={() => { onClose(); onSuccess?.(createdBooking); navigate(`${base}/bookings/${createdBooking.id}`); }}>Mở chi tiết đặt phòng</Button>
     </div>
   </Dialog>;

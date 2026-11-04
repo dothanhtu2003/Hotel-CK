@@ -13,6 +13,7 @@ import { invoiceSelect, invoiceView } from './billing-view.js';
 export class PayosService implements OnModuleInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setInterval>;
   private sweeping = false;
+  private readonly bookingSyncs = new Map<string, Promise<{ checked: boolean }>>();
   private sweepingServicePayments = false;
   private servicePaymentCursor?: string;
   private readonly logger = new Logger(PayosService.name);
@@ -42,17 +43,37 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
   }
 
   async bookingState(id: string, actor: PublicUser) {
-    const booking = await this.ownedBooking(id, actor);
+    let booking = await this.ownedBooking(id, actor);
+    if (booking.onlinePaymentRequired && booking.status === 'PENDING' && booking.holdExpiresAt && booking.holdExpiresAt.getTime() <= Date.now()) {
+      try { await this.expireBooking(id); } catch { this.logger.warn(`Payment expiry reconciliation will retry: ${id}`); }
+      booking = await this.ownedBooking(id, actor);
+    }
     const attempts = await this.prisma.client.bookingPayment.findMany({ where: { bookingId: id }, select: { status: true, amount: true, receivedAmount: true, reviewReason: true, reviewResolvedAt: true } });
     const paid = attempts.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum.add(p.amount), new Prisma.Decimal(0));
     return { required: booking.onlinePaymentRequired, totalAmount: booking.totalRoomAmount.toFixed(2), paidAmount: paid.toFixed(2),
       pending: attempts.some(p => p.status === 'PENDING'), paid: paid.gte(booking.totalRoomAmount), bookingStatus: booking.status, holdState: booking.holdState, expiredAt: booking.holdExpiresAt, serverNow: new Date(), paymentReview: attempts.some(p => p.reviewReason && !p.reviewResolvedAt), receivedAmount: attempts.reduce((sum,p) => sum.add(p.receivedAmount), new Prisma.Decimal(0)).toFixed(2) };
   }
 
-  async startBooking(id: string, actor: PublicUser) {
+  async startBooking(id: string, actor: PublicUser, inlineQr = false) {
     this.client();
     await this.ownedBooking(id, actor);
     await this.syncBooking(id, actor);
+    if (inlineQr) {
+      const legacy = await this.prisma.client.bookingPayment.findFirst({ where: { bookingId: id, status: 'PENDING', checkoutUrl: { not: null } } });
+      const hasQr = !!(legacy?.checkoutData as Record<string, unknown> | null)?.qrCode;
+      if (legacy && !hasQr) {
+        // Retire the previous link only after the provider confirms no funds were received.
+        const before = await this.remoteBookingPayment(legacy);
+        this.validBookingRemote(before, legacy);
+        if (before.amountPaid > 0) throw new ConflictException('Liên kết cũ đã nhận tiền hoặc cần đối soát. Không tạo giao dịch mới.');
+        await this.client().paymentRequests.cancel(Number(legacy.payosOrderCode), 'Doi sang QR trong ung dung');
+        const after = await this.remoteBookingPayment(legacy);
+        this.validBookingRemote(after, legacy);
+        await this.applyBookingRemote(id, legacy.id, after);
+        if (after.amountPaid > 0 || !['CANCELLED', 'EXPIRED', 'FAILED'].includes(after.status))
+          throw new ConflictException('Giao dịch cũ đang xử lý. Vui lòng kiểm tra thanh toán.');
+      }
+    }
     const payment = await this.prisma.client.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${id}::uuid FOR UPDATE`;
       const booking = await tx.booking.findUniqueOrThrow({ where: { id } });
@@ -69,10 +90,11 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       if (booking.status !== 'PENDING' || booking.holdState !== 'ACTIVE' || !booking.holdExpiresAt || booking.holdExpiresAt.getTime() <= Date.now()) throw new ConflictException('Đã hết thời gian thanh toán');
       const attempt = await tx.bookingPayment.findUniqueOrThrow({ where:{ id:payment.id } });
       if (attempt.status !== 'PENDING') throw new ConflictException('Giao dịch đã thay đổi');
-      if (attempt.checkoutUrl) return { checkoutUrl:attempt.checkoutUrl };
-      const checkoutUrl = await this.createLink(Number(attempt.payosOrderCode), attempt.amount.toNumber(), actor.role === 'GUEST' ? `/guest/bookings/${id}` : `/reception/bookings/${id}`, Math.floor(booking.holdExpiresAt.getTime()/1000));
-      await tx.bookingPayment.update({ where:{ id:attempt.id }, data:{ checkoutUrl } });
-      return { checkoutUrl };
+      if (attempt.checkoutUrl) return { checkoutUrl:attempt.checkoutUrl, ...(attempt.checkoutData as Record<string, unknown> | null) };
+      let checkoutData: Prisma.InputJsonObject = {};
+      const checkoutUrl = await this.createLink(Number(attempt.payosOrderCode), attempt.amount.toNumber(), actor.role === 'GUEST' ? `/guest/bookings/${id}` : `/reception/bookings/${id}`, Math.floor(booking.holdExpiresAt.getTime()/1000), undefined, details => { checkoutData = details; });
+      await tx.bookingPayment.update({ where:{ id:attempt.id }, data:{ checkoutUrl, checkoutData } });
+      return { checkoutUrl, ...checkoutData };
     }, { timeout:25000 });
   }
 
@@ -133,6 +155,14 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
 
   async syncBooking(id: string, actor?: PublicUser) {
     if (actor) await this.ownedBooking(id, actor);
+    const running = this.bookingSyncs.get(id);
+    if (running) return running;
+    const task = this.reconcileBooking(id);
+    this.bookingSyncs.set(id, task);
+    try { return await task; } finally { if (this.bookingSyncs.get(id) === task) this.bookingSyncs.delete(id); }
+  }
+
+  private async reconcileBooking(id: string) {
     const attempts = await this.prisma.client.bookingPayment.findMany({ where: { bookingId: id, status: { not:'COMPLETED' } } });
     for (const attempt of attempts) {
       const remote = await this.remoteBookingPayment(attempt);
@@ -145,7 +175,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
   async expireBooking(id: string, now = new Date()) {
     // Persist the intermediate state so errors/crashes keep the room held and
     // a later worker can resume. Claims are conditional and multi-worker safe.
-    const claimed = await this.prisma.client.booking.updateMany({ where: { id, onlinePaymentRequired:true, status:'PENDING', holdExpiresAt: { lte:new Date(now.getTime()-120000) }, OR: [{ holdState:'ACTIVE' }, { holdState:'CHECKING_PAYMENT', paymentCheckAt:{ lte:new Date(now.getTime()-60000) } }] }, data: { holdState:'CHECKING_PAYMENT', paymentCheckAt:now } });
+    const claimed = await this.prisma.client.booking.updateMany({ where: { id, onlinePaymentRequired:true, status:'PENDING', holdExpiresAt: { lte:now }, OR: [{ holdState:'ACTIVE' }, { holdState:'CHECKING_PAYMENT', paymentCheckAt:{ lte:new Date(now.getTime()-60000) } }] }, data: { holdState:'CHECKING_PAYMENT', paymentCheckAt:now } });
     if (!claimed.count) return;
     const attempts = await this.prisma.client.bookingPayment.findMany({ where: { bookingId:id, status:'PENDING' } });
     for (const attempt of attempts) {
@@ -172,7 +202,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
     this.sweeping = true;
     try {
       const now = new Date();
-      const due = await this.prisma.client.booking.findMany({ where: { onlinePaymentRequired:true, status:'PENDING', holdExpiresAt: { lte:new Date(now.getTime()-120000) }, OR: [{ paymentCheckAt:null }, { paymentCheckAt: { lte:new Date(now.getTime()-60000) } }] }, select:{ id:true }, orderBy:[{ paymentCheckAt:{ sort:'asc',nulls:'first' } },{ holdExpiresAt:'asc' }], take:10 });
+      const due = await this.prisma.client.booking.findMany({ where: { onlinePaymentRequired:true, status:'PENDING', holdExpiresAt: { lte:now }, OR: [{ paymentCheckAt:null }, { paymentCheckAt: { lte:new Date(now.getTime()-60000) } }] }, select:{ id:true }, orderBy:[{ paymentCheckAt:{ sort:'asc',nulls:'first' } },{ holdExpiresAt:'asc' }], take:10 });
       for (const b of due) { try { await this.expireBooking(b.id, now); } catch { this.logger.warn(`Payment expiry reconciliation will retry: ${b.id}`); } }
       const released = await this.prisma.client.booking.findMany({ where:{ onlinePaymentRequired:true,status:'CANCELLED',holdState:'EXPIRED',bookingPayments:{ some:{ status:{ not:'COMPLETED' },reviewResolvedAt:null } },OR:[{paymentCheckAt:null},{paymentCheckAt:{lte:new Date(now.getTime()-300000)}}] },select:{id:true},orderBy:{paymentCheckAt:{sort:'asc',nulls:'first'}},take:10 });
       for (const b of released) {
@@ -340,7 +370,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
     return this.syncServiceOrder(id, actor);
   }
 
-  private async createLink(orderCode: number, amount: number, path: string, expiredAt?: number, onQr?: (qr: string) => void) {
+  private async createLink(orderCode: number, amount: number, path: string, expiredAt?: number, onQr?: (qr: string) => void, onDetails?: (details: Prisma.InputJsonObject) => void) {
     const client = this.client();
     const origin = this.config.get<string>('PAYOS_RETURN_ORIGIN');
     let validOrigin = false;
@@ -354,6 +384,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       if (link.orderCode !== orderCode || link.amount !== amount || link.currency !== 'VND') throw new Error('Payment link mismatch');
       checkoutUrl = link.checkoutUrl;
       qrCode = link.qrCode;
+      if (link.qrCode) onDetails?.({ qrCode: link.qrCode, accountNumber: link.accountNumber, accountName: link.accountName, bankBin: link.bin, description: link.description, amount: link.amount });
     } catch {
       try {
         const existing = await client.paymentRequests.get(orderCode);

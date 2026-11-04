@@ -335,6 +335,7 @@ model BookingPayment {
   method PaymentMethod @default(BANK_TRANSFER)
   collectedById String? @map("collected_by_id") @db.Uuid
   payosOrderCode BigInt? @unique @map("payos_order_code")
+  checkoutData Json? @map("checkout_data")
   checkoutUrl String? @map("checkout_url") @db.VarChar(2048)
   paidAt DateTime? @map("paid_at") @db.Timestamptz(3)
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)

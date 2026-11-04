@@ -1,7 +1,9 @@
+import { ServicePaymentBadge, usePendingServicePayments } from '../features/guest/service-payment-notice';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  ArrowLeft,
   ArrowRight,
   BellRing,
   Calendar,
@@ -14,7 +16,6 @@ import {
   RotateCcw,
   ShieldAlert,
   Sparkles,
-  Users,
 } from 'lucide-react';
 import {
   Button,
@@ -32,7 +33,6 @@ import {
   bookingStatuses,
   formatBookingReference,
   guestError,
-  isUuid,
   money,
   statusLabels,
   type Booking,
@@ -107,7 +107,7 @@ const FILTER_TABS: { id: string; label: string }[] = [
   { id: '', label: 'Tất cả' },
   { id: 'CHECKED_IN', label: 'Đang lưu trú' },
   { id: 'CONFIRMED', label: 'Đã xác nhận' },
-  { id: 'PENDING', label: 'Chờ thanh toán / xác nhận' },
+  { id: 'PENDING', label: 'Chờ thanh toán' },
   { id: 'CHECKED_OUT', label: 'Đã trả phòng' },
   { id: 'CANCELLED', label: 'Đã hủy' },
 ];
@@ -126,6 +126,7 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
     bookingStatuses.includes(status as Booking['status']) ? '&status=' + status : ''
   }`;
   const query = useGet<Page<Booking>>(queryPath);
+  const unpaidServiceOrders = usePendingServicePayments();
 
   // Status counts for tabs
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
@@ -189,7 +190,6 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
         <div className="guest-card-top guest-hero-card-top">
           <div className="guest-hero-status-group">
             <BookingStatus booking={b} />
-            <span className="guest-hero-live-chip">Đang diễn ra</span>
           </div>
 
           <div className="guest-card-ref-badge">
@@ -267,17 +267,18 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
             {!billing && (
               <Link
                 to={`/guest/services?bookingId=${b.id}`}
-                className="guest-card-service-shortcut guest-hero-service-shortcut"
+                className="guest-hero-btn guest-hero-service-btn"
                 onClick={(e) => e.stopPropagation()}
                 title="Đặt dịch vụ phòng"
               >
                 <BellRing size={13} />
                 <span>Dịch vụ phòng</span>
+                <ServicePaymentBadge count={unpaidServiceOrders.filter(order => order.bookingId === b.id).length} />
               </Link>
             )}
             <Link
               to={`/guest/bookings/${b.id}/billing`}
-              className="guest-card-secondary-shortcut"
+              className="guest-hero-btn guest-hero-billing-btn"
               onClick={(e) => e.stopPropagation()}
               title="Chi phí & Hóa đơn"
             >
@@ -286,10 +287,10 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
             </Link>
             <Link
               to={detailUrl}
-              className="guest-card-main-link guest-hero-detail-link"
+              className="guest-hero-btn guest-hero-primary-btn"
             >
               <span>{billing && b.status !== 'CANCELLED' ? 'Xem chi phí & hóa đơn' : 'Chi tiết booking'}</span>
-              <ArrowRight size={14} className="guest-card-link-arrow" />
+              <ArrowRight size={13} />
             </Link>
           </div>
         </div>
@@ -435,13 +436,7 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
   return (
     <div className="guest-bookings-page-space">
       <PageHeading
-        eyebrow="HÀNH TRÌNH CỦA BẠN"
         title={billing ? 'Hóa đơn & thanh toán' : 'Booking của tôi'}
-        description={
-          billing
-            ? 'Chọn booking để xem chi phí dự kiến hoặc hóa đơn đã phát hành.'
-            : 'Chi tiết kỳ nghỉ của bạn.'
-        }
       />
 
       {/* Filter Bar with Tabs & Dropdown */}
@@ -461,7 +456,11 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
               >
                 <span>{tab.label}</span>
                 {typeof count === 'number' && (
-                  <span className="guest-filter-tab-count">
+                  <span
+                    className={`guest-filter-tab-count ${
+                      count > 0 ? 'has-data' : 'is-zero'
+                    }`}
+                  >
                     {count}
                   </span>
                 )}
@@ -637,26 +636,42 @@ export function BookingDetailPage() {
   ];
   const currentStepIndex = steps.findIndex((s) => s.key === b.status);
 
+  const inDate = formatStayDateDisplay(b.checkIn);
+  const outDate = formatStayDateDisplay(b.checkOut);
+
   return (
     <div className="guest-booking-detail-space">
-      <Link to="/guest/bookings" className="text-link">
-        ← Booking của tôi
-      </Link>
+      <div className="guest-detail-top-nav">
+        <Link to="/guest/bookings" className="guest-detail-back-link">
+          <ArrowLeft size={16} />
+          <span>Booking của tôi</span>
+        </Link>
+      </div>
 
-      <PageHeading
-        eyebrow="CHI TIẾT BOOKING"
-        title={`Booking ${formatBookingReference(b.reference)}`}
-        description={isUuid(b.reference) ? `Mã hệ thống: ${b.reference}` : undefined}
-      />
+      <div className="guest-detail-header-card">
+        <div className="guest-detail-header-info">
+          <span className="guest-detail-ref-label">MÃ ĐẶT PHÒNG</span>
+          <h1 className="guest-detail-title">
+            Booking {formatBookingReference(b.reference)}
+          </h1>
+        </div>
+        <BookingStatus booking={b} detail />
+      </div>
 
       {/* Main Reservation Ticket Card */}
       <section className="panel guest-box guest-detail-card">
-        <div className="guest-row detail-card-header">
-          <div className="detail-room-info">
-            <span className="eyebrow">THÔNG TIN PHÒNG NGHỈ</span>
-            <h2>Phòng {b.roomNumber}</h2>
+        <div className="guest-detail-room-banner">
+          <div className="guest-detail-room-badge">
+            <h2 className="guest-detail-room-title">Phòng {b.roomNumber}</h2>
           </div>
-          <BookingStatus booking={b} detail />
+          <div className="guest-detail-room-meta">
+            <span className="guest-detail-stay-summary">
+              {b.nights} đêm · {b.guestCount} khách
+            </span>
+            <span className="guest-detail-price-preview">
+              {money(b.nightlyPrice)} / đêm · Tổng tiền phòng: <strong>{money(b.totalRoomAmount)}</strong>
+            </span>
+          </div>
         </div>
 
         {/* Stay Journey Stepper (if not cancelled) */}
@@ -682,55 +697,47 @@ export function BookingDetailPage() {
           </div>
         )}
 
-        {/* Fact Sheet */}
-        <dl className="guest-facts detail-facts-sheet">
-          <div>
-            <dt>
-              <Calendar size={15} /> Nhận phòng
-            </dt>
-            <dd>
-              <strong>{b.checkIn}</strong> (từ 14:00)
-            </dd>
+        {/* Stay Dates Box */}
+        <div className="guest-detail-dates-card">
+          <div className="guest-dates-col">
+            <span className="guest-dates-label">NHẬN PHÒNG</span>
+            <strong className="guest-dates-value">{inDate.dayMonth || b.checkIn}</strong>
+            <span className="guest-dates-sub">{inDate.weekday} · từ 14:00</span>
+            <span className="sr-only">{b.checkIn} (từ 14:00)</span>
           </div>
-          <div>
-            <dt>
-              <Calendar size={15} /> Trả phòng
-            </dt>
-            <dd>
-              <strong>{b.checkOut}</strong> (trước 12:00)
-            </dd>
+
+          <div className="guest-dates-divider" aria-hidden="true">
+            <span className="guest-dates-nights-badge">{b.nights} đêm</span>
+            <ArrowRight size={18} />
           </div>
-          <div>
-            <dt>
-              <Users size={15} /> Lưu trú
-            </dt>
-            <dd>
-              <strong>
-                {b.nights} đêm · {b.guestCount} khách
-              </strong>
-            </dd>
+
+          <div className="guest-dates-col">
+            <span className="guest-dates-label">TRẢ PHÒNG</span>
+            <strong className="guest-dates-value">{outDate.dayMonth || b.checkOut}</strong>
+            <span className="guest-dates-sub">{outDate.weekday} · trước 12:00</span>
+            <span className="sr-only">{b.checkOut} (trước 12:00)</span>
           </div>
-          <div>
-            <dt>Giá mỗi đêm đã chốt</dt>
-            <dd>{money(b.nightlyPrice)}</dd>
-          </div>
-          <div>
-            <dt>Tổng tiền phòng</dt>
-            <dd>
-              <strong className="fact-total-price">{money(b.totalRoomAmount)}</strong>
-            </dd>
-          </div>
-        </dl>
+        </div>
 
         {billing.isPending ? <Skeleton /> : billing.error ? (
           <ErrorState message={billing.error.message} retry={() => void billing.refetch()} />
         ) : !isCancelled && billing.data && (
-          <section aria-label="Chi phí phòng và dịch vụ">
+          <section aria-label="Chi phí phòng và dịch vụ" className="guest-detail-billing-section">
+            <div className="guest-detail-section-title">
+              <ReceiptText size={16} />
+              <h3>Chi phí phòng & dịch vụ</h3>
+            </div>
             <dl className="guest-facts detail-facts-sheet">
               <div>
-                <dt>Dịch vụ hoàn thành · ghi vào tiền phòng</dt>
-                <dd>{money(billing.data.serviceAmount)}</dd>
+                <dt>Tiền phòng ({b.nights} đêm)</dt>
+                <dd>{money(b.totalRoomAmount)}</dd>
               </div>
+              {billing.data.serviceAmount && Number(billing.data.serviceAmount) > 0 ? (
+                <div>
+                  <dt>Dịch vụ ghi vào phòng</dt>
+                  <dd>{money(billing.data.serviceAmount)}</dd>
+                </div>
+              ) : null}
               {billing.data.counterPaidAmount && (
                 <div>
                   <dt>Dịch vụ đã thanh toán riêng</dt>
@@ -738,11 +745,17 @@ export function BookingDetailPage() {
                 </div>
               )}
               <div className="fact-total-highlight">
-                <dt>Tổng tiền phòng & dịch vụ ghi vào phòng</dt>
+                <dt>Tổng tiền phòng & dịch vụ</dt>
                 <dd><strong className="fact-total-price">{money(billing.data.totalAmount)}</strong></dd>
               </div>
-              <div><dt>Đã thanh toán vào hóa đơn phòng</dt><dd>{money(billing.data.paidAmount ?? '0')}</dd></div>
-              <div><dt>Còn phải thanh toán · chi phí hiện tại</dt><dd><strong>{money(billing.data.balance ?? billing.data.totalAmount)}</strong></dd></div>
+              <div>
+                <dt>Đã thanh toán</dt>
+                <dd>{money(billing.data.paidAmount ?? '0')}</dd>
+              </div>
+              <div>
+                <dt>Còn phải thanh toán</dt>
+                <dd><strong className="fact-balance-due">{money(billing.data.balance ?? billing.data.totalAmount)}</strong></dd>
+              </div>
             </dl>
             {billing.data.completedOrders.length > 0 && (
               <div className="completed-orders-section">

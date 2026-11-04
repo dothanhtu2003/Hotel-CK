@@ -6,6 +6,8 @@ import { AuthContext } from '../features/auth/auth-context';
 import { ToastContext } from '../components/toast-context';
 import type { User } from '../features/auth/contracts';
 
+vi.mock('../features/guest/service-payment-notice', () => ({ usePendingServicePayments: () => [], ServicePaymentBadge: () => null, ServicePaymentNotice: () => null }));
+
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
     this.open = true;

@@ -396,7 +396,7 @@ export function ReceptionDashboard() {
                                 const isDirty = room.housekeepingStatus === "DIRTY";
                                 const isCleaning = room.housekeepingStatus === "CLEANING";
                                 const isOoo = room.operationalStatus !== "ACTIVE";
-                                const reservedBooking = room.bookings.find(b => ['PENDING', 'CONFIRMED'].includes(b.status) && b.checkIn <= todayStr && b.checkOut > todayStr);
+                                const reservedBooking = room.bookings.find(b => ['PENDING', 'CONFIRMED'].includes(b.status) && !awaitingOnlinePayment(b) && b.checkIn <= todayStr && b.checkOut > todayStr);
                                 const isClean = !occupied && !reservedBooking && !isDirty && !isCleaning && !isOoo;
 
                                 const arrivingBooking =

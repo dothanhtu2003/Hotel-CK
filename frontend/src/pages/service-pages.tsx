@@ -23,6 +23,7 @@ import { GuestBadge, Skeleton } from '../features/guest/components';
 import {
   cents,
   decimal,
+  formatBookingReference,
   guestError,
   money,
   type Booking,
@@ -355,27 +356,73 @@ export function ServicesPage() {
   );
 }
 
+function formatOrderDate(isoDate: string) {
+  try {
+    const d = new Date(isoDate);
+    if (isNaN(d.getTime())) return isoDate;
+    const hours = String(d.getHours()).padStart(2, '0');
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${hours}:${mins} · ${day}/${month}/${year}`;
+  } catch {
+    return isoDate;
+  }
+}
+
+const ORDER_STATUS_TABS: { id: string; label: string }[] = [
+  { id: '', label: 'Tất cả' },
+  { id: 'PENDING', label: 'Chờ xử lý' },
+  { id: 'COMPLETED', label: 'Hoàn thành' },
+  { id: 'CANCELLED', label: 'Đã hủy' },
+];
+
 /* ========================================================
    ORDER CONTENTS COMPONENT
    ======================================================== */
-function OrderContents({ order: o, showPayment = true }: { order: Order; showPayment?: boolean }) {
+function OrderContents({ order: o, showPayment = true, showStatusBadge = false }: { order: Order; showPayment?: boolean; showStatusBadge?: boolean }) {
   const [paid, setPaid] = useState(false);
+  const isPaid = o.paymentMethod || paid;
+
   return (
     <div className="guest-order-contents-block">
-      <div className="order-badge-row">
-        <GuestBadge status={o.status} />
-        {o.status !== 'CANCELLED' && o.requestedPaymentMethod && <p>{(o.paymentMethod || paid) ? 'Đã thanh toán' : o.requestedPaymentMethod === 'CASH' ? 'Chờ thu tiền mặt' : 'Chờ thanh toán chuyển khoản'}</p>}
-        {o.status !== 'CANCELLED' && !o.paymentMethod && o.requestedPaymentMethod === 'CASH' && <p>Vui lòng thanh toán cho nhân viên giao dịch vụ hoặc tại quầy lễ tân.</p>}
-        {showPayment && o.status !== 'CANCELLED' && !o.paymentMethod && !paid && o.requestedPaymentMethod === 'BANK_TRANSFER' && <BankTransferQr orderId={o.id} amount={o.totalAmount} expiresAt={Date.parse(o.orderedAt) + 15 * 60_000} guest onPaid={() => setPaid(true)} onClosed={() => {}} />}
+      {showStatusBadge && (
+        <div className="order-badge-row">
+          <GuestBadge status={o.status} />
+        </div>
+      )}
 
-      </div>
+      {o.status !== 'CANCELLED' && o.requestedPaymentMethod && (
+        <div className="order-payment-status-tag">
+          <span className={`order-payment-pill ${isPaid ? 'is-paid' : 'is-pending'}`}>
+            {isPaid
+              ? 'Đã thanh toán'
+              : o.requestedPaymentMethod === 'CASH'
+              ? 'Chờ thu tiền mặt'
+              : 'Chờ thanh toán chuyển khoản'}
+          </span>
+        </div>
+      )}
+
+      {showPayment && o.status !== 'CANCELLED' && !o.paymentMethod && !paid && o.requestedPaymentMethod === 'BANK_TRANSFER' && (
+        <BankTransferQr
+          orderId={o.id}
+          amount={o.totalAmount}
+          expiresAt={Date.parse(o.orderedAt) + 15 * 60_000}
+          guest
+          onPaid={() => setPaid(true)}
+          onClosed={() => {}}
+        />
+      )}
 
       <div className="order-items-breakdown">
         {o.items.map((i) => (
           <div key={i.id} className="order-item-detail-line">
-            <p>
-              {i.serviceName} × {i.quantity} · {money(i.unitPrice)} / đơn vị · {money(i.subtotal)}
-            </p>
+            <span className="order-item-title">
+              {i.serviceName} × {i.quantity}
+            </span>
+            <strong className="order-item-amount">{money(i.subtotal)}</strong>
           </div>
         ))}
       </div>
@@ -413,15 +460,24 @@ function OrderCard({ order: o }: { order: Order }) {
 
   return (
     <article className="panel guest-box guest-order-card">
-      <div className="guest-row order-card-header">
+      <div className="order-card-header">
         <div className="order-card-title-block">
-          <h2>Đơn {o.id.slice(0, 8)}</h2>
-          <Link className="text-link order-booking-link" to={'/guest/bookings/' + o.bookingId}>
-            Booking {booking.data?.reference ?? o.bookingId}
-          </Link>
+          <div className="order-room-line">
+            <span className="order-room-title">
+              {booking.data?.roomNumber ? `Phòng ${booking.data.roomNumber}` : 'Dịch vụ phòng'}
+            </span>
+            <GuestBadge status={o.status} />
+          </div>
+          <div className="order-meta-subline">
+            <h2 className="order-code-badge">Đơn {o.id.slice(0, 8)}</h2>
+            <span className="order-dot" aria-hidden="true">·</span>
+            <Link className="order-booking-link" to={'/guest/bookings/' + o.bookingId}>
+              Booking {booking.data?.reference ? formatBookingReference(booking.data.reference) : o.bookingId}
+            </Link>
+          </div>
         </div>
         <p className="order-timestamp">
-          {new Date(o.orderedAt).toLocaleString('vi-VN')}
+          {formatOrderDate(o.orderedAt)}
         </p>
       </div>
 
@@ -513,15 +569,38 @@ export function MyServiceOrdersPage() {
     <div className="guest-my-orders-space">
       <PageHeading
         title="Đơn dịch vụ của tôi"
-        action={<LinkButton to="/guest/services">Đặt dịch vụ</LinkButton>}
+        action={<LinkButton to="/guest/services">+ Đặt dịch vụ</LinkButton>}
       />
 
-      {/* Status Filter */}
+      {/* Status Filter Tabs */}
       <div className="guest-filter-bar">
-        <label className="filter-label">
+        <div className="guest-filter-tabs" role="tablist" aria-label="Lọc theo trạng thái đơn">
+          {ORDER_STATUS_TABS.map((tab) => {
+            const isActive = status === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`guest-filter-tab ${isActive ? 'is-active' : ''}`}
+                onClick={() => setParams(tab.id ? { status: tab.id } : {})}
+              >
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {query.data && (
+          <span className="guest-booking-count-chip">
+            {query.data.meta.total} đơn
+          </span>
+        )}
+
+        <label className="sr-only">
           Trạng thái đơn
           <select
-            className="input quick-select"
             value={status}
             onChange={(e) =>
               setParams(e.target.value ? { status: e.target.value } : {})
