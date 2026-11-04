@@ -78,3 +78,15 @@ it.each(['PENDING', 'CONFIRMED'])('checks in a %s ready room with one click', as
   await waitFor(() => expect(toast).toHaveBeenCalledWith('Nhận phòng thành công.'));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
+
+it.each([
+  { start: 2, end: 4, label: 'Chưa đến ngày nhận phòng' },
+  { start: -3, end: -1, label: 'Đã qua ngày trả phòng' },
+])('disables check-in outside the stay window: $label', ({start, end, label}) => {
+  const request = vi.spyOn(api, 'request');
+  render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><ToastContext.Provider value={vi.fn()}><CheckInWizard bookingId="booking" checkIn={shiftDate(hotelToday(), start)} checkOut={shiftDate(hotelToday(), end)} /></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
+  const button = screen.getByRole('button', {name: label}) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  fireEvent.click(button);
+  expect(request).not.toHaveBeenCalled();
+});

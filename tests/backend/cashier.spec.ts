@@ -6,7 +6,7 @@ import type { PrismaService } from '../../src/database/prisma.service.js';
 
 const decimal = (v: string) => new Prisma.Decimal(v);
 function record(id: string, status = 'CHECKED_IN', invoice: unknown = null) {
-  return { id, reference: id, userId: 'guest', roomId: 'room', status,
+  return { bookingPayments: [], id, reference: id, userId: 'guest', roomId: 'room', status,
     checkInDate: new Date('2026-10-28'), checkOutDate: new Date('2026-10-30'),
     nightlyPrice: decimal('100.25'), totalRoomAmount: decimal('200.50'),
     room: { roomNumber: '101' }, user: { fullName: 'Guest' }, invoice,
@@ -27,11 +27,11 @@ describe('Cashier totals and groups', () => {
   it('preserves exact decimals, excludes pending services, separates cancellations and paid invoices', async () => {
     const { service, findMany } = setup();
     const result = await service.billing(Object.assign(new BillingQuery(), { date: '2026-10-30', group: 'all' }));
-    expect(result.counts).toEqual({ departures: 2, outstanding: 2, paid: 1, all: 5 });
-    expect(result.data[0]).toMatchObject({ totalAmount: '210.75', paidAmount: '0.00', balance: '210.75', pendingOrderCount: 1 });
-    expect(result.data[1]).toMatchObject({ balance: '110.65', paidAmount: '100.10' });
-    expect(result.data[3]).toMatchObject({ balance: '0.00', paymentState: 'CANCELLED' });
-    expect(result.data[4]).toMatchObject({ paymentState: 'REVIEW_REFUND' });
+    expect(result.counts).toEqual({ departures: 3, outstanding: 2, paid: 1, all: 5, history: 1 });
+    expect(result.data.find(r => r.id === 'draft')).toMatchObject({ totalAmount: '210.75', paidAmount: '0.00', balance: '210.75', pendingOrderCount: 1 });
+    expect(result.data.find(r => r.id === 'partial')).toMatchObject({ balance: '110.65', paidAmount: '100.10' });
+    expect(result.data.find(r => r.id === 'cancelled')).toMatchObject({ balance: '0.00', paymentState: 'CANCELLED' });
+    expect(result.data.find(r => r.id === 'refund')).toMatchObject({ paymentState: 'REVIEW_REFUND' });
     expect(JSON.stringify(findMany.mock.calls)).toContain('COMPLETED');
   });
   it('filters before pagination and limits departures to the selected date', async () => {

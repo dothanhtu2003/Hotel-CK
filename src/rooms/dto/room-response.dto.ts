@@ -8,6 +8,7 @@ export class RoomTypeResponseDto {
   @ApiProperty({ type: String, nullable: true }) description!: string | null;
   @ApiProperty({ type: String, example: '650000.00', description: 'Current catalog price (VND), decimal string' }) nightlyPrice!: string;
   @ApiProperty() maxGuests!: number;
+  @ApiProperty({ minimum: 1, example: 1 }) bedCount!: number;
 }
 export class RoomResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;

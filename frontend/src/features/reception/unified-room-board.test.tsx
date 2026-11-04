@@ -269,7 +269,7 @@ describe("Unified Room Board & Booking Flow", () => {
     expect(screen.getByRole("link", { name: "Chi tiết booking" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Gọi món cho phòng" })).toBeTruthy();
     expect(screen.queryByText("THAO TÁC KHẢ DỤNG")).toBeNull();
-    expect(screen.getByRole("button", { name: "Đặt phòng" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Đặt phòng" })).toBeNull();
 
     // Verify Guest Dispatch (Điều phối khách) section is completely removed from dashboard
     expect(screen.queryByText("Điều phối khách")).toBeNull();
@@ -671,4 +671,74 @@ it('shows an unpaid online reservation on the room board as awaiting payment', a
   fireEvent.click(room);
   expect(await screen.findByText('Chờ thanh toán')).toBeTruthy();
   expect(screen.getByRole('link', { name: /Xem booking · Chờ thanh toán/ })).toBeTruthy();
+});
+
+it('opens occupied room details instead of a new booking form in booking mode', async () => {
+  setupDialog();
+  const today = hotelToday();
+  const booking = { id: 'new-stay', reference: 'BK-102', status: 'CHECKED_IN', checkIn: shiftDate(today, -1), checkOut: shiftDate(today, 2), nights: 3, guestCount: 2, nightlyPrice: '5000', totalRoomAmount: '15000', customer: { fullName: 'Khách phòng 102' } };
+  vi.spyOn(api, 'request').mockImplementation(async (path: string) => {
+    if (path.includes('/front-desk/dashboard')) return { today, counts: {}, arrivals: [], departures: [] };
+    if (path.includes('/front-desk/room-filters')) return { floors: [1], types: [] };
+    if (path.includes('/front-desk/rooms')) return { data: [{ id: 'room-102', roomNumber: '102', floor: 1, operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN', openTaskCount: 0, roomType: { name: 'Standard', nightlyPrice: '5000', maxGuests: 2 }, bookings: [booking] }] };
+    return { data: [], meta: { total: 0, page: 1, totalPages: 1 } };
+  });
+  render(<MemoryRouter initialEntries={['/reception?mode=booking']}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastContext.Provider value={() => {}}><ReceptionDashboard /></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: /102.*ĐANG Ở/ }));
+  expect(await screen.findByText('Phòng 102 · Chi tiết & Thao tác')).toBeTruthy();
+  expect(screen.getByText('Khách phòng 102')).toBeTruthy();
+  expect(screen.queryByText('Đặt phòng 102 (Standard)')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Đặt phòng' })).toBeNull();
+  const nights = screen.getAllByRole('listitem');
+  expect(nights).toHaveLength(7);
+  expect(nights[0].getAttribute('aria-label')).toContain(`Đêm 1, ${formatStayDateDisplay(shiftDate(today, -1))}`);
+  expect(nights[0].getAttribute('aria-current')).toBeNull();
+  expect(nights[1].getAttribute('aria-current')).toBe('date');
+  expect(nights[1].textContent).toContain('Hôm nay');
+  expect(nights[2].getAttribute('aria-label')).toContain(`Đêm 3, ${formatStayDateDisplay(shiftDate(today, 1))}`);
+  expect(nights[3].getAttribute('aria-label')).toContain(`Trống, ${formatStayDateDisplay(shiftDate(today, 2))}`);
+  expect(nights[6].textContent).toContain('Trống');
+  const occupiedNight = screen.getByRole('button', { name: `Chọn đêm ${formatStayDateDisplay(today)}` }) as HTMLButtonElement;
+  expect(occupiedNight.disabled).toBe(true);
+  const firstFree = screen.getByRole('button', { name: `Chọn đêm ${formatStayDateDisplay(shiftDate(today, 2))}` });
+  fireEvent.click(firstFree);
+  expect(screen.getByRole('button', { name: 'Đặt phòng (1 đêm)' })).toBeTruthy();
+  fireEvent.click(firstFree);
+  expect(screen.queryByRole('button', { name: 'Đặt phòng (1 đêm)' })).toBeNull();
+  fireEvent.click(firstFree);
+  fireEvent.click(screen.getByRole('button', { name: `Chọn đêm ${formatStayDateDisplay(shiftDate(today, 3))}` }));
+  expect(firstFree.getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Đặt phòng (2 đêm)' }));
+  expect(await screen.findByText('Đặt phòng 102 (Standard)')).toBeTruthy();
+  expect((screen.getByLabelText('Ngày nhận phòng') as HTMLInputElement).value).toBe(shiftDate(today, 2));
+  expect((screen.getByLabelText('Ngày trả phòng') as HTMLInputElement).value).toBe(shiftDate(today, 4));
+});
+
+it('filters by bed count, combines floor selection and toggles off', async () => {
+  const today = hotelToday();
+  const rooms = [
+    { id: 'one', roomNumber: '101', floor: 1, beds: 1 },
+    { id: 'two', roomNumber: '102', floor: 1, beds: 2 },
+    { id: 'upstairs', roomNumber: '201', floor: 2, beds: 2 },
+  ].map(r => ({ ...r, operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN', openTaskCount: 0, bookings: [], roomType: { name: 'Standard', nightlyPrice: '5000', maxGuests: 2, bedCount: r.beds } }));
+  vi.spyOn(api, 'request').mockImplementation(async (path: string) => {
+    if (path.includes('/front-desk/dashboard')) return { today, counts: {}, arrivals: [], departures: [] };
+    if (path.includes('/front-desk/room-filters')) return { floors: [1, 2], types: [] };
+    if (path.includes('/front-desk/rooms')) return { data: rooms };
+    return { data: [], meta: { total: 0, page: 1, totalPages: 1 } };
+  });
+  render(<MemoryRouter initialEntries={['/reception']}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastContext.Provider value={() => {}}><ReceptionDashboard /></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
+  await screen.findByRole('button', { name: /101.*TRỐNG SẠCH/ });
+  fireEvent.click(screen.getByRole('button', { name: '1 giường' }));
+  expect(screen.getByRole('button', { name: /101.*TRỐNG SẠCH/ })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /102.*TRỐNG SẠCH/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '2 giường' }));
+  expect(screen.queryByRole('button', { name: /101.*TRỐNG SẠCH/ })).toBeNull();
+  expect(screen.getByRole('button', { name: /201.*TRỐNG SẠCH/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Tầng 1' }));
+  expect(await screen.findByRole('button', { name: /102.*TRỐNG SẠCH/ })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /201.*TRỐNG SẠCH/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '2 giường' }));
+  expect(screen.getByRole('button', { name: /101.*TRỐNG SẠCH/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '2 giường' }).getAttribute('aria-pressed')).toBe('false');
 });

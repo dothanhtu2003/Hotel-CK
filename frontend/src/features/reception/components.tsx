@@ -80,7 +80,7 @@ function ConfirmDeskAction({
         }}
         title={label + "?"}
       >
-        <p>{description}</p>
+        {action !== "check-out" && description && <p>{description}</p>}
         {action === "check-out" && open && (
           <CheckoutSummary bookingId={path.split("/")[2]} />
         )}
@@ -98,6 +98,7 @@ function ConfirmDeskAction({
             Quay lại
           </Button>
           <Button
+            variant="primary"
             busy={mutation.isPending}
             disabled={!!mutation.error}
             onClick={() => {
@@ -106,7 +107,7 @@ function ConfirmDeskAction({
               mutation.mutate();
             }}
           >
-            Xác nhận {label.toLocaleLowerCase("vi-VN")}
+            {label.toLowerCase().startsWith("xác nhận") ? label : `Xác nhận ${label.toLocaleLowerCase("vi-VN")}`}
           </Button>
         </div>
       </Dialog>
@@ -251,11 +252,10 @@ export function BookingTable({
                   Trả phòng / Hóa đơn
                 </Link>
               ) : ["PENDING", "CONFIRMED"].includes(b.status) && !awaitingOnlinePayment(b) ? (
-                <DeskAction
-                  path={`/bookings/${b.id}/check-in`}
-                  action="check-in"
-                  label="Nhận phòng"
-                  description="Chỉ nhận phòng trong ngày lưu trú hợp lệ, khách đang hoạt động, phòng ACTIVE và CLEAN, không có công việc buồng phòng còn mở."
+                <CheckInWizard
+                  bookingId={b.id}
+                  checkIn={b.checkIn}
+                  checkOut={b.checkOut}
                   variant="primary"
                   className="!bg-brand-600 !text-white hover:!bg-brand-700 !border-transparent text-xs py-1.5 px-3 font-semibold shadow-2xs"
                 />

@@ -8,14 +8,19 @@ import { deskError, type DeskBooking } from './contracts';
 import { useDeskBase, useRefreshDesk } from './queries';
 import { hotelToday } from './room-state';
 
-export function CheckInWizard({ bookingId, variant = 'secondary', className = '' }: {
+export function CheckInWizard({ bookingId, checkIn, checkOut, variant = 'secondary', className = '' }: {
   bookingId: string;
+  checkIn?: string;
+  checkOut?: string;
   variant?: 'primary' | 'secondary' | 'ghost' | 'light';
   className?: string;
 }) {
   const lock = useRef(false), refresh = useRefreshDesk(), toast = useToast(), base = useDeskBase();
   const [room, setRoom] = useState<DeskBooking['room']>();
   const [error, setError] = useState('');
+  const today = hotelToday();
+  const unavailableReason = checkIn && checkIn > today ? 'Chưa đến ngày nhận phòng' :
+    checkOut && checkOut <= today ? 'Đã qua ngày trả phòng' : '';
   const mutation = useMutation({
     retry: false,
     mutationFn: async () => {
@@ -36,12 +41,12 @@ export function CheckInWizard({ bookingId, variant = 'secondary', className = ''
     onSettled: () => { lock.current = false; },
   });
   return <div className="space-y-2">
-    <Button variant={variant} className={className} busy={mutation.isPending} onClick={() => {
+    <Button variant={variant} className={className} disabled={!!unavailableReason} title={unavailableReason || undefined} busy={mutation.isPending} onClick={() => {
       if (lock.current) return;
       lock.current = true;
       setError('');
       mutation.mutate();
-    }}>Nhận phòng</Button>
+    }}>{unavailableReason || 'Nhận phòng'}</Button>
     {error && <div role="alert" className="max-w-sm rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
       <p>{error}</p>
       {room?.id && <Link className="mt-2 inline-block font-semibold underline" to={`${base}?roomId=${room.id}`}>Mở phòng để xử lý</Link>}

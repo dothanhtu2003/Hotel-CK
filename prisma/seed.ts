@@ -39,8 +39,8 @@ try {
     const roles = ['ADMIN','RECEPTIONIST','RECEPTIONIST','HOUSEKEEPING','HOUSEKEEPING','GUEST','GUEST','GUEST','GUEST','GUEST'] as const;
     const names = ['Nguyễn Minh An','Trần Thu Hà','Lê Quang Huy','Phạm Thị Lan','Võ Thanh Bình','Đặng Ngọc Mai','Bùi Hoàng Nam','Đỗ Thảo Vy','Hoàng Đức Anh','Ngô Kim Chi'];
     for (let i=0;i<roles.length;i++) await tx.user.create({ data: { id: demoId(`user:${i}`), fullName:names[i], email:`user${i}@demo.hotel.invalid`, passwordHash, phone:`09012345${i.toString().padStart(2,'0')}`, role:roles[i] } });
-    const types = [{name:'Standard',price:650000,max:2},{name:'Deluxe',price:1000000,max:3},{name:'Suite',price:1800000,max:4}];
-    for (let i=0;i<types.length;i++) await tx.roomType.create({ data: { id:demoId(`type:${i}`),name:types[i].name,description:`Phòng ${types[i].name}`,nightlyPrice:types[i].price,maxGuests:types[i].max } });
+    const types = [{name:'Standard',price:4500,max:2},{name:'Deluxe',price:6000,max:3},{name:'Suite',price:9000,max:4}];
+    for (let i=0;i<types.length;i++) await tx.roomType.create({ data: { id:demoId(`type:${i}`),name:types[i].name,description:`Phòng ${types[i].name}`,nightlyPrice:types[i].price,maxGuests:types[i].max,bedCount: i === 0 ? 1 : 2 } });
     for (let i=0;i<12;i++) {
       await tx.room.create({ data: { id:demoId(`room:${i}`),roomNumber:`${Math.floor(i/4)+1}0${i%4+1}`,floor:Math.floor(i/4)+1,roomTypeId:demoId(`type:${Math.floor(i/4)}`) } });
     }

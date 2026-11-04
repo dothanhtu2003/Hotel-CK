@@ -182,7 +182,6 @@ export function TapeChart({
               <div className="divide-y divide-zinc-100">
                 {query.data!.data.map((room) => {
                   const bars = bookingLanes(room.bookings, start, 14, today);
-                  const overdueStays = room.bookings.filter(b => b.status === 'CHECKED_IN' && b.checkOut < today);
                   const lanes = Math.max(1, ...bars.map(bar => bar.lane + 1));
                   return (
                   <div key={room.id} className="flex items-stretch hover:bg-zinc-50/40 transition-colors">
@@ -212,13 +211,6 @@ export function TapeChart({
                       <div className="text-[11px] text-zinc-400 truncate" title={`${room.roomType.name} · Tầng ${room.floor}`}>
                         {room.roomType.name} · Tầng {room.floor}
                       </div>
-                      {overdueStays.map(b => (
-                        <button key={b.id} type="button" className="text-[10px] text-rose-700 font-semibold text-start cursor-pointer"
-                          title={`${b.customer?.fullName ?? b.reference} · Lịch đặt: ${b.checkIn} → ${b.checkOut}`}
-                          onClick={() => onSelectBooking ? onSelectBooking(b) : navigate(`${base}/bookings/${b.id}`)}>
-                          Đang ở · Quá hạn trả phòng
-                        </button>
-                      ))}
                     </div>
 
                     {/* Timeline Cell */}

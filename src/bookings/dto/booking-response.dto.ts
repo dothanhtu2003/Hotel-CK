@@ -3,6 +3,7 @@ import { BookingStatus } from '../../../generated/prisma/enums.js';
 import { PageMetaDto } from '../../common/dto/page-meta.dto.js';
 
 export class BookingResponseDto {
+  @ApiProperty({ format: 'date', nullable: true }) currentRoomSince!: string | null;
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() reference!: string;
   @ApiProperty({ format: 'uuid' }) userId!: string;

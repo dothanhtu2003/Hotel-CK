@@ -161,10 +161,28 @@ export class FrontDeskService {
       });
       const date = q.date ?? hotelDay();
       const matches = (r: typeof rows[number], group: string) => group === "all" ||
-        (group === "history" ? r.paymentState !== "OUTSTANDING" || r.status === "CHECKED_OUT" : group === "paid" ? r.paymentState === "PAID" : group === "outstanding" ? r.paymentState === "OUTSTANDING" :
-          r.status === "CHECKED_IN" && r.checkOut === date);
+        (group === "history" ? r.status === "CHECKED_OUT" : group === "paid" ? r.paymentState === "PAID" : group === "outstanding" ? r.paymentState === "OUTSTANDING" :
+          ["CHECKED_IN", "CHECKED_OUT"].includes(r.status) && r.checkOut === date);
       const counts = Object.fromEntries(["departures", "outstanding", "paid", "all", "history"].map(group => [group, rows.filter(r => matches(r, group)).length]));
       const filtered = rows.filter(r => matches(r, q.group ?? "departures"));
+      filtered.sort((a, b) => {
+        // Prioritize stays still awaiting checkout, then keep dates and guests deterministic.
+        if ((q.group ?? 'departures') === 'departures') {
+          const statusOrder = Number(a.status === 'CHECKED_OUT') - Number(b.status === 'CHECKED_OUT');
+          if (statusOrder) return statusOrder;
+        }
+        if (q.group === 'outstanding') {
+          const overdueOrder = Number(b.status === 'CHECKED_IN' && b.checkOut < hotelDay()) - Number(a.status === 'CHECKED_IN' && a.checkOut < hotelDay());
+          if (overdueOrder) return overdueOrder;
+        }
+        const dateOrder = q.group === 'history'
+          ? b.checkOut.localeCompare(a.checkOut)
+          : a.checkOut.localeCompare(b.checkOut);
+        return dateOrder
+          || (a.customer?.fullName ?? '').localeCompare(b.customer?.fullName ?? '', 'vi')
+          || a.roomNumber.localeCompare(b.roomNumber, 'vi', { numeric: true })
+          || a.id.localeCompare(b.id);
+      });
       return { data: filtered.slice((q.page - 1) * q.pageSize, q.page * q.pageSize), meta: paginationMeta(q, filtered.length), counts };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }

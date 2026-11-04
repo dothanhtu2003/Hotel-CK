@@ -1,3 +1,4 @@
+import { StayHistory } from '../features/reception/stay-history';
 import { awaitingOnlinePayment, deskBookingStatusLabel } from '../features/reception/contracts';
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
@@ -113,6 +114,7 @@ export function ReceptionBookingDetailPage() {
         />
       )}
 
+      <StayHistory bookingId={b.id} />
       {/* Breadcrumb */}
       <div>
         <Link
@@ -214,6 +216,8 @@ export function ReceptionBookingDetailPage() {
               <>
                 {!awaitingOnlinePayment(b) && <CheckInWizard
                   bookingId={b.id}
+                  checkIn={b.checkIn}
+                  checkOut={b.checkOut}
                   variant="primary"
                   className="!bg-brand-600 !text-white hover:!bg-brand-700 !border-transparent px-3.5 py-1.5 font-semibold text-xs shadow-2xs"
                 />}

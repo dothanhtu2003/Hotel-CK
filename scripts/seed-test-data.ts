@@ -46,11 +46,11 @@ const guestNames = [
   'Võ Thùy Dung', 'Nguyễn Thành Đạt', 'Trần Bích Ngọc', 'Lê Nhật Minh', 'Alex Morgan', 'Khách bị khóa',
 ];
 const types = [
-  { name: 'Single', price: 450000, capacity: 1 },
-  { name: 'Standard', price: 650000, capacity: 2 },
-  { name: 'Deluxe', price: 1000000, capacity: 3 },
-  { name: 'Family', price: 1500000, capacity: 4 },
-  { name: 'Suite', price: 2400000, capacity: 6 },
+  { name: 'Single', price: 3000, capacity: 1 },
+  { name: 'Standard', price: 4500, capacity: 2 },
+  { name: 'Deluxe', price: 6000, capacity: 3 },
+  { name: 'Family', price: 7500, capacity: 4 },
+  { name: 'Suite', price: 9000, capacity: 6 },
 ];
 const services = [
   ['Bữa sáng', 9000], ['Cà phê', 5000], ['Giặt ủi', 8000], ['Nước suối', 3000],
@@ -76,6 +76,7 @@ try {
     } });
     for (const [i, t] of types.entries()) await tx.roomType.create({ data: {
       id: id(`type:${i}`), name: `${prefix} ${t.name}`, nightlyPrice: t.price, maxGuests: t.capacity,
+      bedCount: ['Deluxe', 'Family', 'Suite'].includes(t.name) ? 2 : 1,
       description: `Dữ liệu test ${today}: phòng ${t.name}, tối đa ${t.capacity} khách.`,
     } });
     for (let i = 0; i < 30; i++) await tx.room.create({ data: {
@@ -118,8 +119,8 @@ try {
         const inv = await tx.invoice.create({ data: { bookingId: b.id } });
         const total = Number(inv.totalAmount);
         if (i === 6) {
-          await tx.payment.create({ data: { invoiceId: inv.id, amount: 100000, method: 'BANK_TRANSFER', status: 'FAILED' } });
-          await tx.payment.create({ data: { invoiceId: inv.id, amount: 100000, method: 'BANK_TRANSFER', status: 'PENDING' } });
+          await tx.payment.create({ data: { invoiceId: inv.id, amount: total, method: 'BANK_TRANSFER', status: 'FAILED' } });
+          await tx.payment.create({ data: { invoiceId: inv.id, amount: total, method: 'BANK_TRANSFER', status: 'PENDING' } });
         }
         if (i >= 7) await tx.payment.create({ data: {
           invoiceId: inv.id, amount: Math.floor(total / 2), method: 'CASH', status: 'COMPLETED',

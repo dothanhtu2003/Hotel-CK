@@ -85,3 +85,23 @@ describe('Action bodies cannot carry generic update fields', () => {
     expect(() => pipe.transform([])).toThrow(BadRequestException);
   });
 });
+
+describe('Check-in preserves the current occupant', () => {
+  it.each(['future', 'expired', 'occupied'])('rejects %s before changing any booking', async reason => {
+    const date = new Date(`${new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}T00:00:00Z`);
+    const shifted = (n: number) => new Date(date.getTime() + n * 86400000);
+    const updateMany = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+    const count = jest.fn<(...args: unknown[]) => Promise<number>>().mockResolvedValue(reason === 'occupied' ? 1 : 0);
+    const tx = {
+      $queryRaw: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue([]),
+      booking: {
+        findFirst: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({roomId:'room'}),
+        findFirstOrThrow: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({roomId:'room',checkInDate:shifted(reason==='future'?1:-2),checkOutDate:shifted(reason==='expired'?-1:3)}),
+        count, updateMany,
+      },
+    };
+    const service = new BookingsService({client:{$transaction:async (fn:(client:typeof tx)=>Promise<unknown>)=>fn(tx)}} as unknown as PrismaService);
+    await expect(service.transition('booking',{id:'staff',role:'RECEPTIONIST'},'check-in')).rejects.toBeInstanceOf(ConflictException);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+});

@@ -2,11 +2,11 @@ import { z } from 'zod';
 import { ApiError } from '../../lib/api-client';
 
 export type Page<T> = { data: T[]; meta: { page: number; pageSize: number; total: number; totalPages: number } };
-export type RoomType = { id: string; name: string; description: string | null; nightlyPrice: string; maxGuests: number };
+export type RoomType = { id: string; name: string; description: string | null; nightlyPrice: string; maxGuests: number; bedCount?: number };
 export type Room = { id: string; roomNumber: string; floor: number; operationalStatus: string; housekeepingStatus: string; roomType: RoomType; estimatedTotalAmount?: string };
 export type Availability = { checkIn: string; checkOut: string; guests: number; nights: number; data: Room[] };
 export const bookingStatuses = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'] as const;
-export type Booking = { holdExpiresAt?: string | null; holdState?: string | null; serverNow?: string; onlinePaymentRequired?: boolean; checkoutRequestedAt?: string | null; id: string; reference: string; roomId: string; roomNumber: string; checkIn: string; checkOut: string; nights: number; guestCount: number; status: typeof bookingStatuses[number]; nightlyPrice: string; totalRoomAmount: string };
+export type Booking = { currentRoomSince?: string | null; holdExpiresAt?: string | null; holdState?: string | null; serverNow?: string; onlinePaymentRequired?: boolean; checkoutRequestedAt?: string | null; id: string; reference: string; roomId: string; roomNumber: string; checkIn: string; checkOut: string; nights: number; guestCount: number; status: typeof bookingStatuses[number]; nightlyPrice: string; totalRoomAmount: string };
 export type Service = { id: string; name: string; description: string | null; currentPrice: string; isActive: boolean };
 export type Order = { deliveredAt?: string | null; requestedPaymentMethod?: 'CASH' | 'BANK_TRANSFER' | null; payosStatus?: string | null; id: string; bookingId: string; status: 'PENDING' | 'COMPLETED' | 'CANCELLED'; totalAmount: string; orderedAt: string; paymentMethod?: 'CASH' | 'BANK_TRANSFER' | null; paidAt?: string | null; refundedAt?: string | null; items: { id: string; serviceId: string; serviceName: string; quantity: number; unitPrice: string; subtotal: string }[] };
 export type Preview = { counterPaidOrders?: Order[]; guestSummary?: { orders: Order[]; serviceAmount: string; totalAmount: string; paidAmount: string; balance: string }; prepaidAmount?: string; paidAmount?: string; balance?: string; roomPayments?: { id: string; amount: string; paidAt: string | null }[]; counterPaidAmount?: string; booking: Booking; completedOrders: Order[]; pendingOrderCount: number; roomAmount: string; serviceAmount: string; totalAmount: string };

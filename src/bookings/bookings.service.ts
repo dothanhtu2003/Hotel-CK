@@ -1,3 +1,5 @@
+import { previewStayExtension, confirmStayExtension } from './stay-extension.js';
+import type { ExtensionPreviewDto, ExtendBookingDto } from './dto/extend-booking.dto.js';
 import { createHash } from 'node:crypto';
 import { nextBookingReference } from './booking-reference.js';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
@@ -22,6 +24,24 @@ export class BookingsService {
     if (actor.role === 'GUEST') return { userId: actor.id };
     if (actor.role === 'RECEPTIONIST' || actor.role === 'ADMIN') return {};
     throw new ForbiddenException('Insufficient permissions');
+  }
+
+  async stayHistory(id: string, actor: Actor) {
+    const booking = await this.prisma.client.booking.findFirst({ where: { id, ...this.scope(actor) }, select: { id: true } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    const segments = await this.prisma.client.staySegment.findMany({ where: { bookingId: id }, orderBy: [{ startedAt: 'asc' }, { id: 'asc' }], include: { room: { select: { roomNumber: true } } } });
+    return segments.map(s => ({ id: s.id, roomNumber: s.room.roomNumber, startedAt: s.startedAt, endedAt: s.endedAt, estimatedStart: s.estimatedStart, startDate: s.startDate.toISOString().slice(0,10), endDate: s.endDate.toISOString().slice(0,10) }));
+  }
+
+  async extensionPreview(id: string, actor: Actor, dto: ExtensionPreviewDto) {
+    if (!['RECEPTIONIST', 'ADMIN'].includes(actor.role)) throw new ForbiddenException('Staff required');
+    return this.prisma.client.$transaction(async tx => (await previewStayExtension(tx, id, dto)).quote, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
+
+  async extend(id: string, actor: Actor, dto: ExtendBookingDto) {
+    if (!['RECEPTIONIST', 'ADMIN'].includes(actor.role)) throw new ForbiddenException('Staff required');
+    try { return await this.prisma.client.$transaction(tx => confirmStayExtension(tx, id, actor.id, dto)); }
+    catch (error) { throwBookingError(error); }
   }
 
   async create(actor: Actor, dto: CreateBookingDto, clientIp?: string) {
@@ -94,6 +114,18 @@ export class BookingsService {
       return await this.prisma.client.$transaction(async tx => {
         // Keep the database's guarded transitions atomic behind one reception action.
         if (action === 'check-in') {
+          const snapshot = await tx.booking.findFirst({ where: scope, select: { roomId: true } });
+          if (!snapshot) throw new NotFoundException('Booking not found');
+          await tx.$queryRaw`SELECT id FROM hotel.rooms WHERE id=${snapshot.roomId}::uuid FOR UPDATE`;
+          const booking = await tx.booking.findFirstOrThrow({ where: scope });
+          if (booking.roomId !== snapshot.roomId) throw new ConflictException('Phòng đã thay đổi. Vui lòng tải lại.');
+          const today = hotelDay();
+          if (booking.checkInDate.toISOString().slice(0, 10) > today)
+            throw new ConflictException('Chưa đến ngày nhận phòng.');
+          if (booking.checkOutDate.toISOString().slice(0, 10) <= today)
+            throw new ConflictException('Booking đã qua ngày trả phòng.');
+          const occupied = await tx.booking.count({ where: { roomId: booking.roomId, id: { not: id }, status: 'CHECKED_IN' } });
+          if (occupied) throw new ConflictException('Phòng đang có khách lưu trú. Cần trả phòng trước khi nhận khách mới.');
           await tx.booking.updateMany({ where: { ...scope, status: 'PENDING' }, data: { status: 'CONFIRMED' } });
         }
         const result = await tx.booking.updateMany({ where: { ...scope, status: { in: change.from } }, data: { status: change.to } });

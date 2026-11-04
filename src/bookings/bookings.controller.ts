@@ -1,3 +1,4 @@
+import { ExtensionPreviewDto, ExtendBookingDto } from './dto/extend-booking.dto.js';
 import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiBody, ApiConflictResponse, ApiCreatedResponse, ApiForbiddenResponse, ApiNotFoundResponse, ApiOkResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { PayosService } from '../billing/payos.service.js';
@@ -20,6 +21,15 @@ import { BookingsService } from './bookings.service.js';
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookings: BookingsService, private readonly payos:PayosService) {}
+
+  @Get(':id/stay-history') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  stayHistory(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.bookings.stayHistory(id, user); }
+
+  @Post(':id/extension-preview') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  extensionPreview(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body() dto: ExtensionPreviewDto) { return this.bookings.extensionPreview(id, user, dto); }
+
+  @Patch(':id/extend') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  extend(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser, @Body() dto: ExtendBookingDto) { return this.bookings.extend(id, user, dto); }
 
   @Post() @Roles('GUEST') @Header('Cache-Control', 'no-store') @ApiCreatedResponse({ type: BookingResponseDto })
   create(@CurrentUser() user: PublicUser, @Body() dto: CreateBookingDto, @Req() request: Request) { return this.bookings.create(user, dto, request.ip); }

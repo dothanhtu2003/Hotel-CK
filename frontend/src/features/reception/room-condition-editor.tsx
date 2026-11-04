@@ -22,7 +22,6 @@ export function RoomConditionEditor({ room, onSaved }: { room: DeskRoom; onSaved
   if (occupied) return null;
   return <section className="rounded-2xl border border-zinc-200 bg-white p-4 space-y-3">
     <h3 className="text-sm font-bold text-zinc-900">{maintenance ? 'Kết thúc bảo trì' : 'Cập nhật tình trạng phòng'}</h3>
-    <p className="text-xs text-zinc-500">Lễ tân có quyền cập nhật trực tiếp. Booking đã đặt vẫn được giữ nguyên.</p>
     <fieldset disabled={busy} className="space-y-3">
       <div className={maintenance ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 gap-2'}>
         <Button variant={maintenance ? 'primary' : 'secondary'} aria-pressed={condition === 'CLEAN'} disabled={room.operationalStatus === 'ACTIVE' && room.housekeepingStatus === 'CLEAN' && !openTasks} onClick={() => { setCondition('CLEAN'); setError(''); }}><ShieldCheck size={16} /> {maintenance ? 'Tắt bảo trì · Khôi phục phòng trống sạch' : 'Trống sạch'}</Button>

@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastContext } from "../../components/toast-context";
 import { BookingTable } from "./components";
+import { hotelToday, shiftDate } from './room-state';
 
 afterEach(() => {
   cleanup();
@@ -18,8 +19,8 @@ describe("BookingTable UX improvements", () => {
       userId: "u1",
       roomId: "r1",
       status: "CONFIRMED" as const,
-      checkIn: "2026-10-30",
-      checkOut: "2026-11-02",
+      checkIn: hotelToday(),
+      checkOut: shiftDate(hotelToday(), 3),
       nights: 3,
       guestCount: 2,
       nightlyPrice: "1000000.00",

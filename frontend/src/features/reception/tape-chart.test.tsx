@@ -23,7 +23,6 @@ it('exposes overdue guest today, opens original booking, and labels unprocessed 
   const select = vi.fn();
   render(<MemoryRouter><TapeChart base="/reception" onSelectBooking={select} /></MemoryRouter>);
   const marker = screen.getByRole('button', { name: /Khách quá hạn.*Quá hạn trả phòng/ });
-  expect(screen.getByText('Đang ở · Quá hạn trả phòng')).toBeTruthy();
   expect(screen.queryByRole('button', { name: /Khách chưa đến/ })).toBeNull();
   fireEvent.click(marker);
   expect(select).toHaveBeenCalledWith(booking);

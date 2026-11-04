@@ -1,3 +1,4 @@
+import { ExtendStayDialog } from './extend-stay-dialog';
 import {
   AlertCircle,
   Calendar,
@@ -52,6 +53,7 @@ export function CashierPage() {
   const base = useDeskBase();
   const [group, setGroup] = useState("departures"), [date, setDate] = useState(hotelToday);
   const [search, setSearch] = useState(""), [q, setQ] = useState(""), [page, setPage] = useState(1);
+  const [overdue, setOverdue] = useState<BillingRow | null>(null);
   const [selected, setSelected] = useState<BillingRow | null>(null);
   const params = new URLSearchParams({ group, date, q, page: String(page), pageSize: "15" });
   const query = useDeskGet<Page<BillingRow> & { counts: Record<string, number> }>(`/front-desk/billing?${params}`);
@@ -245,6 +247,7 @@ export function CashierPage() {
                           <span>Trả: {r.checkOut.split("-").reverse().join("/")}</span>
                           <span className="cashier-meta-dot">·</span>
                           <span className="cashier-status-text">{statusLabels[r.status] ?? r.status}</span>
+                          {r.status === "CHECKED_IN" && r.checkOut < hotelToday() && <Badge tone="amber">Quá hạn {Math.round((Date.parse(hotelToday()) - Date.parse(r.checkOut)) / 86400000)} ngày</Badge>}
                         </div>
                       </div>
                     </div>
@@ -320,7 +323,7 @@ export function CashierPage() {
                   title: "THAO TÁC",
                   render: r => (
                     <div className="cashier-row-actions" onClick={e => e.stopPropagation()}>
-                      {r.paymentState === "OUTSTANDING" ? (
+                      {r.status === "CHECKED_IN" && r.checkOut < hotelToday() ? <button type="button" className="cashier-action-btn btn-collect" onClick={() => setOverdue(r)}>Xử lý</button> : r.paymentState === "OUTSTANDING" ? (
                         <button
                           type="button"
                           className="cashier-action-btn btn-collect"
@@ -363,6 +366,7 @@ export function CashierPage() {
         )}
       </section>
 
+      {overdue && <OverdueStay booking={overdue} onClose={() => setOverdue(null)} />}
       {selected && <BillingDrawer booking={selected} onClose={() => setSelected(null)} />}
     </div>
   );
@@ -527,4 +531,8 @@ export function StaleBookingQueue() {
       ))}
     </details>
   );
+}
+
+function OverdueStay({ booking, onClose }: { booking: BillingRow; onClose: () => void }) {
+  return <ExtendStayDialog booking={booking} onClose={onClose} />;
 }

@@ -110,6 +110,7 @@ model User {
 }
 
 model RoomType {
+  bedCount Int @default(1) @map("bed_count")
   id           String   @id @default(uuid()) @db.Uuid
   name         String   @unique @db.VarChar(80)
   description  String?
@@ -134,6 +135,7 @@ model Room {
   updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   roomType           RoomType           @relation(fields: [roomTypeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   images             RoomImage[]
+  staySegments       StaySegment[]
   bookings           Booking[]
   tasks              HousekeepingTask[]
   statusChanges      RoomStatusChange[]
@@ -158,6 +160,9 @@ model RoomImage {
 }
 
 model Booking {
+  currentRoomSince DateTime? @map("current_room_since") @db.Date
+  staySegments StaySegment[]
+  extensions StayExtension[]
   holdExpiresAt DateTime? @map("hold_expires_at") @db.Timestamptz(3)
   holdState String? @map("hold_state") @db.VarChar(24)
   paymentCheckAt DateTime? @map("payment_check_at") @db.Timestamptz(3)
@@ -334,5 +339,43 @@ model BookingPayment {
 
   @@index([bookingId, status])
   @@map("booking_payments")
+  @@schema("hotel")
+}
+
+model StaySegment {
+  id String @id @default(uuid()) @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  roomId String @map("room_id") @db.Uuid
+  startedAt DateTime @map("started_at") @db.Timestamptz(3)
+  endedAt DateTime? @map("ended_at") @db.Timestamptz(3)
+  startDate DateTime @map("start_date") @db.Date
+  endDate DateTime @map("end_date") @db.Date
+  estimatedStart Boolean @default(false) @map("estimated_start")
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  @@index([bookingId, startedAt])
+  @@index([roomId, startDate, endDate])
+  @@map("stay_segments")
+  @@schema("hotel")
+}
+model StayExtension {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  oldRoomId String @map("old_room_id") @db.Uuid
+  newRoomId String @map("new_room_id") @db.Uuid
+  oldCheckOut DateTime @map("old_check_out") @db.Date
+  newCheckOut DateTime @map("new_check_out") @db.Date
+  roomSince DateTime? @map("room_since") @db.Date
+  oldAmount Decimal @map("old_amount") @db.Decimal(14,2)
+  newAmount Decimal @map("new_amount") @db.Decimal(14,2)
+  overdueAmount Decimal @map("overdue_amount") @db.Decimal(14,2)
+  extensionAmount Decimal @map("extension_amount") @db.Decimal(14,2)
+  priceDifference Decimal @map("price_difference") @db.Decimal(14,2)
+  paidBefore Decimal @map("paid_before") @db.Decimal(14,2)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  @@index([bookingId, createdAt])
+  @@map("stay_extensions")
   @@schema("hotel")
 }

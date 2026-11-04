@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -11,6 +11,7 @@ import {
   MapPin,
   Phone,
   ReceiptText,
+  RotateCcw,
   ShieldAlert,
   Sparkles,
   Users,
@@ -71,6 +72,37 @@ function formatStayDateDisplay(isoDate: string): {
   }
 }
 
+function getDepartureNotice(checkOutIso: string, overdue: string | null) {
+  if (overdue === 'departure') {
+    return { text: 'Quá hạn trả phòng', tone: 'danger' };
+  }
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
+  if (checkOutIso === today) {
+    return { text: 'Trả phòng hôm nay · Trước 12:00', tone: 'urgent' };
+  }
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(tomorrowDate);
+
+  if (checkOutIso === tomorrow) {
+    return { text: 'Trả phòng ngày mai · Trước 12:00', tone: 'warning' };
+  }
+  const outDate = formatStayDateDisplay(checkOutIso);
+  const outLabel = outDate.dayMonth || checkOutIso;
+  return { text: 'Trả phòng: ' + outLabel + ' · Trước 12:00', tone: 'normal' };
+}
+
 const FILTER_TABS: { id: string; label: string }[] = [
   { id: '', label: 'Tất cả' },
   { id: 'CHECKED_IN', label: 'Đang lưu trú' },
@@ -95,6 +127,27 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
   }`;
   const query = useGet<Page<Booking>>(queryPath);
 
+  // Status counts for tabs
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!query.data) return;
+    setStatusCounts((prev) => {
+      const next = { ...prev };
+      if (!status) {
+        next[''] = query.data.meta.total;
+        FILTER_TABS.forEach((tab) => {
+          if (tab.id) {
+            next[tab.id] = query.data.data.filter((b) => b.status === tab.id).length;
+          }
+        });
+      } else {
+        next[status] = query.data.meta.total;
+      }
+      return next;
+    });
+  }, [query.data, status]);
+
   const isCurrentOrUpcoming = (booking: Booking) => {
     const overdue = bookingOverdue(booking);
     if (overdue) return false;
@@ -110,10 +163,146 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
   const activeBookings = hasActiveAndPast ? bookings.filter(isCurrentOrUpcoming) : bookings;
   const pastBookings = hasActiveAndPast ? bookings.filter((b) => !isCurrentOrUpcoming(b)) : [];
 
+  // Split active into staying (in-house) and upcoming
+  const stayingBookings = activeBookings.filter((b) => b.status === 'CHECKED_IN');
+  const upcomingBookings = activeBookings.filter((b) => b.status !== 'CHECKED_IN');
+
+  /* 1. Hero Card for In-House Active Stay */
+  const renderHeroBookingCard = (b: Booking) => {
+    const inDate = formatStayDateDisplay(b.checkIn);
+    const outDate = formatStayDateDisplay(b.checkOut);
+    const detailUrl = `/guest/bookings/${b.id}${billing ? '/billing' : ''}`;
+    const refCode = formatBookingReference(b.reference);
+    const overdue = bookingOverdue(b);
+    const departureNotice = getDepartureNotice(b.checkOut, overdue);
+
+    return (
+      <article
+        key={b.id}
+        className="guest-card guest-stay-pass-card guest-hero-stay-card is-active-stay"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('a, button')) return;
+          navigate(detailUrl);
+        }}
+      >
+        {/* Top: Status & Live badge on left, ref code on right */}
+        <div className="guest-card-top guest-hero-card-top">
+          <div className="guest-hero-status-group">
+            <BookingStatus booking={b} />
+            <span className="guest-hero-live-chip">Đang diễn ra</span>
+          </div>
+
+          <div className="guest-card-ref-badge">
+            <span className="guest-hero-ref-label">Mã đặt phòng:</span>
+            <h2 className="guest-card-ref-title">{refCode}</h2>
+            <button
+              type="button"
+              className="guest-card-copy-btn"
+              title="Sao chép mã"
+              aria-label={`Sao chép mã ${refCode}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                void navigator.clipboard?.writeText(refCode);
+                toast?.('Đã sao chép mã đặt phòng');
+              }}
+            >
+              <Copy size={11} />
+            </button>
+          </div>
+        </div>
+
+        {/* Center: Room number + Departure Notice, and Stay Dates */}
+        <div className="guest-hero-body">
+          <div className="guest-hero-room-meta">
+            <div className="guest-hero-room-line">
+              <strong className="guest-hero-room-number">Phòng {b.roomNumber}</strong>
+              <div className={`guest-departure-pill tone-${departureNotice.tone}`}>
+                <Clock size={13} />
+                <span>{departureNotice.text}</span>
+              </div>
+            </div>
+            <div className="guest-card-room-line guest-hero-sub-line">
+              <span className="guest-card-guests">{b.guestCount} khách</span>
+              <span className="guest-card-dot" aria-hidden="true">·</span>
+              <span className="guest-card-nights">{b.nights} đêm nghỉ dưỡng</span>
+            </div>
+          </div>
+
+          <div className="guest-card-dates guest-hero-dates">
+            <div className="guest-card-date-col">
+              <span className="guest-card-date-eyebrow">NHẬN PHÒNG</span>
+              <span className="guest-card-date-main">{inDate.dayMonth || b.checkIn}</span>
+              <span className="guest-card-date-sub">{inDate.weekday} · từ 14:00</span>
+              <span className="sr-only">{b.checkIn}</span>
+            </div>
+
+            <div className="guest-card-date-arrow" aria-hidden="true">
+              <ArrowRight size={20} strokeWidth={1.8} />
+            </div>
+
+            <div className="guest-card-date-col">
+              <span className="guest-card-date-eyebrow">TRẢ PHÒNG</span>
+              <span className="guest-card-date-main">{outDate.dayMonth || b.checkOut}</span>
+              <span className="guest-card-date-sub">{outDate.weekday} · trước 12:00</span>
+              <span className="sr-only">{b.checkOut}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer: Price & Primary Context Actions */}
+        <div className="guest-card-footer guest-hero-footer">
+          <div className="guest-card-price-group">
+            <span className="guest-card-price-label">Tổng:</span>
+            <strong className="guest-hero-price-amount whitespace-nowrap">
+              {money(b.totalRoomAmount)}
+            </strong>
+            {b.nights > 1 && (
+              <span className="guest-card-price-sub whitespace-nowrap">
+                ({money(b.nightlyPrice)} / đêm)
+              </span>
+            )}
+          </div>
+
+          <div className="guest-hero-actions">
+            {!billing && (
+              <Link
+                to={`/guest/services?bookingId=${b.id}`}
+                className="guest-card-service-shortcut guest-hero-service-shortcut"
+                onClick={(e) => e.stopPropagation()}
+                title="Đặt dịch vụ phòng"
+              >
+                <BellRing size={13} />
+                <span>Dịch vụ phòng</span>
+              </Link>
+            )}
+            <Link
+              to={`/guest/bookings/${b.id}/billing`}
+              className="guest-card-secondary-shortcut"
+              onClick={(e) => e.stopPropagation()}
+              title="Chi phí & Hóa đơn"
+            >
+              <ReceiptText size={13} />
+              <span>Hóa đơn</span>
+            </Link>
+            <Link
+              to={detailUrl}
+              className="guest-card-main-link guest-hero-detail-link"
+            >
+              <span>{billing && b.status !== 'CANCELLED' ? 'Xem chi phí & hóa đơn' : 'Chi tiết booking'}</span>
+              <ArrowRight size={14} className="guest-card-link-arrow" />
+            </Link>
+          </div>
+        </div>
+      </article>
+    );
+  };
+
+  /* 2. Standard Grid Card for Upcoming and Past Stays */
   const renderBookingCard = (b: Booking) => {
     const inDate = formatStayDateDisplay(b.checkIn);
     const outDate = formatStayDateDisplay(b.checkOut);
     const isCheckedIn = b.status === 'CHECKED_IN';
+    const isCheckedOut = b.status === 'CHECKED_OUT';
     const detailUrl = `/guest/bookings/${b.id}${billing ? '/billing' : ''}`;
     const refCode = formatBookingReference(b.reference);
 
@@ -208,6 +397,28 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
                 <span>Dịch vụ</span>
               </Link>
             )}
+            {isCheckedOut && !billing && (
+              <>
+                <Link
+                  to={`/guest/bookings/${b.id}/billing`}
+                  className="guest-card-secondary-shortcut"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Xem chi phí & hóa đơn"
+                >
+                  <ReceiptText size={12} />
+                  <span>Hóa đơn</span>
+                </Link>
+                <Link
+                  to="/rooms"
+                  className="guest-card-secondary-shortcut"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Đặt lại phòng"
+                >
+                  <RotateCcw size={12} />
+                  <span>Đặt lại</span>
+                </Link>
+              </>
+            )}
             <Link
               to={b.status === 'CANCELLED' ? `/guest/bookings/${b.id}` : detailUrl}
               className="guest-card-main-link"
@@ -231,7 +442,6 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
             ? 'Chọn booking để xem chi phí dự kiến hoặc hóa đơn đã phát hành.'
             : 'Chi tiết kỳ nghỉ của bạn.'
         }
-        action={<LinkButton to="/rooms">Tìm phòng</LinkButton>}
       />
 
       {/* Filter Bar with Tabs & Dropdown */}
@@ -239,6 +449,7 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
         <div className="guest-filter-tabs" role="tablist" aria-label="Lọc theo trạng thái kỳ nghỉ">
           {FILTER_TABS.map((tab) => {
             const isActive = status === tab.id;
+            const count = statusCounts[tab.id];
             return (
               <button
                 key={tab.id}
@@ -248,7 +459,12 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
                 className={`guest-filter-tab ${isActive ? 'is-active' : ''}`}
                 onClick={() => setParams(tab.id ? { status: tab.id } : {})}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                {typeof count === 'number' && (
+                  <span className="guest-filter-tab-count">
+                    {count}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -289,27 +505,42 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
           {query.data.data.length ? (
             hasActiveAndPast ? (
               <div className="guest-grouped-sections">
-                {activeBookings.length > 0 && (
-                  <section className="guest-booking-group-section" aria-label="Kỳ nghỉ hiện tại và sắp tới">
+                {stayingBookings.length > 0 && (
+                  <section className="guest-booking-group-section" aria-label="Kỳ nghỉ đang diễn ra">
                     <div className="guest-group-header">
                       <Sparkles size={16} className="text-emerald-700" />
                       <h3 className="guest-group-title">
-                        Kỳ nghỉ hiện tại & Sắp tới
-                        <span className="guest-group-count">{activeBookings.length}</span>
+                        Kỳ nghỉ đang diễn ra
+                        <span className="guest-group-count">{stayingBookings.length}</span>
+                      </h3>
+                    </div>
+                    <div className="guest-hero-stay-wrap">
+                      {stayingBookings.map(renderHeroBookingCard)}
+                    </div>
+                  </section>
+                )}
+
+                {upcomingBookings.length > 0 && (
+                  <section className="guest-booking-group-section" aria-label="Kỳ nghỉ sắp tới">
+                    <div className="guest-group-header">
+                      <Calendar size={16} className="text-emerald-700" />
+                      <h3 className="guest-group-title">
+                        Kỳ nghỉ sắp tới
+                        <span className="guest-group-count">{upcomingBookings.length}</span>
                       </h3>
                     </div>
                     <div className="booking-list guest-stay-passes-grid">
-                      {activeBookings.map(renderBookingCard)}
+                      {upcomingBookings.map(renderBookingCard)}
                     </div>
                   </section>
                 )}
 
                 {pastBookings.length > 0 && (
-                  <section className="guest-booking-group-section is-past" aria-label="Quá hạn và lịch sử lưu trú">
+                  <section className="guest-booking-group-section is-past" aria-label="Kỳ nghỉ trước đây">
                     <div className="guest-group-header past-header">
                       <Clock size={16} className="text-stone-500" />
                       <h3 className="guest-group-title">
-                        Quá hạn & Lịch sử
+                        Kỳ nghỉ trước đây
                         <span className="guest-group-count">{pastBookings.length}</span>
                       </h3>
                     </div>
@@ -321,7 +552,9 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
               </div>
             ) : (
               <div className="booking-list guest-stay-passes-grid">
-                {bookings.map(renderBookingCard)}
+                {status === 'CHECKED_IN'
+                  ? bookings.map(renderHeroBookingCard)
+                  : bookings.map(renderBookingCard)}
               </div>
             )
           ) : (
@@ -345,6 +578,7 @@ export function MyBookingsPage({ billing = false }: { billing?: boolean }) {
     </div>
   );
 }
+
 
 /* ========================================================
    BOOKING DETAIL PAGE

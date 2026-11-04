@@ -1,3 +1,5 @@
+import { StayHistory } from './stay-history';
+import { ExtendStayDialog } from './extend-stay-dialog';
 import { awaitingOnlinePayment, deskBookingStatusLabel } from './contracts';
 import { useState, type MouseEvent } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
@@ -54,6 +56,7 @@ export function ReceptionDashboard() {
   const [params, setParams] = useSearchParams();
 
   const requests = useRoomRequests();
+  const [extensionBooking, setExtensionBooking] = useState<DeskBooking | null>(null);
   const [serviceBooking, setServiceBooking] = useState<DeskBooking | null>(null);
   const [requestRoom, setRequestRoom] = useState<string | null>(null);
   const [requestsOnly, setRequestsOnly] = useState(false);
@@ -61,6 +64,7 @@ export function ReceptionDashboard() {
   const requestRooms = new Set(pendingOrders.map(order => order.roomNumber));
 
   const floorParam = params.get("floor");
+  const bedsParam = params.get("beds");
   const stateParam = params.get("state");
   const modeParam = params.get("mode");
   const urlRoomId = params.get("roomId");
@@ -76,6 +80,8 @@ export function ReceptionDashboard() {
 
   const [manualSelectedRoom, setManualSelectedRoom] = useState<DeskRoom | null | undefined>(undefined);
   const [manualBookingRoom, setManualBookingRoom] = useState<DeskRoom | null | undefined>(undefined);
+  const [nightSelection, setNightSelection] = useState<{ roomId: string; dates: string[] } | null>(null);
+  const [bookingDates, setBookingDates] = useState<{ checkIn: string; checkOut: string } | null>(null);
 
   const query = useDeskGet<Dashboard>("/front-desk/dashboard");
   const todayStr = query.data?.today ?? hotelToday();
@@ -96,12 +102,14 @@ export function ReceptionDashboard() {
 
   const d = query.data;
   const allRooms = roomsQuery.data?.data || [];
+  const urlRoom = allRooms.find((r) => r.id === urlRoomId);
+  const urlOpensBooking = isBookingMode && !!urlRoom && roomState(urlRoom, todayStr) === 'ready';
 
   // Selected room for action drawer
   const selectedRoom =
     manualSelectedRoom !== undefined
       ? allRooms.find((r) => r.id === manualSelectedRoom?.id) ?? manualSelectedRoom
-      : urlRoomId && !isBookingMode
+      : urlRoomId && !urlOpensBooking
       ? allRooms.find((r) => r.id === urlRoomId) ?? null
       : null;
 
@@ -109,12 +117,18 @@ export function ReceptionDashboard() {
   const bookingRoom =
     manualBookingRoom !== undefined
       ? manualBookingRoom
-      : urlRoomId && isBookingMode
+      : urlRoomId && urlOpensBooking
       ? allRooms.find((r) => r.id === urlRoomId) ?? null
       : null;
 
-  const setSelectedRoom = (r: DeskRoom | null) => setManualSelectedRoom(r);
-  const setBookingRoom = (r: DeskRoom | null) => setManualBookingRoom(r);
+  const setSelectedRoom = (r: DeskRoom | null) => {
+    setNightSelection(null);
+    setManualSelectedRoom(r);
+  };
+  const setBookingRoom = (r: DeskRoom | null) => {
+    setBookingDates(null);
+    setManualBookingRoom(r);
+  };
   const roomWork = useHousekeepingGet<Page<BoardRoom>>(
     `/housekeeping/board?roomId=${selectedRoom?.id ?? ''}&pageSize=1`,
     !!selectedRoom,
@@ -141,6 +155,7 @@ export function ReceptionDashboard() {
         );
 
   const shownRooms = allRooms.filter((r) => {
+    if ((bedsParam === '1' || bedsParam === '2') && r.roomType.bedCount !== Number(bedsParam)) return false;
     if (requestsOnly && !requestRooms.has(r.roomNumber)) return false;
     if (floor !== "All" && String(r.floor) !== floor) return false;
     if (stateParam === "ready") {
@@ -163,9 +178,11 @@ export function ReceptionDashboard() {
     floor === "All" ? floorList : [Number(floor)];
 
   const handleRoomClick = (room: DeskRoom) => {
-    if (isBookingMode) {
+    if (isBookingMode && roomState(room, todayStr) === 'ready') {
+      setSelectedRoom(null);
       setBookingRoom(room);
     } else {
+      setBookingRoom(null);
       setSelectedRoom(room);
     }
   };
@@ -295,6 +312,20 @@ export function ReceptionDashboard() {
                         ))}
                       </div>
 
+                      <div role="group" aria-label="Lọc số giường" className="flex items-center gap-1 border-l border-zinc-200 pl-3">
+                        {[1, 2].map((beds) => (
+                          <button key={beds} type="button" aria-pressed={bedsParam === String(beds)}
+                            onClick={() => {
+                              const next = new URLSearchParams(params);
+                              if (bedsParam === String(beds)) next.delete('beds');
+                              else next.set('beds', String(beds));
+                              setParams(next);
+                            }}
+                            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${bedsParam === String(beds) ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-zinc-500 hover:text-zinc-800'}`}>
+                            <BedDouble className="size-3.5" />{beds} giường
+                          </button>
+                        ))}
+                      </div>
                       <div className="flex items-center gap-3">
                       {requestsOnly && <Link to={`${base}/service-orders`} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</Link>}
                       <button type="button" aria-pressed={requestsOnly} disabled={!requests.data} onClick={() => setRequestsOnly(!requestsOnly)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ${requestsOnly ? "border-amber-400 bg-amber-100 text-amber-900" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
@@ -344,6 +375,7 @@ export function ReceptionDashboard() {
                       </div>
                     ) : (
                       <div className="space-y-4">
+                        {shownRooms.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">Không có phòng phù hợp với bộ lọc.</p>}
                         {shownFloors.map((fl) => {
                         const roomsOnFloor = shownRooms.filter(
                           (r) => Number(r.floor || 1) === fl,
@@ -384,6 +416,8 @@ export function ReceptionDashboard() {
                                     occupiedBooking?.checkOut &&
                                       occupiedBooking.checkOut < todayStr,
                                   );
+
+                                const hasNextBooking = isOverdue && room.bookings.some(b => ["PENDING", "CONFIRMED"].includes(b.status) && b.checkOut > todayStr);
 
                                 const statusToneClass = occupied
                                   ? "border-brand-700 bg-brand-700 text-white shadow-xs"
@@ -439,9 +473,9 @@ export function ReceptionDashboard() {
                                           {isOverdue && (
                                             <span
                                               className="rounded bg-rose-500 text-white px-1.5 py-0.5 text-[9px] font-bold leading-none shrink-0"
-                                              title="Quá hạn ngày trả phòng"
+                                              title={hasNextBooking ? "Quá hạn và có booking kế tiếp. Cần xử lý gia hạn hoặc chuyển phòng." : "Quá hạn ngày trả phòng"}
                                             >
-                                              Quá hạn
+                                              {hasNextBooking ? 'Quá hạn ⚠' : 'Quá hạn'}
                                             </span>
                                           )}
                                           {!occupied && arrivingBooking && (
@@ -499,7 +533,7 @@ export function ReceptionDashboard() {
                                           </span>
                                           <span className="text-[12.5px] sm:text-[13px] font-bold text-white tabular-nums leading-none">
                                             {formatStayDateDisplay(
-                                              occupiedBooking.checkIn,
+                                              occupiedBooking.currentRoomSince ?? occupiedBooking.checkIn,
                                               todayStr,
                                             )}
                                           </span>
@@ -664,19 +698,27 @@ export function ReceptionDashboard() {
                   const nightlyPrice = selectedRoom.roomType?.nightlyPrice || "0";
                   const maxGuests = selectedRoom.roomType?.maxGuests || 2;
 
-                  // 7-day mini schedule calculation based on todayStr
-                  const next7Days = [0, 1, 2, 3, 4, 5, 6].map((offset) => {
-                    const dateStr = shiftDate(todayStr, offset);
+                  const scheduleBooking = occupiedBooking ?? reservedBooking ?? bookings
+                    .filter(b => ['PENDING', 'CONFIRMED'].includes(b.status) && b.checkOut > todayStr)
+                    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
+                  const scheduleStart = scheduleBooking?.checkIn ?? todayStr;
+                  const scheduleNights = scheduleBooking
+                    ? Math.max(1, Math.round((Date.parse(scheduleBooking.checkOut) - Date.parse(scheduleBooking.checkIn)) / 86400000))
+                    : 7;
+                  const scheduleDays = Math.ceil(scheduleNights / 7) * 7;
+                  const next7Days = Array.from({ length: scheduleDays }, (_, offset) => {
+                    const dateStr = shiftDate(scheduleStart, offset);
                     const dObj = new Date(dateStr + "T00:00:00Z");
                     const dayOfWeek = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][dObj.getUTCDay()];
                     const dayOfMonth = dObj.getUTCDate();
 
-                    const bookingOnDate = bookings.find(
+                    const isStayNight = !!scheduleBooking && dateStr >= scheduleBooking.checkIn && dateStr < scheduleBooking.checkOut;
+                    const bookingOnDate = (isStayNight ? scheduleBooking : undefined) ?? bookings.find(
                       (b) => b && b.status !== "CANCELLED" && b.checkIn <= dateStr && dateStr < b.checkOut,
                     );
 
                     let dayStatus: "dirty" | "cleaning" | "occupied" | "booked" | "empty";
-                    if (offset === 0) {
+                    if (dateStr === todayStr) {
                       if (occupiedBooking) dayStatus = "occupied";
                       else if (isDirty) dayStatus = "dirty";
                       else if (isCleaning) dayStatus = "cleaning";
@@ -696,10 +738,30 @@ export function ReceptionDashboard() {
                       dayOfMonth,
                       status: dayStatus,
                       booking: bookingOnDate,
+                      isStayNight,
                     };
                   });
 
                   const vacantNightsCount = next7Days.filter((d) => d.status === "empty").length;
+                  const canSelectNight = (date: string) => date >= todayStr && !isOoo &&
+                    next7Days.some(d => d.dateStr === date && d.status === 'empty');
+                  const selectedNights = nightSelection?.roomId === selectedRoom.id &&
+                    nightSelection.dates.every(canSelectNight) ? nightSelection.dates : [];
+                  const selectNight = (date: string) => {
+                    if (!canSelectNight(date)) return;
+                    if (selectedNights.length === 1 && selectedNights[0] === date) {
+                      setNightSelection(null);
+                      return;
+                    }
+                    let dates = [date];
+                    if (selectedNights.length === 1) {
+                      const start = selectedNights[0] < date ? selectedNights[0] : date;
+                      const end = selectedNights[0] > date ? selectedNights[0] : date;
+                      const range = next7Days.filter(d => d.dateStr >= start && d.dateStr <= end).map(d => d.dateStr);
+                      if (range.every(canSelectNight)) dates = range;
+                    }
+                    setNightSelection({ roomId: selectedRoom.id, dates });
+                  };
 
                   const upcomingBookings = bookings
                     .filter((b) => b && (b.status === "CONFIRMED" || b.status === "PENDING"))
@@ -730,7 +792,7 @@ export function ReceptionDashboard() {
                               </span>
                               <span className="text-zinc-300">•</span>
                               <span className="font-bold text-emerald-800">
-                                {money(nightlyPrice)}/đêm
+                                Giá đặt mới: {money(nightlyPrice)}/đêm
                               </span>
                               <span className="text-zinc-300">•</span>
                               <span className="flex items-center gap-1 text-zinc-600">
@@ -815,20 +877,6 @@ export function ReceptionDashboard() {
                             Xử lý dọn phòng
                           </LinkButton>
                         </div>
-                      ) : isClean ? (
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                              <ShieldCheck className="size-4" />
-                            </div>
-                            <span className="text-xs font-semibold text-emerald-950">
-                              Phòng đã kiểm tra, vệ sinh sạch & sẵn sàng đón khách
-                            </span>
-                          </div>
-                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200/80">
-                            Đạt chuẩn
-                          </span>
-                        </div>
                       ) : null}
 
                       {roomWork.isError && (
@@ -885,10 +933,13 @@ export function ReceptionDashboard() {
                             <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/70">
                               <dt className="text-zinc-500 text-[11px] flex items-center gap-1">
                                 <Receipt className="size-3 text-emerald-600" />
-                                Tiền phòng
+                                Tổng tiền phòng toàn kỳ
                               </dt>
                               <dd className="font-bold text-emerald-800 mt-1">
                                 {money(occupiedBooking.totalRoomAmount)}
+                              </dd>
+                              <dd className="text-[10px] text-zinc-500 mt-1">
+                                {occupiedBooking.nightlyPrice ? `Giá lúc đặt: ${money(occupiedBooking.nightlyPrice)}/đêm. ` : ''}Tổng gồm các lần gia hạn.
                               </dd>
                             </div>
                             <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/70 sm:col-span-1">
@@ -897,11 +948,12 @@ export function ReceptionDashboard() {
                                 Kỳ lưu trú hiện tại
                               </dt>
                               <dd className="font-semibold text-zinc-800 mt-1 text-[11px] leading-tight">
-                                <div>{occupiedBooking.checkIn} → {occupiedBooking.checkOut}</div>
-                                <div className="text-[10px] text-zinc-500 font-normal">({occupiedBooking.nights} đêm · {occupiedBooking.guestCount} khách)</div>
+                                <div>{occupiedBooking.currentRoomSince ?? occupiedBooking.checkIn} → {occupiedBooking.checkOut}</div>
+                                <div className="text-[10px] text-zinc-500 font-normal">({occupiedBooking.guestCount} khách · Toàn bộ lưu trú: {occupiedBooking.nights} đêm)</div>
                               </dd>
                             </div>
                           </dl>
+                          <StayHistory bookingId={occupiedBooking.id} />
                         </div>
                       )}
 
@@ -973,22 +1025,28 @@ export function ReceptionDashboard() {
                           <div>
                             <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
                               <Calendar className="size-3.5 text-zinc-400" />
-                              LỊCH ĐẶT 7 NGÀY TỚI
+                              {scheduleBooking ? 'LỊCH LƯU TRÚ & TÌNH TRẠNG PHÒNG' : 'LỊCH ĐẶT 7 NGÀY TỚI'}
                             </span>
                             <span className="text-[11px] text-zinc-500 mt-0.5 block">
-                              {formatStayDateDisplay(todayStr)} → {formatStayDateDisplay(shiftDate(todayStr, 6))}
+                              {formatStayDateDisplay(scheduleStart)} → {formatStayDateDisplay(shiftDate(scheduleStart, scheduleDays - 1))}
+                              {scheduleBooking && ` · ${scheduleNights} đêm · Trả phòng ${formatStayDateDisplay(scheduleBooking.checkOut)}`}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-[11px] text-emerald-800">Còn {vacantNightsCount} đêm trống</span>
-                            {occupiedBooking && <Button variant="secondary" onClick={() => { const r = selectedRoom; setSelectedRoom(null); setBookingRoom(r); }}><Plus className="size-3.5" /> Đặt phòng</Button>}
+                            {selectedNights.length > 0 && <Button variant="secondary" onClick={() => {
+                              const dates = { checkIn: selectedNights[0], checkOut: shiftDate(selectedNights[selectedNights.length - 1], 1) };
+                              const room = selectedRoom;
+                              setSelectedRoom(null);
+                              setBookingRoom(room);
+                              setBookingDates(dates);
+                            }}><Plus className="size-3.5" />Đặt phòng ({selectedNights.length} đêm)</Button>}
                           </div>
                         </div>
 
-                        {/* 7-day strip */}
-                        <div className="grid grid-cols-7 gap-1.5 text-center">
+                        <div role="list" aria-label="Các đêm lưu trú" className="grid grid-cols-[repeat(auto-fit,minmax(75px,1fr))] gap-2 text-center">
                           {next7Days.map((d, idx) => {
-                            const isToday = idx === 0;
+                            const isToday = d.dateStr === todayStr;
                             const isBooked = d.status === "booked" || d.status === "occupied";
                             const isHk = d.status === "dirty" || d.status === "cleaning";
                             const bgClass = isHk
@@ -1005,20 +1063,32 @@ export function ReceptionDashboard() {
                             return (
                               <div
                                 key={d.dateStr}
-                                className={`p-2 rounded-xl border ${bgClass} ${
-                                  isToday ? "ring-2 ring-emerald-600 shadow-2xs font-bold" : ""
+                                role="listitem"
+                                aria-current={isToday ? 'date' : undefined}
+                                aria-label={`${d.isStayNight ? `Đêm ${idx + 1}, ` : `${tagLabel}, `}${formatStayDateDisplay(d.dateStr)}${isToday ? ', Hôm nay' : ''}`}
+                                className={`rounded-xl border ${bgClass} ${selectedNights.includes(d.dateStr) ? 'ring-2 ring-sky-600 !bg-sky-100' : ''} ${
+                                  isToday ? "ring-2 ring-emerald-700 shadow-2xs font-bold !bg-emerald-100 !text-emerald-950" : ""
                                 } transition-all`}
                               >
+                                <button type="button" className="h-full w-full rounded-xl p-2 disabled:cursor-default enabled:cursor-pointer enabled:hover:bg-emerald-100/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                                  disabled={!canSelectNight(d.dateStr)} aria-pressed={selectedNights.includes(d.dateStr)}
+                                  aria-label={`Chọn đêm ${formatStayDateDisplay(d.dateStr)}`} onClick={() => selectNight(d.dateStr)}>
                                 <span className="text-[10px] text-zinc-400 block font-medium">{d.dayOfWeek}</span>
-                                <strong className="text-xs block my-0.5">{d.dayOfMonth}</strong>
-                                <span className="text-[9.5px] font-semibold block">{tagLabel}</span>
+                                <strong className="text-xs block my-0.5">{formatStayDateDisplay(d.dateStr)}</strong>
+                                <span className="text-[9.5px] font-semibold block">{d.isStayNight ? `Đêm ${idx + 1}` : tagLabel}</span>
+                                {isToday && <span className="mt-1 inline-block rounded bg-emerald-800 px-1.5 py-0.5 text-[9px] font-bold text-white">Hôm nay</span>}
+                                {selectedNights.includes(d.dateStr) && <span className="block text-[9px] font-bold text-sky-800">Đã chọn</span>}
+                                </button>
                               </div>
                             );
                           })}
                         </div>
 
+                        {!isOoo && <p className="text-[11px] text-zinc-500" aria-live="polite">{selectedNights.length > 0
+                          ? `Đã chọn ${selectedNights.length} đêm: nhận ${formatStayDateDisplay(selectedNights[0])}, trả ${formatStayDateDisplay(shiftDate(selectedNights[selectedNights.length - 1], 1))}.`
+                          : 'Chọn một đêm trống, hoặc chọn đêm đầu và đêm cuối liên tiếp để đặt phòng.'}</p>}
                         {/* Next Booking preview or Empty note */}
-                        {nextUpcomingBooking ? (
+                        {nextUpcomingBooking && nextUpcomingBooking.id !== scheduleBooking?.id ? (
                           <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs flex items-center justify-between">
                             <div>
                               <span className="text-zinc-400 text-[10px] block font-medium">Khách sắp tới tiếp theo</span>
@@ -1037,13 +1107,14 @@ export function ReceptionDashboard() {
                               Xem
                             </LinkButton>
                           </div>
-                        ) : (
+                        ) : !scheduleBooking ? (
                           <div className="p-2.5 rounded-xl bg-zinc-50/70 border border-dashed border-zinc-200 text-center text-zinc-500 text-[11px]">
                             Phòng chưa có lịch đặt trong tuần tới. Sẵn sàng đón khách mới.
                           </div>
-                        )}
+                        ) : null}
                       </div>
-                      {occupiedBooking && <div className="room-checkout-footer">
+                      {occupiedBooking && <div className="room-checkout-footer flex gap-2">
+                        <Button variant="secondary" onClick={() => { setExtensionBooking({ ...occupiedBooking, roomNumber: selectedRoom.roomNumber }); setSelectedRoom(null); }}>Gia hạn</Button>
                         <LinkButton to={`${base}/bookings/${occupiedBooking.id}/billing`} onClick={() => setSelectedRoom(null)} className="w-full justify-center"><Receipt className="size-4" /> Trả phòng & Hóa đơn</LinkButton>
                       </div>}
                     </div>
@@ -1052,22 +1123,27 @@ export function ReceptionDashboard() {
               </Dialog>
             )}
 
+            {extensionBooking && <ExtendStayDialog booking={extensionBooking} onClose={() => setExtensionBooking(null)} />}
             {serviceBooking && <CreateServiceOrder booking={serviceBooking} onClose={() => setServiceBooking(null)} onCreated={() => { setServiceBooking(null); void refresh(); }} />}
 
             {/* Unified Booking Modal */}
-            <UnifiedBookingModal
+            {bookingRoom && <UnifiedBookingModal
               open={Boolean(bookingRoom)}
               onClose={() => setBookingRoom(null)}
               room={bookingRoom}
-              initialCheckIn={todayStr}
-              initialCheckOut={shiftDate(todayStr, 1)}
+              initialCheckIn={bookingDates?.checkIn ?? todayStr}
+              initialCheckOut={bookingDates?.checkOut ?? shiftDate(todayStr, 1)}
               initialGuests={2}
               onSuccess={() => {
                 setBookingRoom(null);
+                const next = new URLSearchParams(params);
+                next.delete('mode');
+                next.delete('roomId');
+                setParams(next, { replace: true });
                 void roomsQuery.refetch();
                 void query.refetch();
               }}
-            />
+            />}
           </>
         )
       )}
