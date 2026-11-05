@@ -7,14 +7,14 @@ test('revenue totals, charts, filters, pagination, CSV, and links', async ({ pag
   const today = hotelToday();
   const date = today + 'T05:00:00Z';
   const receipt = {
-    bookingId: '00000000-0000-4000-8000-000000000001',
+    guestId: 'guest-1', bookingId: '00000000-0000-4000-8000-000000000001',
     reference: 'REV-CASH', room: '101', guest: '=1+1', date,
     amount: '100000.00', roomAmount: '100000.00', serviceAmount: '0.00', method: 'CASH', source: 'Tiền phòng', collector: 'Lễ tân A', refund: false,
   };
   const rows = [
     { ...receipt, id: 'cash' },
     ...Array.from({ length: 15 }, (_, i) => ({
-      ...receipt, id: 'bank-' + i, reference: 'REV-BANK-' + i, amount: '20000.00', roomAmount: '0.00', serviceAmount: '20000.00',
+      ...receipt, bookingId: '00000000-0000-4000-8000-000000000002', id: 'bank-' + i, reference: 'REV-BANK-' + i, amount: '20000.00', roomAmount: '0.00', serviceAmount: '20000.00',
       method: 'BANK_TRANSFER', source: 'payOS · Dịch vụ',
     })),
     { ...receipt, id: 'refund', reference: 'REV-REFUND', amount: '-50000.00', roomAmount: '0.00', serviceAmount: '-50000.00', refund: true },
@@ -46,14 +46,12 @@ test('revenue totals, charts, filters, pagination, CSV, and links', async ({ pag
   await expect(page.getByRole('link', { name: 'Mở hàng chờ đối soát' })).toHaveAttribute('href', '/reception/billing');
 
   const table = page.getByRole('table', { name: 'Giao dịch doanh thu' });
-  await expect(table.locator('tbody tr:not(.revenue-day)')).toHaveCount(15);
-  await page.getByRole('button', { name: 'Trang sau' }).click();
-  await expect(table.locator('tbody tr:not(.revenue-day)')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Trang trước' }).click();
-  await expect(table.locator('tbody tr:not(.revenue-day)')).toHaveCount(15);
+  await expect(table.locator('.revenue-guest')).toHaveCount(1);
+  await table.getByRole('button', { name: '=1+1 · 17 giao dịch' }).click();
+  await expect(table.locator('tbody tr:not(.revenue-day):not(.revenue-guest)')).toHaveCount(17);
   const method = page.getByRole('group', { name: 'Phương thức thanh toán' });
   await method.getByRole('button', { name: 'Tiền mặt', exact: true }).click();
-  await expect(table.locator('tbody tr:not(.revenue-day)')).toHaveCount(2);
+  await expect(table.locator('tbody tr:not(.revenue-day):not(.revenue-guest)')).toHaveCount(2);
   await expect(table.getByText('Đã hoàn tiền')).toBeVisible();
   await expect(table.getByText('Hôm nay', { exact: true })).toBeVisible();
   await expect(table.getByText('Thu tiền phòng', { exact: true })).toBeVisible();
@@ -70,7 +68,7 @@ test('revenue totals, charts, filters, pagination, CSV, and links', async ({ pag
   expect(csv).toContain('-50000.00');
   expect(csv).not.toContain('REV-BANK');
   await method.getByRole('button', { name: 'Chuyển khoản', exact: true }).click();
-  await expect(table.locator('tbody tr:not(.revenue-day)')).toHaveCount(15);
+  await expect(table.locator('tbody tr:not(.revenue-day):not(.revenue-guest)')).toHaveCount(15);
   await expect(table.getByText('payOS · Dịch vụ')).toHaveCount(15);
 
   await page.getByRole('button', { name: '14 ngày', exact: true }).click();

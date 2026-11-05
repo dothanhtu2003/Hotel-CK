@@ -8,7 +8,7 @@ const hotelOffset = 7 * 3600000;
 const bookingSelect = {
   id: true, reference: true,
   room: { select: { roomNumber: true } },
-  user: { select: { fullName: true } },
+  user: { select: { id: true, fullName: true } },
   invoice: { select: { id: true } },
 } satisfies Prisma.BookingSelect;
 
@@ -32,7 +32,7 @@ function entry(id: string, booking: BookingInfo, date: Date, amount: Prisma.Deci
   method: 'CASH' | 'BANK_TRANSFER', source: string, collector: string | null, roomAmount: Prisma.Decimal, refund = false) {
   return {
     id, bookingId: booking.id, reference: booking.reference, invoiceId: booking.invoice?.id,
-    room: booking.room.roomNumber, guest: booking.user.fullName, date: date.toISOString(),
+    room: booking.room.roomNumber, guestId: booking.user.id, guest: booking.user.fullName, date: date.toISOString(),
     amount: amount.toFixed(2), roomAmount: roomAmount.toFixed(2), serviceAmount: amount.sub(roomAmount).toFixed(2), method, source, collector, refund,
   };
 }
