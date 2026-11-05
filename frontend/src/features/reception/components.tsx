@@ -1,8 +1,9 @@
+import { DeskLink } from "./navigation";
+import { useDeskNavigate } from "./navigation-state";
 import { awaitingOnlinePayment, deskBookingStatusLabel } from './contracts';
 import { CheckoutSummary } from "./reservation-panels";
 import { CheckInWizard } from "./check-in";
 import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
 import { useMutation } from "@tanstack/react-query";
 import { BedDouble, LogOut } from "lucide-react";
 import { Button, Dialog, EmptyState, Table } from "../../components/ui";
@@ -123,7 +124,7 @@ export function BookingTable({
   billing?: boolean;
 }) {
   const base = useDeskBase();
-  const navigate = useNavigate();
+  const navigate = useDeskNavigate();
   return (
     <Table
       caption="Danh sách booking"
@@ -152,29 +153,32 @@ export function BookingTable({
             const contact = b.customer?.phone || b.customer?.email || "Tại quầy";
             return (
               <div className="flex items-center gap-2.5">
-                <Link
+                <DeskLink
                   to={`${base}/bookings/${b.id}`}
+                  onClick={(event) => event.stopPropagation()}
                   className="shrink-0 transition-opacity hover:opacity-80"
                   tabIndex={-1}
                   aria-hidden="true"
                 >
                   <Avatar name={guestName} />
-                </Link>
+                </DeskLink>
                 <div className="min-w-0">
-                  <Link
+                  <DeskLink
                     to={`${base}/bookings/${b.id}`}
+                    onClick={(event) => event.stopPropagation()}
                     className="font-semibold text-zinc-900 hover:text-brand-700 hover:underline block truncate text-sm transition-colors"
                   >
                     {guestName}
-                  </Link>
+                  </DeskLink>
                   <div className="flex items-center gap-1.5 text-xs text-zinc-500 pt-0.5">
-                    <Link
+                    <DeskLink
                       to={`${base}/bookings/${b.id}`}
+                      onClick={(event) => event.stopPropagation()}
                       className="font-mono font-medium text-brand-700 hover:underline tracking-tight truncate max-w-[140px] inline-block align-bottom"
                       title={b.reference}
                     >
                       {b.reference}
-                    </Link>
+                    </DeskLink>
                     <span>·</span>
                     <span className="text-zinc-400 truncate max-w-[130px]">{contact}</span>
                   </div>
@@ -237,20 +241,20 @@ export function BookingTable({
               onClick={(e) => e.stopPropagation()}
             >
               {billing ? (
-                <Link
+                <DeskLink
                   to={`${base}/bookings/${b.id}/billing`}
                   className="inline-flex items-center rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-900 transition-colors shadow-2xs"
                 >
                   Xem chi phí
-                </Link>
+                </DeskLink>
               ) : b.status === "CHECKED_IN" ? (
-                <Link
+                <DeskLink
                   to={`${base}/bookings/${b.id}/billing`}
                   className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs"
                 >
                   <LogOut className="size-3" />
                   Trả phòng / Hóa đơn
-                </Link>
+                </DeskLink>
               ) : ["PENDING", "CONFIRMED"].includes(b.status) && !awaitingOnlinePayment(b) ? (
                 <CheckInWizard
                   bookingId={b.id}

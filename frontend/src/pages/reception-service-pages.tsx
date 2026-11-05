@@ -1,7 +1,9 @@
+import { DeskLink, DeskLinkButton, DeskBackLink } from "../features/reception/navigation";
+import { useDeskNavigate } from "../features/reception/navigation-state";
 import { serviceOrderLabel } from '../features/reception/service-order-label';
 import { useState } from "react";
 import "./reception-service-pages.css";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { CreateServiceOrder } from "../features/reception/create-service-order";
 import {
   ArrowLeft,
@@ -26,7 +28,6 @@ import { Button } from "../components/ui";
 import {
   EmptyState,
   ErrorState,
-  LinkButton,
   Pagination,
   Table,
 } from "../components/ui";
@@ -60,7 +61,7 @@ type DeskOrder = Order & {
 
 export function ReceptionOrdersPage() {
   const [createOpen, setCreateOpen] = useState(false);
-  const navigate = useNavigate();
+  const navigate = useDeskNavigate();
   const [params, setParams] = useSearchParams();
   const base = useDeskBase();
   const page = pageNumber(params.get("page"));
@@ -267,12 +268,12 @@ export function ReceptionOrdersPage() {
                     title: "MÃ ĐƠN",
                     render: (o) => (
                       <div className="space-y-0.5">
-                        <Link
+                        <DeskLink
                           to={`${base}/service-orders/${o.id}`}
                           className="font-mono text-xs font-semibold text-brand-700 hover:underline block"
                         >
                           {o.id.slice(0, 8)}
-                        </Link>
+                        </DeskLink>
                         <span className="text-[11px] text-zinc-400 flex items-center gap-1">
                           <Clock className="size-3" />
                           {new Date(o.orderedAt).toLocaleString("vi-VN", {
@@ -293,12 +294,12 @@ export function ReceptionOrdersPage() {
                           <span className="inline-flex items-center rounded bg-brand-50 px-1.5 py-0.5 text-xs font-bold text-brand-800">
                             P.{o.roomNumber}
                           </span>
-                          <Link
+                          <DeskLink
                             to={`${base}/bookings/${o.bookingId}`}
                             className="text-xs font-medium text-zinc-900 hover:text-brand-700"
                           >
                             {o.customerName}
-                          </Link>
+                          </DeskLink>
                         </div>
                         <span className="text-xs text-zinc-500 block">
                           {o.reference}
@@ -347,12 +348,12 @@ export function ReceptionOrdersPage() {
                     title: "THAO TÁC",
                     render: (o) => (
                       <div className="service-order-actions">
-                        <LinkButton
+                        <DeskLinkButton
                           variant="secondary"
                           to={`${base}/service-orders/${o.id}`}
                         >
                           Chi tiết
-                        </LinkButton>
+                        </DeskLinkButton>
                         {o.canProcess && <ServiceOrderActions order={o} />}
                       </div>
                     ),
@@ -437,13 +438,13 @@ export function ReceptionOrderDetailPage() {
     <div className="desk-page space-y-4 max-w-5xl mx-auto pb-12">
       {/* 1. Top Navigation & Order ID */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs service-order-no-print">
-        <Link
+        <DeskBackLink
           to={base + "/service-orders"}
           className="inline-flex items-center gap-1.5 font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
         >
           <ArrowLeft className="size-4" />
           <span>Quay lại danh sách đơn dịch vụ</span>
-        </Link>
+        </DeskBackLink>
         <button
           type="button"
           onClick={handleCopyId}
@@ -540,13 +541,13 @@ export function ReceptionOrderDetailPage() {
                 </span>
               </div>
 
-              <Link
+              <DeskLink
                 to={`${base}/bookings/${o.bookingId}`}
                 className="text-xs font-medium text-brand-700 hover:underline inline-flex items-center gap-1 shrink-0"
               >
                 <span>Booking #{booking.data.reference}</span>
                 <ExternalLink className="size-3" />
-              </Link>
+              </DeskLink>
             </div>
           ) : null}
 
@@ -696,14 +697,14 @@ export function ReceptionOrderDetailPage() {
               )}
 
               {booking.data && (
-                <LinkButton
+                <DeskLinkButton
                   to={`${base}/bookings/${o.bookingId}`}
                   variant="secondary"
                   className="w-full justify-center py-2 text-xs font-medium text-zinc-700 rounded-lg gap-2 shadow-2xs"
                 >
                   <ExternalLink className="size-3.5 text-zinc-500" />
                   Xem chi tiết booking #{booking.data.reference}
-                </LinkButton>
+                </DeskLinkButton>
               )}
             </div>
           </div>

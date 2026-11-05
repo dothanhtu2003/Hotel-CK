@@ -1,3 +1,4 @@
+import { DeskLink } from '../reception/navigation';
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Page } from '../guest/contracts';
@@ -265,13 +266,13 @@ export function RoomBoard({
                       icon={<CheckCircle2 className="size-3.5" />}
                     />
                   )}
-                  <Link
+                  <DeskLink
                     className="button button-secondary hk-btn-task"
                     to={`${base}/tasks/${r.openTask!.id}`}
                   >
                     <ClipboardList className="size-3.5" />
                     Chi tiết công việc
-                  </Link>
+                  </DeskLink>
                 </div>
               ) : onCreate ? (
                 <Button
@@ -322,12 +323,12 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
         {
           title: 'PHÒNG',
           render: (t) => (
-            <Link className="text-link font-bold text-zinc-900" to={`${base}/tasks/${t.id}`}>
+            <DeskLink className="text-link font-bold text-zinc-900" to={`${base}/tasks/${t.id}`}>
               Phòng {t.room.roomNumber}
               <span className="block text-[11px] font-normal text-zinc-500">
                 Tầng {t.room.floor} · {cleanRoomTypeName(t.room.roomType.name)}
               </span>
-            </Link>
+            </DeskLink>
           ),
         },
         {
@@ -382,12 +383,12 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
                   className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-emerald-50 hover:!bg-emerald-100 !text-emerald-800 !border !border-emerald-200 !rounded-md"
                 />
               )}
-              <Link
+              <DeskLink
                 className="text-xs text-brand-700 hover:underline font-medium px-1.5 py-1"
                 to={`${base}/tasks/${t.id}`}
               >
                 Chi tiết →
-              </Link>
+              </DeskLink>
             </div>
           ),
         },

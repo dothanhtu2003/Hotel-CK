@@ -1,5 +1,5 @@
+import { DeskLink } from "./navigation";
 import { useRef, useState } from 'react';
-import { Link } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -49,7 +49,7 @@ export function CheckInWizard({ bookingId, checkIn, checkOut, variant = 'seconda
     }}>{unavailableReason || 'Nhận phòng'}</Button>
     {error && <div role="alert" className="max-w-sm rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
       <p>{error}</p>
-      {room?.id && <Link className="mt-2 inline-block font-semibold underline" to={`${base}?roomId=${room.id}`}>Mở phòng để xử lý</Link>}
+      {room?.id && <DeskLink className="mt-2 inline-block font-semibold underline" to={`${base}?roomId=${room.id}`}>Mở phòng để xử lý</DeskLink>}
     </div>}
   </div>;
 }

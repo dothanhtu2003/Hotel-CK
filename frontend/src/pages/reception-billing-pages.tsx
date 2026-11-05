@@ -1,6 +1,7 @@
+import { DeskLink, DeskBackLink } from "../features/reception/navigation";
 import "../features/reception/billing-workspace.css";
 import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import {
   AlertCircle,
   ArrowLeft,
@@ -83,9 +84,9 @@ export function ReceptionBillingPage() {
 
   return (
     <div className="billing-workspace">
-      <Link className="billing-back" to={`${base}/billing`}>
+      <DeskBackLink className="billing-back" to={`${base}/billing`}>
         <ArrowLeft className="size-3.5" /> Danh sách thu ngân
-      </Link>
+      </DeskBackLink>
 
       <header className="billing-header-card">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -116,12 +117,12 @@ export function ReceptionBillingPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link
+            <DeskLink
               to={`${base}/bookings/${id}`}
               className="billing-profile-link"
             >
               Hồ sơ đặt phòng →
-            </Link>
+            </DeskLink>
           </div>
         </div>
       </header>
@@ -311,10 +312,10 @@ export function ReceptionBillingPage() {
               </div>
             ) : (
               <div className="space-y-3 pt-1">
-                <Link className="billing-invoice-btn" to={`${base}/invoices/${i.id}`}>
+                <DeskLink className="billing-invoice-btn" to={`${base}/invoices/${i.id}`}>
                   <Receipt className="size-4" />
                   Xem & in hóa đơn
-                </Link>
+                </DeskLink>
                 {i.status !== "PAID" && b.status !== "CANCELLED" && (
                   <PaymentForm key={i.id} invoice={i} />
                 )}
@@ -394,12 +395,12 @@ export function ReceptionInvoicePage() {
     <div className="desk-page space-y-5 max-w-5xl mx-auto pb-12">
       {/* Top Breadcrumb */}
       <div>
-        <Link
+        <DeskBackLink
           to={`${base}/bookings/${i.bookingId}/billing`}
           className="billing-back"
         >
           <ArrowLeft className="size-3.5" /> Quay lại chi phí booking
-        </Link>
+        </DeskBackLink>
       </div>
 
       {/* Header Card */}

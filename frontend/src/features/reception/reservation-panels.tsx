@@ -1,5 +1,5 @@
+import { DeskLink } from "./navigation";
 import { useState } from "react";
-import { Link } from "react-router";
 import { ErrorState, Pagination, Table } from "../../components/ui";
 import { Skeleton } from "../guest/components";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
@@ -66,9 +66,9 @@ export function ReservationPanels({ bookingId }: { bookingId: string }) {
             </dl>
             {preview.data!.counterPaidAmount && <p>Dịch vụ đã thu riêng: {money(preview.data!.counterPaidAmount)}.</p>}
             <p>{preview.data!.pendingOrderCount} đơn dịch vụ chờ xử lý.</p>
-            <Link to={`${base}/bookings/${bookingId}/billing`}>
+            <DeskLink to={`${base}/bookings/${bookingId}/billing`}>
               Chi phí & hóa đơn →
-            </Link>
+            </DeskLink>
           </>
         ))}
       {tab === "orders" &&
@@ -89,11 +89,11 @@ export function ReservationPanels({ bookingId }: { bookingId: string }) {
                 {
                   title: "Dịch vụ",
                   render: (o) => (
-                    <Link to={`${base}/service-orders/${o.id}`}>
+                    <DeskLink to={`${base}/service-orders/${o.id}`}>
                       {o.items
                         .map((i) => `${i.serviceName} × ${i.quantity}`)
                         .join(", ")}
-                    </Link>
+                    </DeskLink>
                   ),
                 },
                 {
@@ -136,9 +136,9 @@ export function ReservationPanels({ bookingId }: { bookingId: string }) {
                 { title: "Trạng thái", render: (p) => p.status },
               ]}
             />
-            <Link to={`${base}/invoices/${invoice.data.id}`}>
+            <DeskLink to={`${base}/invoices/${invoice.data.id}`}>
               Mở hóa đơn & biên nhận →
-            </Link>
+            </DeskLink>
           </>
         ) : (
           <p>Chưa phát hành hóa đơn.</p>

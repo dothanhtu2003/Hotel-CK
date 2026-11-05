@@ -1,3 +1,5 @@
+import { useSearchParams } from 'react-router';
+import { DeskLink } from "./navigation";
 import { ExtendStayDialog } from './extend-stay-dialog';
 import {
   AlertCircle,
@@ -13,7 +15,6 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useState } from "react";
-import { Link } from "react-router";
 import { Dialog, ErrorState, Pagination, Table } from "../../components/ui";
 import { Badge } from "../../components/kamra-ui";
 import { Skeleton } from "../guest/components";
@@ -51,13 +52,26 @@ function shiftDay(isoDate: string, days: number): string {
 
 export function CashierPage() {
   const base = useDeskBase();
-  const [group, setGroup] = useState("departures"), [date, setDate] = useState(hotelToday);
-  const [search, setSearch] = useState(""), [q, setQ] = useState(""), [page, setPage] = useState(1);
+  const [filters, setFilters] = useSearchParams();
+  const group = groups.find(({ id }) => id === filters.get("group"))?.id ?? "departures";
+  const date = filters.get("date") || hotelToday();
+  const q = filters.get("q") || "";
+  const page = Math.max(1, Number.parseInt(filters.get("page") ?? "", 10) || 1);
+  const [search, setSearch] = useState(q);
   const [overdue, setOverdue] = useState<BillingRow | null>(null);
   const [selected, setSelected] = useState<BillingRow | null>(null);
   const params = new URLSearchParams({ group, date, q, page: String(page), pageSize: "15" });
   const query = useDeskGet<Page<BillingRow> & { counts: Record<string, number> }>(`/front-desk/billing?${params}`);
-  const selectGroup = (value: string) => { setGroup(value); setPage(1); };
+  const updateFilters = (changes: Record<string, string>) => {
+    const next = new URLSearchParams(filters);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    setFilters(next, { replace: true });
+  };
+  const selectGroup = (value: string) => updateFilters({ group: value, page: "" });
+  const selectDate = (value: string) => updateFilters({ date: value, page: "" });
 
   const isToday = date === hotelToday();
 
@@ -75,7 +89,7 @@ export function CashierPage() {
               type="button"
               className="cashier-date-arrow-btn"
               aria-label="Ngày trước"
-              onClick={() => { setDate(shiftDay(date, -1)); setPage(1); }}
+              onClick={() => selectDate(shiftDay(date, -1))}
             >
               <ChevronLeft size={16} />
             </button>
@@ -93,8 +107,7 @@ export function CashierPage() {
                 value={date}
                 onChange={e => {
                   if (e.target.value) {
-                    setDate(e.target.value);
-                    setPage(1);
+                    selectDate(e.target.value);
                   }
                 }}
               />
@@ -104,7 +117,7 @@ export function CashierPage() {
               type="button"
               className="cashier-date-arrow-btn"
               aria-label="Ngày sau"
-              onClick={() => { setDate(shiftDay(date, 1)); setPage(1); }}
+              onClick={() => selectDate(shiftDay(date, 1))}
             >
               <ChevronRight size={16} />
             </button>
@@ -113,7 +126,7 @@ export function CashierPage() {
               <button
                 type="button"
                 className="cashier-today-btn"
-                onClick={() => { setDate(hotelToday()); setPage(1); }}
+                onClick={() => selectDate(hotelToday())}
               >
                 Về hôm nay
               </button>
@@ -174,8 +187,7 @@ export function CashierPage() {
           className="cashier-filters"
           onSubmit={e => {
             e.preventDefault();
-            setQ(search.trim());
-            setPage(1);
+            updateFilters({ q: search.trim(), page: "" });
           }}
         >
           <div className="cashier-search-wrap">
@@ -193,8 +205,7 @@ export function CashierPage() {
                 aria-label="Xóa tìm kiếm"
                 onClick={() => {
                   setSearch("");
-                  setQ("");
-                  setPage(1);
+                  updateFilters({ q: "", page: "" });
                 }}
               >
                 <X size={13} />
@@ -334,7 +345,7 @@ export function CashierPage() {
                           <span>Thu tiền</span>
                         </button>
                       ) : r.invoiceId ? (
-                        <Link
+                        <DeskLink
                           className="cashier-action-btn btn-invoice"
                           to={`${base}/invoices/${r.invoiceId}`}
                           aria-label={`Xem hóa đơn phòng ${r.roomNumber}`}
@@ -342,7 +353,7 @@ export function CashierPage() {
                         >
                           <FileText size={13} />
                           <span>Hóa đơn</span>
-                        </Link>
+                        </DeskLink>
                       ) : (
                         <button
                           type="button"
@@ -360,7 +371,7 @@ export function CashierPage() {
             />
             <footer>
               <span>{query.data!.meta.total} booking</span>
-              <Pagination {...query.data!.meta} onChange={setPage} />
+              <Pagination {...query.data!.meta} onChange={(value) => updateFilters({ page: String(value) })} />
             </footer>
           </>
         )}
@@ -414,9 +425,9 @@ function BillingDrawer({ booking, onClose }: { booking: BillingRow; onClose: () 
 
           {invoice.data ? (
             <>
-              <Link className="cashier-link" to={`${base}/invoices/${invoice.data.id}`}>
+              <DeskLink className="cashier-link" to={`${base}/invoices/${invoice.data.id}`}>
                 Xem / in hóa đơn
-              </Link>
+              </DeskLink>
               {booking.status !== "CANCELLED" && <PaymentForm invoice={invoice.data} />}
               <h3>Lịch sử thanh toán</h3>
               {!invoice.data.payments.length && <p className="text-stone-500 text-xs">Chưa ghi nhận khoản thu.</p>}
@@ -442,9 +453,9 @@ function BillingDrawer({ booking, onClose }: { booking: BillingRow; onClose: () 
                   ? "Booking đã hủy. Kiểm tra chi tiết trước khi xử lý chi phí."
                   : "Chi phí tạm tính. Mở hồ sơ để kiểm tra dịch vụ và phát hành hóa đơn trước khi thu tiền."}
               </p>
-              <Link className="cashier-link" to={`${base}/bookings/${booking.id}/billing`}>
+              <DeskLink className="cashier-link" to={`${base}/bookings/${booking.id}/billing`}>
                 Mở chi phí & phát hành hóa đơn
-              </Link>
+              </DeskLink>
             </div>
           )}
         </>
@@ -471,9 +482,9 @@ function PaymentReviewQueue() {
       {data.payments.map(p => (
         <div key={p.id}>
           <p>
-            <Link to={`${base}/bookings/${p.bookingId}`}>
+            <DeskLink to={`${base}/bookings/${p.bookingId}`}>
               {p.reference} · {p.customerName}
-            </Link>{" "}
+            </DeskLink>{" "}
             · Đã nhận {money(p.amount)} · Cần kiểm tra hoàn tiền. Chỉ xác nhận hoàn sau khi kiểm tra giao dịch ngân hàng.
           </p>
           <ResolveRefund id={p.id} onDone={() => void query.refetch()} />
@@ -526,7 +537,7 @@ export function StaleBookingQueue() {
       <summary>Booking chờ quá 24 giờ ({rows.length})</summary>
       {rows.map(b => (
         <p key={b.id}>
-          <Link to={`${base}/bookings/${b.id}`}>{b.reference}</Link>
+          <DeskLink to={`${base}/bookings/${b.id}`}>{b.reference}</DeskLink>
         </p>
       ))}
     </details>

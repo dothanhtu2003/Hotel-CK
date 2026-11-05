@@ -1,3 +1,4 @@
+import { DeskBackLink, DeskLink } from '../features/reception/navigation';
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../features/auth/auth-context';
@@ -491,12 +492,12 @@ export function HousekeepingDashboard() {
                         )}
 
                         <div className="flex items-center justify-between pt-1">
-                          <Link
+                          <DeskLink
                             to={`${base}/tasks/${task.id}`}
                             className="text-xs font-medium text-brand-700 hover:text-brand-900 inline-flex items-center gap-1"
                           >
                             Chi tiết công việc <ArrowRight className="size-3" />
-                          </Link>
+                          </DeskLink>
                           <Link
                             to={`${base}/tasks?roomId=${task.roomId}`}
                             className="text-[11px] text-zinc-400 hover:text-zinc-600"
@@ -1007,12 +1008,12 @@ export function HousekeepingTaskDetailPage() {
     <div className="hk-page-container space-y-4 max-w-5xl mx-auto pb-10">
       {/* Top Breadcrumb & Header */}
       <div>
-        <Link
+        <DeskBackLink
           className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors mb-2.5"
           to={`${base}/tasks`}
         >
           <ArrowLeft className="size-3.5" /> Danh sách công việc
-        </Link>
+        </DeskBackLink>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

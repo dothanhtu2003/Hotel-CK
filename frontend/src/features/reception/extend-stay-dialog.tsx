@@ -1,5 +1,5 @@
+import { DeskLink } from "./navigation";
 import { useRef, useState } from 'react';
-import { Link } from 'react-router';
 import { api } from '../../lib/api';
 import { Button, Dialog } from '../../components/ui';
 import { money } from '../guest/contracts';
@@ -70,7 +70,7 @@ export function ExtendStayDialog({ booking, onClose }: { booking: DeskBooking; o
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
     </div>
       <div className="extend-stay-actions flex flex-wrap justify-end gap-2 pt-2">
-        <Link className="button button-secondary" to={`${base}/bookings/${booking.id}/billing`} onClick={onClose}>Thanh toán & trả phòng</Link>
+        <DeskLink className="button button-secondary" to={`${base}/bookings/${booking.id}/billing`} onClick={onClose}>Thanh toán & trả phòng</DeskLink>
         {quote && <Button busy={busy} disabled={!target || !verified || !!(quote.conflict && !quote.rooms.length)} onClick={() => void confirm()}>{quote.conflict ? 'Xác nhận chuyển phòng & gia hạn' : 'Xác nhận gia hạn'}</Button>}
       </div>
   </Dialog>;

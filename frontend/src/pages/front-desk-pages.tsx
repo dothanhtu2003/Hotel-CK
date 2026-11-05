@@ -1,6 +1,7 @@
+import { useDeskNavigate } from "../features/reception/navigation-state";
 import { StaleBookingQueue } from '../features/reception/cashier';
 import { CashierPage } from "../features/reception/cashier";
-import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
+import { Navigate, useLocation, useSearchParams } from "react-router";
 import {
   Calendar,
   ChevronLeft,
@@ -409,7 +410,7 @@ export function ReceptionWalkIn() {
 
 export function ReceptionTapeChartPage() {
   const base = useDeskBase(),
-    navigate = useNavigate();
+    navigate = useDeskNavigate();
   return (
     <div className="desk-page desk-tape-chart-page">
       <TapeChart

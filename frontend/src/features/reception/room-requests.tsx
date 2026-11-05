@@ -1,5 +1,5 @@
+import { DeskLink } from "./navigation";
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
 import { ArrowRight, BellRing, CheckCircle2, Clock, ExternalLink, Receipt, User } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Dialog } from '../../components/ui';
@@ -77,7 +77,7 @@ export function RoomRequestsDrawer({
           </div>
         </div>
 
-        <div className="flex justify-end"><Link to={`${base}/service-orders`} onClick={onClose} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</Link></div>
+        <div className="flex justify-end"><DeskLink to={`${base}/service-orders`} onClick={onClose} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</DeskLink></div>
 
         {/* Empty state if all processed */}
         {!orders.length ? (
@@ -157,7 +157,7 @@ export function RoomRequestsDrawer({
                       Khách đang chờ kiểm tra phòng và thanh toán. Yêu cầu được giữ đến khi hoàn tất trả phòng.
                     </p>
                     <div className="pt-0.5 flex flex-wrap items-center justify-between gap-2.5">
-                      <Link
+                      <DeskLink
                         to={`${base}/bookings/${order.checkoutBookingId}/billing`}
                         onClick={onClose}
                         className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 shadow-sm hover:shadow-md transition-all group cursor-pointer"
@@ -165,7 +165,7 @@ export function RoomRequestsDrawer({
                         <Receipt className="size-4 text-emerald-200" aria-hidden="true" />
                         <span>Xử lý trả phòng</span>
                         <ArrowRight className="size-3.5 opacity-80 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
-                      </Link>
+                      </DeskLink>
                       <span className="text-[11px] text-zinc-500 font-medium">Chuyển sang hồ sơ thanh toán</span>
                     </div>
                   </div>
@@ -200,14 +200,14 @@ export function RoomRequestsDrawer({
 
                 {/* Actions & Warnings */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <Link
+                  <DeskLink
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-700 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 px-3 py-1.5 rounded-lg transition-colors"
                     to={`${base}/service-orders/${order.id}`}
                     onClick={onClose}
                   >
                     <ExternalLink size={13} />
                     Xem chi tiết đơn
-                  </Link>
+                  </DeskLink>
 
                   <span className="text-sm font-semibold text-amber-800">{serviceOrderLabel(order)}</span>
                   {order.canProcess && (

@@ -1,8 +1,9 @@
+import { DeskLink, DeskBackLink } from "../features/reception/navigation";
 import { DeskBookingPayment } from "../features/reception/booking-payment";
 import { StayHistory } from '../features/reception/stay-history';
 import { awaitingOnlinePayment, deskBookingStatusLabel } from '../features/reception/contracts';
 import { useState } from "react";
-import { Link, useLocation, useParams } from "react-router";
+import { useParams } from "react-router";
 import {
   Clock,
   LogOut,
@@ -50,7 +51,6 @@ function cleanServiceName(name: string) {
 }
 
 export function ReceptionBookingDetailPage() {
-  const location = useLocation();
   const { id = "" } = useParams(),
     base = useDeskBase();
   const [createOrderOpen, setCreateOrderOpen] = useState(false);
@@ -86,9 +86,6 @@ export function ReceptionBookingDetailPage() {
   const balance = invoice.data?.balance ?? preview.data?.balance ?? preview.data?.totalAmount ?? b.totalRoomAmount;
   const hasBalance = Number(balance) > 0;
   const onlineReceipts = preview.data?.roomPayments ?? [];
-  const origin = location.state as { returnTo?: string; returnLabel?: string } | null;
-  const returnTo = origin?.returnTo;
-  const fromToday = typeof returnTo === 'string' && (returnTo === base || returnTo.startsWith(base + '?'));
   const beforeArrival = b.status === 'PENDING' || b.status === 'CONFIRMED';
   const rawName = b.customer?.fullName?.trim();
   const guestName = rawName
@@ -117,12 +114,12 @@ export function ReceptionBookingDetailPage() {
       <StayHistory bookingId={b.id} />
       {/* Breadcrumb */}
       <div>
-        <Link
-          to={fromToday ? returnTo : `${base}/bookings`}
+        <DeskBackLink
+          to={`${base}/bookings`}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-brand-700 transition-colors"
         >
-          ← {fromToday ? 'Trở lại Hôm nay' : 'Trở lại danh sách booking'}
-        </Link>
+          ← Trở lại danh sách booking
+        </DeskBackLink>
       </div>
 
       {/* Top Banner: Tất cả thông tin khách & phòng trên 1 khối gọn gàng duy nhất */}
@@ -213,13 +210,13 @@ export function ReceptionBookingDetailPage() {
               </>
             )}
             {b.status === "CHECKED_OUT" && (
-              <Link
+              <DeskLink
                 to={`${base}/bookings/${id}/billing`}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-2xs"
               >
                 <Receipt className="size-3.5 text-zinc-500" />
                 Xem chi phí & hóa đơn
-              </Link>
+              </DeskLink>
             )}
           </div>
         </div>
@@ -430,13 +427,13 @@ export function ReceptionBookingDetailPage() {
 
             {/* Nút thanh toán & trả phòng */}
             {(b.status === 'CHECKED_IN' || b.status === 'CHECKED_OUT') && <div className="pt-2">
-              <Link
+              <DeskLink
                 to={`${base}/bookings/${id}/billing`}
                 className="w-full h-9 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
               >
                 <LogOut className="size-3.5" />
                 {b.status === 'CHECKED_IN' ? 'Mở quyết toán' : 'Xem hóa đơn'}
-              </Link>
+              </DeskLink>
             </div>}
           </CardContent>
         </Card>

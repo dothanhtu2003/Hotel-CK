@@ -46,6 +46,17 @@ test('reception dashboard totals, booking filters, pagination, detail, double-cl
   await dialogAction(page, 'Hủy booking'); await expect(page.locator('.desk-page .status-badge').filter({ hasText: 'Đã hủy' })).toBeVisible();
 });
 
+test('booking detail returns to the filtered reception list', async ({ page }) => {
+  await login(page, 'reception');
+  await page.goto('/reception/bookings?status=PENDING');
+  const table = page.getByRole('table', { name: 'Danh sách booking', exact: true });
+  await table.locator('a[href^="/reception/bookings/"]').first().click();
+  await page.getByRole('link', { name: 'Quay lại', exact: true }).click();
+  await expect(page).toHaveURL(/\/reception\/bookings\?status=PENDING$/);
+  await expect(page.getByRole('combobox', { name: 'Trạng thái booking', exact: true })).toHaveValue('PENDING');
+  await expect(table).toBeVisible();
+});
+
 test('invalid check-in is a real PostgreSQL 409 with actionable room/date conditions', async ({ page, request }) => {
   const b = await createBooking(request, 0, '2043-01-01'), staff = await headers(request); expect((await request.patch(`${api}/bookings/${b.id}/confirm`, { headers: staff })).status()).toBe(200);
   await login(page, 'reception'); await go(page, '/reception/bookings/' + b.id); await expect(page.getByRole('heading', { name: 'Điều kiện nhận phòng' })).toBeVisible();

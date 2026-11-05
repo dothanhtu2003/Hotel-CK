@@ -1,6 +1,6 @@
+import { useDeskNavigate } from "./navigation-state";
 import { awaitingOnlinePayment, deskBookingStatusLabel } from './contracts';
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { ErrorState, Pagination } from "../../components/ui";
 import { Badge } from "../../components/kamra-ui";
@@ -19,7 +19,7 @@ export function TapeChart({
   onSelectBooking?: (booking: DeskBooking) => void;
   onSelectRoom?: (room: DeskRoom) => void;
 }) {
-  const navigate = useNavigate(),
+  const navigate = useDeskNavigate(),
     [start, setStart] = useState(hotelToday),
     [page, setPage] = useState(1),
     [roomType, setRoomType] = useState("");

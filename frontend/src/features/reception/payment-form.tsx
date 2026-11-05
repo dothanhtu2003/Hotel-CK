@@ -1,5 +1,5 @@
+import { DeskLink } from "./navigation";
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -88,7 +88,7 @@ export function PaymentForm({ invoice }: { invoice: Invoice }) {
     finally { lock.current = false; setChecking(false); }
   }
   if (initial.error) return <ErrorState message={initial.error} />;
-  if (attempt && attempt.invoiceId !== invoice.id) return <section className="panel guest-box"><h2>Cần đối chiếu khoản thu trước</h2><p>Tài khoản này còn một yêu cầu chưa rõ kết quả. Hãy xử lý khoản thu đó trước khi ghi nhận thêm.</p><Link to={`${base}/invoices/${attempt.invoiceId}`}>Mở hóa đơn cần kiểm tra</Link></section>;
+  if (attempt && attempt.invoiceId !== invoice.id) return <section className="panel guest-box"><h2>Cần đối chiếu khoản thu trước</h2><p>Tài khoản này còn một yêu cầu chưa rõ kết quả. Hãy xử lý khoản thu đó trước khi ghi nhận thêm.</p><DeskLink to={`${base}/invoices/${attempt.invoiceId}`}>Mở hóa đơn cần kiểm tra</DeskLink></section>;
   if (attempt) return <section className="panel guest-box desk-payment" aria-label="Khoản thu chờ kiểm tra"><h2>Khoản thu chờ kiểm tra</h2><p>{money(attempt.amount)} · {attempt.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</p><p>Khóa yêu cầu: <code>{attempt.key}</code></p><p>Thông tin được giữ khi tải lại trang. Hãy kiểm tra invoice/payments trước khi tiếp tục.</p>{message && <p role="alert" className="notice">{message}</p>}<div className="guest-actions"><Button busy={checking} disabled={mutation.isPending} onClick={() => void reconcile()}>Kiểm tra lại hóa đơn</Button>{review === 'absent' && !attempt.rejected && <Button variant="secondary" busy={mutation.isPending} onClick={() => void send(attempt)}>Gửi lại cùng khóa</Button>}{review === 'absent' && attempt.rejected && <Button variant="secondary" onClick={() => { finish(); mutation.reset(); }}>Đóng yêu cầu đã bị từ chối</Button>}</div></section>;
   if (invoice.status === 'PAID') return <p className="notice">Hóa đơn đã được thanh toán đủ.</p>;
   function openQr() {

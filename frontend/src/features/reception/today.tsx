@@ -1,8 +1,9 @@
+import { DeskLink, DeskLinkButton } from "./navigation";
 import { StayHistory } from './stay-history';
 import { ExtendStayDialog } from './extend-stay-dialog';
 import { awaitingOnlinePayment, deskBookingStatusLabel } from './contracts';
 import { useState, type MouseEvent } from "react";
-import { Link, useLocation, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import {
   Bell,
   BellRing,
@@ -27,7 +28,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/kamra-ui";
-import { Button, Dialog, ErrorState, LinkButton } from "../../components/ui";
+import { Button, Dialog, ErrorState } from "../../components/ui";
 import { GuestBadge, Skeleton } from "../guest/components";
 import { money, type Page } from "../guest/contracts";
 import type { Dashboard, DeskRoom, DeskBooking } from "./contracts";
@@ -48,8 +49,6 @@ import type { BoardRoom } from '../housekeeping/contracts';
 import { useHousekeepingGet } from '../housekeeping/queries';
 
 export function ReceptionDashboard() {
-  const location = useLocation();
-  const bookingOrigin = { returnTo: location.pathname + location.search, returnLabel: 'Trở lại Hôm nay' };
   const base = useDeskBase(),
     refresh = useRefreshDesk();
   const [params, setParams] = useSearchParams();
@@ -225,27 +224,27 @@ export function ReceptionDashboard() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
                 <span className="font-semibold uppercase tracking-wider">Cần lưu ý:</span>
                 {(overdue.data?.meta.total ?? 0) > 0 && (
-                  <Link to={`${base}/bookings?view=overdue`} className="font-medium hover:underline text-amber-800">
+                  <DeskLink to={`${base}/bookings?view=overdue`} className="font-medium hover:underline text-amber-800">
                     {overdue.data!.meta.total} booking quá ngày nhận chưa xử lý →
-                  </Link>
+                  </DeskLink>
                 )}
                 {d.counts.pending > 0 && (
-                  <Link
+                  <DeskLink
                     to={`${base}/bookings?status=PENDING`}
                     className="inline-flex items-center gap-1 font-medium hover:underline text-amber-800"
                   >
                     <span>{d.counts.pending} booking chờ thanh toán / xác nhận</span>
                     <ChevronRight className="size-3" />
-                  </Link>
+                  </DeskLink>
                 )}
                 {d.counts.orders > 0 && (
-                  <Link
+                  <DeskLink
                     to={`${base}/service-orders?status=PENDING`}
                     className="inline-flex items-center gap-1 font-medium hover:underline text-amber-800"
                   >
                     <span>{d.counts.orders} đơn dịch vụ phòng chờ xử lý</span>
                     <ChevronRight className="size-3" />
-                  </Link>
+                  </DeskLink>
                 )}
               </div>
             )}
@@ -326,7 +325,7 @@ export function ReceptionDashboard() {
                         ))}
                       </div>
                       <div className="flex items-center gap-3">
-                      {requestsOnly && <Link to={`${base}/service-orders`} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</Link>}
+                      {requestsOnly && <DeskLink to={`${base}/service-orders`} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</DeskLink>}
                       <button type="button" aria-pressed={requestsOnly} disabled={!requests.data} onClick={() => setRequestsOnly(!requestsOnly)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ${requestsOnly ? "border-amber-400 bg-amber-100 text-amber-900" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
                         <BellRing className="size-3.5" /> Có yêu cầu ({requests.data ? requestRooms.size : '…'})
                       </button>
@@ -877,14 +876,14 @@ export function ReceptionDashboard() {
                               </p>
                             </div>
                           </div>
-                          <LinkButton
+                          <DeskLinkButton
                             variant="secondary"
                             to={housekeepingTarget}
                             onClick={openRoomWork}
                             className="shrink-0 text-xs px-3 py-1.5 bg-white hover:bg-amber-100 border-amber-300 text-amber-900 font-semibold rounded-lg shadow-2xs"
                           >
                             Xử lý dọn phòng
-                          </LinkButton>
+                          </DeskLinkButton>
                         </div>
                       ) : null}
 
@@ -924,7 +923,7 @@ export function ReceptionDashboard() {
                               </span>
                             </div>
                             <div className="room-guest-shortcuts">
-                            <Link to={`${base}/bookings/${occupiedBooking.id}`} state={bookingOrigin} onClick={() => setSelectedRoom(null)} aria-label="Chi tiết booking" title="Chi tiết booking"><FileText className="size-4" /></Link>
+                            <DeskLink to={`${base}/bookings/${occupiedBooking.id}`} onClick={() => setSelectedRoom(null)} aria-label="Chi tiết booking" title="Chi tiết booking"><FileText className="size-4" /></DeskLink>
                             <button type="button" onClick={() => { setServiceBooking({ ...occupiedBooking, roomNumber: selectedRoom.roomNumber }); setSelectedRoom(null); }} aria-label="Gọi món cho phòng" title="Gọi món cho phòng"><BellRing className="size-4" /></button>
                           </div>
                           </div>
@@ -978,15 +977,14 @@ export function ReceptionDashboard() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {reservedBooking && !occupiedBooking && (
-                            <LinkButton
+                            <DeskLinkButton
                               to={`${base}/bookings/${reservedBooking.id}`}
-                              state={bookingOrigin}
                               onClick={() => setSelectedRoom(null)}
                               className="sm:col-span-2 justify-center bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl shadow-xs"
                             >
                               <LogIn className="size-4 mr-1.5" />
                               {awaitingOnlinePayment(reservedBooking) ? "Xem booking · Chờ thanh toán" : "Nhận phòng"}
-                            </LinkButton>
+                            </DeskLinkButton>
                           )}
 
                           {isClean && (
@@ -1016,14 +1014,14 @@ export function ReceptionDashboard() {
                           )}
 
                           {(isDirty || isCleaning || selectedRoom.openTaskCount > 0) && (
-                            <LinkButton
+                            <DeskLinkButton
                               variant="secondary"
                               to={housekeepingTarget}
                               onClick={openRoomWork}
                               className="justify-center py-2.5 rounded-xl font-medium"
                             >
                               <Broom className="size-4 mr-1.5 text-amber-600" /> Điều phối buồng phòng
-                            </LinkButton>
+                            </DeskLinkButton>
                           )}
                         </div>
                       </div>}
@@ -1113,15 +1111,14 @@ export function ReceptionDashboard() {
                                 {nextUpcomingBooking.checkIn} → {nextUpcomingBooking.checkOut} ({nextUpcomingBooking.nights} đêm)
                               </span>
                             </div>
-                            <LinkButton
+                            <DeskLinkButton
                               variant="secondary"
                               to={`${base}/bookings/${nextUpcomingBooking.id}`}
-                              state={bookingOrigin}
                               onClick={() => setSelectedRoom(null)}
                               className="text-xs py-1 px-2.5 rounded-lg"
                             >
                               Xem
-                            </LinkButton>
+                            </DeskLinkButton>
                           </div>
                         ) : !scheduleBooking ? (
                           <div className="p-2.5 rounded-xl bg-zinc-50/70 border border-dashed border-zinc-200 text-center text-zinc-500 text-[11px]">
@@ -1131,7 +1128,7 @@ export function ReceptionDashboard() {
                       </div>
                       {occupiedBooking && <div className="room-checkout-footer flex gap-2">
                         <Button variant="secondary" onClick={() => { setExtensionBooking({ ...occupiedBooking, roomNumber: selectedRoom.roomNumber }); setSelectedRoom(null); }}>Gia hạn</Button>
-                        <LinkButton to={`${base}/bookings/${occupiedBooking.id}/billing`} onClick={() => setSelectedRoom(null)} className="w-full justify-center"><Receipt className="size-4" /> Trả phòng & Hóa đơn</LinkButton>
+                        <DeskLinkButton to={`${base}/bookings/${occupiedBooking.id}/billing`} onClick={() => setSelectedRoom(null)} className="w-full justify-center"><Receipt className="size-4" /> Trả phòng & Hóa đơn</DeskLinkButton>
                       </div>}
                     </div>
                   );

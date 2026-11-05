@@ -1,7 +1,7 @@
+import { useDeskNavigate } from "./navigation-state";
 import { DeskBookingPayment } from "./booking-payment";
 import { hotelToday } from "./room-state";
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router";
 import { useMutation } from "@tanstack/react-query";
 import { Search, AlertTriangle } from "lucide-react";
 import { Button, Dialog } from "../../components/ui";
@@ -42,7 +42,7 @@ export function UnifiedBookingModal({
   onSuccess,
 }: UnifiedBookingModalProps) {
   const base = useDeskBase(),
-    navigate = useNavigate(),
+    navigate = useDeskNavigate(),
     toast = useToast(),
     refresh = useRefreshDesk(),
     lock = useRef(false);
