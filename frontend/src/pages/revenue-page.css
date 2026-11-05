@@ -1,0 +1,70 @@
+.revenue-page {
+  --rev-ink: #14231e;
+  --rev-muted: #526960;
+  --rev-line: #e3ebe7;
+  --rev-paper: #fff;
+  --rev-green: #0b5740;
+  --rev-cash: #0b5740;
+  --rev-bank: #d9a441;
+  --rev-mint: #eafaf3;
+  --rev-warn: #fff8e5;
+  color: var(--rev-ink);
+  min-width: 0;
+}
+.revenue-page h1 { margin: 0; font-size: 26px; font-weight: 600; }
+.revenue-page h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.revenue-page p, .revenue-page small { color: var(--rev-muted); font-size: 12px; }
+.revenue-page p { margin: 4px 0 12px; }
+.revenue-header, .revenue-controls, .revenue-legend { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.revenue-header { justify-content: space-between; margin-bottom: 18px; }
+.revenue-dates { flex-basis: 100%; justify-content: flex-end; }
+.revenue-dates input, .revenue-export { border: 1px solid var(--rev-line); border-radius: 8px; padding: 8px 12px; background: var(--rev-paper); }
+.revenue-export { display: inline-flex; gap: 6px; align-items: center; }
+.revenue-export:disabled { opacity: .5; }
+.revenue-segment { display: inline-flex; flex-wrap: wrap; background: var(--rev-mint); padding: 4px; gap: 2px; border-radius: 10px; }
+.revenue-segment button { border-radius: 7px; padding: 7px 12px; }
+.revenue-segment button[aria-pressed="true"] { background: var(--rev-green); color: white; }
+.revenue-note { background: var(--rev-warn); border: 1px solid #eedca7; border-radius: 8px; padding: 10px 14px; margin-bottom: 18px; }
+.revenue-page a { color: var(--rev-green); text-decoration: underline; text-underline-offset: 3px; }
+.revenue-kpis, .revenue-charts { display: grid; gap: 14px; margin-bottom: 18px; }
+.revenue-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.revenue-charts { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.revenue-card { background: var(--rev-paper); border: 1px solid var(--rev-line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.revenue-kpis span { color: var(--rev-muted); font-size: 13px; }
+.revenue-kpis strong { display: block; font-size: clamp(17px, 2vw, 26px); margin: 5px 0; overflow-wrap: anywhere; }
+.revenue-primary { color: white; background: var(--rev-green); border-color: var(--rev-green); }
+.revenue-primary span, .revenue-primary small { color: #c8eee1; }
+.revenue-legend { color: var(--rev-muted); font-size: 12px; }
+.revenue-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--rev-cash); margin-right: 6px; }
+.revenue-legend span + span::before { background: var(--rev-bank); }
+.revenue-charts svg { display: block; width: 100%; height: auto; }
+.revenue-charts svg text { fill: var(--rev-muted); font-size: 11px; }
+.revenue-charts svg line { stroke: var(--rev-line); }
+.revenue-donut { width: 154px; height: 154px; border-radius: 50%; display: grid; place-items: center; margin: 12px auto; }
+.revenue-donut > div { width: 114px; height: 114px; border-radius: 50%; background: var(--rev-paper); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.revenue-donut strong { font-size: 23px; }
+.revenue-breakdown { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--rev-line); padding: 6px 0; }
+.revenue-table { overflow-x: auto; }
+.revenue-table table { width: 100%; min-width: 760px; border-collapse: collapse; }
+.revenue-table th, .revenue-table td { border-bottom: 1px solid var(--rev-line); padding: 10px; text-align: left; }
+.revenue-table th { color: var(--rev-muted); font-size: 12px; }
+.revenue-table :is(th, td):nth-last-child(-n+3) { text-align: right; white-space: nowrap; }
+.revenue-table small { display: block; margin-top: 4px; }
+.revenue-tag { background: var(--rev-mint); color: var(--rev-cash); border-radius: 20px; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
+.revenue-tag.BANK_TRANSFER { background: var(--rev-warn); color: #78540d; }
+@media (max-width: 1100px) {
+  .revenue-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .revenue-charts { grid-template-columns: minmax(0, 1fr); }
+  .revenue-dates { justify-content: flex-start; }
+}
+
+.revenue-sources { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.revenue-table .revenue-day td {
+  background: var(--rev-mint);
+  color: var(--rev-green);
+  text-align: left;
+}
+.revenue-day span { color: var(--rev-muted); font-size: 12px; }

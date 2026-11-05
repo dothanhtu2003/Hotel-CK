@@ -9,6 +9,7 @@ import { RoomsPage, RoomDetailPage } from './pages/room-pages';
 import { MyBookingsPage, BookingDetailPage } from './pages/booking-pages';
 import { ServicesPage, MyServiceOrdersPage } from './pages/service-pages';
 import { BookingBillingPage, InvoicePage } from './pages/billing-pages';
+const RevenuePage = lazy(() => import('./pages/revenue-page'));
 const ReceptionDashboard = lazy(async () => ({ default: (await import('./pages/front-desk-pages')).ReceptionDashboard }));
 const ReceptionBookingsPage = lazy(async () => ({ default: (await import('./pages/front-desk-pages')).ReceptionBookingsPage }));
 const ReceptionBookingDetailPage = lazy(async () => ({ default: (await import('./pages/reception-booking-pages')).ReceptionBookingDetailPage }));
@@ -107,6 +108,7 @@ export function App() {
                       <Route path="service-orders" element={<ReceptionOrdersPage />} />
                       <Route path="service-orders/:id" element={<ReceptionOrderDetailPage />} />
                       <Route path="billing" element={<ReceptionBookingsPage billing />} />
+                      <Route path="revenue" element={<RevenuePage />} />
                       <Route path="invoices/:id" element={<ReceptionInvoicePage />} />
                       <Route path="housekeeping" element={<HousekeepingBoardPage />} />
                       <Route path="housekeeping/tasks" element={<HousekeepingTasksPage />} />

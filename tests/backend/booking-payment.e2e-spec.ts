@@ -105,6 +105,9 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
   });
   it('requires full payment, verifies ownership, confirms once, and credits the final invoice', async () => {
     const b = await booking();
+    const report = () => api().get('/api/revenue').query({ from: today, to: today })
+      .auth(actors.staff.token, { type: 'bearer' }).expect(200);
+    const initialPending = (await report()).body.pending;
     expect(b.onlinePaymentRequired).toBe(true); expect(b.status).toBe('PENDING');
     await action(b.id, 'confirm').expect(409); await action(b.id, 'check-in').expect(409);
     await start(b.id, 'other').expect(404); await start(b.id, 'staff').expect(201);
@@ -117,6 +120,9 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
     const link = await remote(b.id); expect(link.amount).toBe(200000);
     link.status = 'UNDERPAID'; link.amountPaid = 100000; link.amountRemaining = 100000;
     await sync(b.id).expect(201); await action(b.id, 'confirm').expect(409);
+    const underpaid = (await report()).body;
+    expect(underpaid.pending).toBe(initialPending + 1);
+    expect(underpaid.transactions.some((row: { bookingId: string }) => row.bookingId === b.id)).toBe(false);
     link.status = 'PAID'; link.amountPaid = 200000; link.amountRemaining = 0;
     await Promise.all([sync(b.id).expect(201), sync(b.id).expect(201)]);
     expect((await ctx.prisma.client.booking.findUniqueOrThrow({ where: { id: b.id } })).status).toBe('CONFIRMED');
@@ -134,6 +140,11 @@ describe('Full online booking payment with PostgreSQL and simulated payOS', () =
     expect(afterInvoice.body.paidAmount).toBe('200000.00'); expect(afterInvoice.body.balance).toBe('45000.00');
     await sync(b.id).expect(201);
     expect(await ctx.prisma.client.payment.count({ where: { invoiceId: invoice.body.id } })).toBe(1);
+    const confirmed = (await report()).body;
+    expect(confirmed.pending).toBe(initialPending);
+    expect(confirmed.transactions.filter((row: { bookingId: string }) => row.bookingId === b.id)).toEqual([
+      expect.objectContaining({ amount: '200000.00', method: 'BANK_TRANSFER', source: 'payOS · Tiền phòng' }),
+    ]);
   });
   it('cancels an unpaid link before releasing the room and allows retry after a cancelled link', async () => {
     const b = await booking(); await start(b.id).expect(201);

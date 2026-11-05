@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   Plus,
+  ChartNoAxesCombined,
   ReceiptText,
   Search,
   ShieldCheck,
@@ -80,8 +81,11 @@ export function WorkspaceLayout() {
       ? '/reception'
       : homeForRole[user.role];
   const features = featuresForRole[user.role];
+  const showRevenue = user.role === 'RECEPTIONIST' || home === '/reception';
   const isBillingPage = location.pathname.includes('/invoices/') || location.pathname.endsWith('/billing') || location.pathname.startsWith(`${home}/billing/`);
-  const title = location.pathname.includes('/profile')
+  const title = location.pathname === `${home}/revenue`
+    ? 'Doanh thu'
+    : location.pathname.includes('/profile')
     ? 'Hồ sơ cá nhân'
     : location.pathname.includes('/invoices/') || location.pathname.endsWith('/billing')
     ? 'Hóa đơn & thanh toán'
@@ -116,7 +120,7 @@ export function WorkspaceLayout() {
             to={`${home}/bookings`}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                (isActive && !isBillingPage)
+                (isActive && (showRevenue || !isBillingPage))
                   ? 'bg-brand-50 text-brand-700 font-semibold'
                   : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
               }`
@@ -168,17 +172,17 @@ export function WorkspaceLayout() {
         </div>
         <div className="space-y-0.5">
           <NavLink
-            to={`${home}/billing`}
+            to={`${home}/${showRevenue ? 'revenue' : 'billing'}`}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                (isActive || isBillingPage)
+                (isActive || (!showRevenue && isBillingPage))
                   ? 'bg-brand-50 text-brand-700 font-semibold'
                   : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
               }`
             }
           >
-            <ReceiptText className="size-4 shrink-0" />
-            <span>Hóa đơn & thanh toán</span>
+            {showRevenue ? <ChartNoAxesCombined className="size-4 shrink-0" /> : <ReceiptText className="size-4 shrink-0" />}
+            <span>{showRevenue ? 'Doanh thu' : 'Hóa đơn & thanh toán'}</span>
           </NavLink>
         </div>
       </div>

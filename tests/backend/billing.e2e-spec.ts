@@ -51,6 +51,55 @@ describe('Phase 7 billing and complete hotel workflow — hotel_test only', () =
   async function paid() { const b = await issued(); await pay(b.invoice.id, b.invoice.totalAmount).expect(201); return b; }
   const tasks = (roomId: string) => context.prisma.client.housekeepingTask.findMany({ where: { roomId } });
 
+  it('reports each receipt once after prepaid room charges are copied to the invoice', async () => {
+    const fixture = await room('100000');
+    const { body: b } = await api().post('/api/front-desk/walk-in')
+      .auth(actors.receptionist.token, { type: 'bearer' }).send({
+        roomId: fixture.room.id, customerId: actors.guest.id, checkIn: today,
+        checkOut: end.toISOString().slice(0, 10), guests: 1,
+        paymentMethod: 'CASH', expectedAmount: '300000.00', paymentVerified: true, receiveNow: true,
+      }).expect(201);
+    const receipt = await context.prisma.client.bookingPayment.findFirstOrThrow({ where: { bookingId: b.id } });
+    const { body: order } = await createOrder(b.id).expect(201);
+    await api().patch(`/api/service-orders/${order.id}/settle`).auth(actors.receptionist.token, { type: 'bearer' })
+      .send({ settlement: 'BANK_TRANSFER', paymentVerified: true, expectedAmount: '90000.50' }).expect(200);
+    await api().patch(`/api/service-orders/${order.id}/cancel`).auth(actors.receptionist.token, { type: 'bearer' })
+      .send({ refundConfirmed: true }).expect(200);
+    const { body: roomCharge } = await createOrder(b.id).expect(201);
+    await orderAction(roomCharge.id).expect(200);
+    const invoice = (await issue(b.id).expect(201)).body;
+    const invoiceReceipt = randomUUID();
+    await pay(invoice.id, invoice.balance, 'BANK_TRANSFER', invoiceReceipt).expect(201);
+    const report = (who: keyof typeof actors, from = today, to = today) =>
+      api().get('/api/revenue').query({ from, to }).auth(actors[who].token, { type: 'bearer' });
+    await api().get('/api/revenue').query({ from: today, to: today }).expect(401);
+    await report('guest').expect(403);
+    await report('housekeeping').expect(403);
+    await report('receptionist', '2026-02-30').expect(400);
+    await report('receptionist', '2020-01-01').expect(400);
+    await report('receptionist', today, '2020-01-01').expect(400);
+    const result = await report('receptionist').expect(200);
+    expect(result.headers['cache-control']).toBe('no-store');
+    const rows = result.body.transactions.filter((row: { bookingId: string }) => row.bookingId === b.id);
+    expect(rows).toHaveLength(4);
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: receipt.id, invoiceId: invoice.id, amount: '300000.00', roomAmount: '300000.00', serviceAmount: '0.00', method: 'CASH', collector: 'Billing receptionist',
+      }),
+      expect.objectContaining({ id: invoiceReceipt, amount: '90000.50', roomAmount: '0.00', serviceAmount: '90000.50', method: 'BANK_TRANSFER', source: 'Hóa đơn' }),
+      expect.objectContaining({ id: order.id, amount: '90000.50', method: 'BANK_TRANSFER', refund: false }),
+      expect.objectContaining({ id: order.id + '-refund', amount: '-90000.50', serviceAmount: '-90000.50', method: 'BANK_TRANSFER', refund: true }),
+    ]));
+    expect((await report('admin').expect(200)).body.transactions).toEqual(result.body.transactions);
+    const tomorrow = new Date(Date.parse(today) + 86400000).toISOString().slice(0, 10);
+    const next = (await report('receptionist', tomorrow, tomorrow).expect(200)).body;
+    expect(next.transactions).toEqual([]);
+    const currentTotal = result.body.transactions.reduce(
+      (sum: Prisma.Decimal, row: { amount: string }) => sum.add(row.amount), new Prisma.Decimal(0),
+    );
+    expect(next.previousTotal).toBe(currentTotal.toFixed(2));
+  });
+
   it('full payment and checkout commit together and retries create only one receipt and task', async () => {
     const b = await issued();
     const key = randomUUID();

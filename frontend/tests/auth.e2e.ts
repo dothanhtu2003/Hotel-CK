@@ -100,10 +100,23 @@ test('desktop staff portal renders operational cards and role-specific navigatio
   await expect(page.getByRole('heading', { name: 'Bảng trạng thái phòng (Room Board)', exact: true })).toBeVisible();
   await expect(page.getByText('Điều phối khách')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Đặt phòng mới', exact: true })).toBeVisible();
-  for (const name of ['Quản lý booking', 'Tape Chart', 'Đơn dịch vụ phòng', 'Buồng phòng', 'Hóa đơn & thanh toán']) {
+  for (const name of ['Quản lý booking', 'Tape Chart', 'Đơn dịch vụ phòng', 'Buồng phòng', 'Doanh thu']) {
     await expect(page.locator('.workspace-sidebar').getByRole('link', { name, exact: true })).toBeVisible();
   }
   await page.screenshot({ path: fileURLToPath(new URL('../../.local/frontend-portal-desktop.png', import.meta.url)), fullPage: true });
+});
+
+test('reception opens the revenue report and changes its date range', async ({ page }) => {
+  await login(page, 'reception');
+  await page.locator('.workspace-sidebar').getByRole('link', { name: 'Doanh thu', exact: true }).click();
+  await expect(page).toHaveURL(/\/reception\/revenue$/);
+  await expect(page.getByRole('heading', { name: 'Doanh thu', exact: true })).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Giao dịch doanh thu' })).toBeVisible();
+  const report = page.waitForResponse(response => response.url().includes('/api/revenue?') && response.ok());
+  await page.getByRole('button', { name: '7 ngày', exact: true }).click();
+  await report;
+  await expect(page.getByRole('button', { name: '7 ngày', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
 });
 
 test('edit form validates and confirms discarding unsaved changes', async ({ page }) => {
