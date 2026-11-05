@@ -34,7 +34,6 @@ import type { Dashboard, DeskRoom, DeskBooking } from "./contracts";
 import { useDeskBase, useDeskGet, useRefreshDesk } from "./queries";
 
 import {
-  cleaningLabels,
   formatStayDateDisplay,
   hotelToday,
   roomState,
@@ -419,10 +418,14 @@ export function ReceptionDashboard() {
 
                                 const hasNextBooking = isOverdue && room.bookings.some(b => ["PENDING", "CONFIRMED"].includes(b.status) && b.checkOut > todayStr);
 
+                                const assigneeNames = room.housekeepingAssignees?.join(", ");
+                                const awaitingStart = isDirty && room.awaitingHousekeepingStart;
                                 const statusToneClass = occupied
                                   ? "border-brand-700 bg-brand-700 text-white shadow-xs"
                                   : isOoo
                                   ? "border-rose-300 bg-rose-50 text-rose-950 hover:bg-rose-100/70"
+                                  : awaitingStart
+                                  ? "border-violet-300 bg-violet-50 text-violet-950 hover:bg-violet-100/70"
                                   : reservedBooking
                                   ? "border-sky-300 bg-sky-50 text-sky-950"
                                   : isDirty
@@ -503,6 +506,8 @@ export function ReceptionDashboard() {
                                             ? "text-emerald-200/90"
                                             : isOoo
                                             ? "text-rose-700"
+                                            : awaitingStart
+                                            ? "text-violet-700"
                                             : isDirty
                                             ? "text-amber-700"
                                             : isCleaning
@@ -594,8 +599,7 @@ export function ReceptionDashboard() {
                                             : "Chờ dọn dẹp"}
                                         </div>
                                         <div className="text-[10px] opacity-75">
-                                          {cleaningLabels[room.housekeepingStatus] ??
-                                            room.housekeepingStatus}
+                                          {isCleaning ? "Đang dọn" : awaitingStart ? "Đã phân công · Chờ nhận việc" : "Chưa phân công"}
                                         </div>
                                       </div>
                                     ) : (
@@ -604,6 +608,11 @@ export function ReceptionDashboard() {
                                       </div>
                                     )}
 
+                                    {assigneeNames && (
+                                      <div className="text-[10px] font-medium truncate" title={assigneeNames}>
+                                        Phân công: {assigneeNames}
+                                      </div>
+                                    )}
                                     {/* Bottom: Room Type Name */}
                                     <div
                                       className={`text-[10px] truncate mt-auto pt-1 ${

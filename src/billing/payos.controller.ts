@@ -25,8 +25,10 @@ export class PayosController {
   syncBooking(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.syncBooking(id, user); }
   @Post('bookings/:id/payos/cancel') @Roles('GUEST') @Header('Cache-Control', 'no-store')
   cancelBooking(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.cancelBooking(id, user); }
-  @Post('invoices/:id/payos') @Roles('GUEST') @Header('Cache-Control', 'no-store')
+  @Post('invoices/:id/payos') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   start(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.start(id, user); }
+  @Post('invoices/:id/payos/cancel') @Roles('RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
+  cancelInvoice(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.cancelInvoicePayment(id, user); }
   @Post('invoices/:id/payos/sync') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')
   sync(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) { return this.payos.sync(id, user); }
   @Post('service-orders/:id/payos') @Roles('GUEST', 'RECEPTIONIST', 'ADMIN') @Header('Cache-Control', 'no-store')

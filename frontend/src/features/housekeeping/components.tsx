@@ -50,9 +50,10 @@ export function CleaningBadge({ status }: { status: CleaningStatus }) {
   );
 }
 
-export function TaskBadge({ status }: { status: TaskStatus }) {
+export function TaskBadge({ status, assigned = false }: { status: TaskStatus; assigned?: boolean }) {
+  const awaitingStart = status === 'TODO' && assigned;
   const tone =
-    status === 'DONE' ? 'success' : status === 'IN_PROGRESS' ? 'gold' : 'muted';
+    awaitingStart ? 'violet' : status === 'DONE' ? 'success' : status === 'IN_PROGRESS' ? 'gold' : 'muted';
   const Icon =
     status === 'DONE'
       ? CheckCircle2
@@ -63,7 +64,7 @@ export function TaskBadge({ status }: { status: TaskStatus }) {
   return (
     <StatusBadge tone={tone}>
       <Icon size={12} className="status-badge-icon" aria-hidden="true" />
-      {taskLabels[status]}
+      {awaitingStart ? "Đã phân công · Chờ nhận việc" : taskLabels[status]}
     </StatusBadge>
   );
 }

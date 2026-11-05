@@ -7611,3 +7611,5 @@
 .extend-stay-dialog .dialog-heading { flex-shrink: 0; }
 .extend-stay-content { min-height: 0; overflow-y: auto; padding-right: 4px; }
 .extend-stay-actions { flex-shrink: 0; margin-top: 12px; border-top: 1px solid #e4e7e5; }
+
+.status-badge.badge-violet { background: #f5f3ff; color: #6d28d9; }

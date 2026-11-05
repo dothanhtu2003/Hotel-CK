@@ -5,14 +5,13 @@ import { ApiError } from '../../lib/api-client';
 export type Customer = { id: string; fullName: string; email: string | null; phone: string | null };
 export type DeskBookingCounts = { arrivals: number; departures: number; staying: number };
 export type DeskBooking = Booking & { roomPaidAmount?: string; userId: string; createdAt: string; updatedAt: string; customer?: Customer; room?: import('../guest/contracts').Room; openTaskCount?: number };
-export type DeskRoom = import('../guest/contracts').Room & { bookings: DeskBooking[]; openTaskCount: number };
+export type DeskRoom = import('../guest/contracts').Room & { bookings: DeskBooking[]; openTaskCount: number; awaitingHousekeepingStart?: boolean; housekeepingAssignees?: string[] };
 export type Dashboard = { today: string; totalRooms: number; occupiedRooms: number; openTasks: number; bookingCounts?: Record<'arrivals'|'departures'|'staying',number>; counts: Record<'arrivals'|'departures'|'staying'|'ready'|'dirty'|'orders'|'pending',number>; arrivals: DeskBooking[]; departures: DeskBooking[] };
 export type Checkout = { booking: Booking; invoice: Invoice; room: { id: string; housekeepingStatus: string; operationalStatus: string }; housekeepingTask: { id: string; status: string; assignedStaffId: string | null } | null };
 export type PaymentResult = { payment: Invoice['payments'][number]; invoice: Invoice; replayed: boolean };
 export const paymentSchema = z.object({
   amount: z.string().regex(/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/, 'Nhập số tiền với dấu chấm thập phân, tối đa 2 chữ số lẻ.').refine(v => /^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(v) && cents(v) > 0n, 'Số tiền phải lớn hơn 0.'),
   method: z.enum(['CASH', 'BANK_TRANSFER']),
-  verified: z.boolean().refine(v => v, 'Xác nhận đã nhận và kiểm tra khoản tiền này.'),
 });
 export type PaymentInput = z.infer<typeof paymentSchema>;
 export function paymentWithinBalance(amount: string, balance: string) { const valid = paymentSchema.shape.amount.safeParse(amount); return valid.success && cents(valid.data) <= cents(balance); }

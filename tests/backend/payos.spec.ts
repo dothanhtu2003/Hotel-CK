@@ -10,17 +10,22 @@ import { Prisma } from '../../generated/prisma/client.js';
 function fixture() {
   const attempt = { id: 'payment', invoiceId: 'invoice', status: 'PENDING', payosOrderCode: 123n, amount: new Prisma.Decimal(10000), checkoutUrl: 'https://pay.payos.vn/web/test' };
   const updateMany = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({ count: 1 });
-  const tx = { $queryRaw: jest.fn<() => Promise<unknown>>().mockResolvedValue([]), invoice: { findUniqueOrThrow: jest.fn<() => Promise<unknown>>().mockResolvedValue({ bookingId: 'booking' }) }, payment: { updateMany } };
+  const tx = { $queryRaw: jest.fn<() => Promise<unknown>>().mockResolvedValue([]), invoice: { findUniqueOrThrow: jest.fn<() => Promise<unknown>>().mockResolvedValue({ bookingId: 'booking' }) }, payment: { updateMany, findUniqueOrThrow: jest.fn<() => Promise<unknown>>().mockResolvedValue({ checkoutOnPaid: false }) },
+    booking: { updateMany: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({ count: 1 }) },
+    serviceOrder: { count: jest.fn<() => Promise<number>>().mockResolvedValue(0) },
+  };
   const db = { serviceOrder: { findUnique: jest.fn<() => Promise<unknown>>().mockResolvedValue(null) }, bookingPayment: { findUnique: jest.fn<() => Promise<unknown>>().mockResolvedValue(null) }, payment: {
     findMany: jest.fn<() => Promise<unknown>>().mockResolvedValue([attempt]),
+    count: jest.fn<() => Promise<number>>().mockResolvedValue(1),
     findUnique: jest.fn<() => Promise<unknown>>().mockResolvedValue(attempt), updateMany,
   }, $transaction: jest.fn<(callback: (value: typeof tx) => Promise<unknown>) => Promise<unknown>>().mockImplementation(fn => fn(tx)) };
   const billing = { getInvoice: jest.fn<() => Promise<unknown>>().mockResolvedValue({}) };
   const service = new PayosService({ client: db } as unknown as PrismaService, billing as unknown as BillingService, new ConfigService());
   const get = jest.fn<() => Promise<unknown>>().mockResolvedValue({ orderCode: 123, amount: 10000, amountPaid: 10000, amountRemaining: 0, status: 'PAID' });
   const verify = jest.fn<() => Promise<unknown>>().mockResolvedValue({ orderCode: 123, code: '00' });
-  Object.defineProperty(service, 'client', { value: () => ({ paymentRequests: { get }, webhooks: { verify } }) });
-  return { service, db, billing, updateMany, get, verify };
+  const cancel = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+  Object.defineProperty(service, 'client', { value: () => ({ paymentRequests: { get, cancel }, webhooks: { verify } }) });
+  return { service, db, tx, billing, updateMany, get, cancel, verify };
 }
 
 describe('payOS verification', () => {
@@ -33,6 +38,18 @@ describe('payOS verification', () => {
     const f = fixture(); await f.service.sync('invoice'); await f.service.sync('invoice');
     expect(f.updateMany).toHaveBeenCalledWith({ where: { id: 'payment', status: 'PENDING' }, data: { status: 'COMPLETED' } });
     expect(f.db.$transaction).toHaveBeenCalledTimes(2);
+  });
+  it('checks out a fully paid counter QR invoice through the webhook', async () => {
+    const f = fixture();
+    const amount = new Prisma.Decimal(10000);
+    f.tx.payment.findUniqueOrThrow.mockResolvedValue({ checkoutOnPaid: true });
+    f.tx.invoice.findUniqueOrThrow.mockResolvedValueOnce({ bookingId: 'booking' }).mockResolvedValueOnce({
+      status: 'PAID', bookingId: 'booking', totalAmount: amount, roomAmount: amount, serviceAmount: new Prisma.Decimal(0),
+      payments: [{ amount, status: 'COMPLETED' }],
+      booking: { room: {}, checkInDate: new Date(), checkOutDate: new Date(), nightlyPrice: amount, totalRoomAmount: amount },
+    });
+    await f.service.webhook({});
+    expect(f.tx.booking.updateMany).toHaveBeenCalledWith({ where: { id: 'booking', status: 'CHECKED_IN' }, data: { status: 'CHECKED_OUT' } });
   });
   it.each([
     { orderCode: 999, amount: 10000, amountPaid: 10000, amountRemaining: 0, status: 'PAID' },
@@ -51,6 +68,22 @@ describe('payOS verification', () => {
     const f = fixture(); f.get.mockResolvedValue({ orderCode: 123, amount: 10000, amountPaid: 0, status: 'CANCELLED' });
     await f.service.sync('invoice');
     expect(f.updateMany).toHaveBeenCalledWith({ where: { id: 'payment', status: 'PENDING' }, data: { status: 'FAILED' } });
+  });
+  it('closes an unpaid QR before allowing a different payment method', async () => {
+    const f = fixture();
+    const remote = { orderCode: 123, amount: 10000, amountPaid: 0 };
+    f.get.mockResolvedValueOnce({ ...remote, status: 'PENDING' }).mockResolvedValueOnce({ ...remote, status: 'CANCELLED' });
+    f.db.payment.count.mockResolvedValue(0);
+    await expect(f.service.cancelInvoicePayment('invoice', {} as PublicUser)).resolves.toEqual({ pending: false });
+    expect(f.cancel).toHaveBeenCalledTimes(1);
+    expect(f.updateMany).toHaveBeenCalledWith({ where: { id: 'payment', status: 'PENDING' }, data: { status: 'FAILED' } });
+  });
+  it('keeps the payment pending when money has already arrived', async () => {
+    const f = fixture();
+    f.get.mockResolvedValue({ orderCode: 123, amount: 10000, amountPaid: 5000, status: 'UNDERPAID' });
+    await expect(f.service.cancelInvoicePayment('invoice', {} as PublicUser)).resolves.toEqual({ pending: true });
+    expect(f.cancel).not.toHaveBeenCalled();
+    expect(f.updateMany).not.toHaveBeenCalled();
   });
   it('does not mark anything paid when payOS is unreachable', async () => {
     const f = fixture(); f.get.mockRejectedValue(new Error('offline'));

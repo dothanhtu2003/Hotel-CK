@@ -1,3 +1,4 @@
+import { checkoutServiceOrdersWhere } from '../service-orders/reception-order-filter.js';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException, Logger, type OnModuleInit, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PayOS, NotFoundError as PayosNotFoundError } from '@payos/node';
@@ -401,6 +402,7 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
   async start(id: string, actor: PublicUser) {
     this.client();
     const invoice = await this.billing.getInvoice(id, actor);
+    const checkoutOnPaid = actor.role !== 'GUEST';
     // Reconcile a previous attempt before offering another payment.
     await this.sync(id, actor);
     const payment = await this.prisma.client.$transaction(async tx => {
@@ -411,16 +413,39 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
       if (current.booking.status !== 'CHECKED_IN' || balance.lte(0)) throw new ConflictException('Hóa đơn không còn khoản cần thanh toán');
       if (!balance.isInteger() || !Number.isSafeInteger(balance.toNumber())) throw new ConflictException('payOS yêu cầu số tiền nguyên VND');
       const pending = await tx.payment.findFirst({ where: { invoiceId: id, payosOrderCode: { not: null }, status: 'PENDING' } });
+      if (checkoutOnPaid && await tx.serviceOrder.count({ where: { bookingId: invoice.bookingId, ...checkoutServiceOrdersWhere } })) throw new ConflictException('Resolve pending service orders before checkout');
       if (pending) {
         if (!pending.amount.equals(balance)) throw new ConflictException('Số dư đã thay đổi. Vui lòng liên hệ lễ tân để kiểm tra giao dịch đang chờ');
+        if (checkoutOnPaid && !pending.checkoutOnPaid) return tx.payment.update({ where: { id: pending.id }, data: { checkoutOnPaid } });
         return pending;
       }
-      return tx.payment.create({ data: { invoiceId: id, amount: balance, method: 'BANK_TRANSFER', payosOrderCode: BigInt(randomBytes(6).readUIntBE(0, 6)) } });
+      return tx.payment.create({ data: { invoiceId: id, amount: balance, method: 'BANK_TRANSFER', checkoutOnPaid, payosOrderCode: BigInt(randomBytes(6).readUIntBE(0, 6)) } });
     });
     if (payment.checkoutUrl) return { checkoutUrl: payment.checkoutUrl };
-    const checkoutUrl = await this.createLink(Number(payment.payosOrderCode), payment.amount.toNumber(), `/guest/invoices/${id}`);
+    let qrCode: string | undefined;
+    const path = actor.role === 'GUEST' ? `/guest/invoices/${id}` : `/reception/bookings/${invoice.bookingId}/billing`;
+    const checkoutUrl = await this.createLink(Number(payment.payosOrderCode), payment.amount.toNumber(), path, undefined, qr => { qrCode = qr; });
     await this.prisma.client.payment.updateMany({ where: { id: payment.id, status: 'PENDING' }, data: { checkoutUrl } });
-    return { checkoutUrl };
+    return { checkoutUrl, qrCode };
+  }
+
+  async cancelInvoicePayment(id: string, actor: PublicUser) {
+    await this.billing.getInvoice(id, actor);
+    const where = { invoiceId: id, payosOrderCode: { not: null }, status: 'PENDING' as const };
+    const pending = await this.prisma.client.payment.findMany({ where });
+    for (const payment of pending) {
+      const code = Number(payment.payosOrderCode);
+      try {
+        const remote = await this.client().paymentRequests.get(code);
+        if (remote.orderCode === code && remote.amount === payment.amount.toNumber() && remote.status === 'PENDING' && remote.amountPaid === 0) {
+          await this.client().paymentRequests.cancel(code, 'Doi phuong thuc thanh toan');
+        }
+      } catch {
+        // A failed cancellation may have raced with payment. Reconcile before allowing another method.
+      }
+    }
+    await this.sync(id, actor);
+    return { pending: (await this.prisma.client.payment.count({ where })) > 0 };
   }
 
   async sync(id: string, actor?: PublicUser) {
@@ -441,7 +466,14 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
           await tx.$queryRaw`SELECT id FROM hotel.bookings WHERE id=${invoice.bookingId}::uuid FOR UPDATE`;
           await tx.$queryRaw`SELECT id FROM hotel.invoices WHERE id=${id}::uuid FOR UPDATE`;
           // The DB trigger updates the invoice and rejects overpayment. Conditional update makes retries idempotent.
-          await tx.payment.updateMany({ where: { id: attempt.id, status: 'PENDING' }, data: { status: 'COMPLETED' } });
+          const updated = await tx.payment.updateMany({ where: { id: attempt.id, status: 'PENDING' }, data: { status: 'COMPLETED' } });
+          if (updated.count !== 1) return;
+          const payment = await tx.payment.findUniqueOrThrow({ where: { id: attempt.id }, select: { checkoutOnPaid: true } });
+          if (!payment.checkoutOnPaid) return;
+          const paid = invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect }));
+          if (paid.status !== 'PAID' || !new Prisma.Decimal(paid.balance).isZero()) return;
+          if (await tx.serviceOrder.count({ where: { bookingId: invoice.bookingId, ...checkoutServiceOrdersWhere } })) return;
+          await tx.booking.updateMany({ where: { id: invoice.bookingId, status: 'CHECKED_IN' }, data: { status: 'CHECKED_OUT' } });
         });
       } else if (['CANCELLED', 'EXPIRED', 'FAILED'].includes(remote.status) && remote.amountPaid === 0) {
         await this.prisma.client.payment.updateMany({ where: { id: attempt.id, status: 'PENDING' }, data: { status: 'FAILED' } });

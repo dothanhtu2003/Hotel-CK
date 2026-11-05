@@ -15,7 +15,7 @@ export function PasswordInput(props: ComponentProps<'input'>) {
   const [visible, setVisible] = useState(false);
   return <div className="password-input"><Input {...props} type={visible ? 'text' : 'password'} /><button type="button" onClick={() => setVisible(v => !v)} aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={visible}>{visible ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>;
 }
-export function StatusBadge({ tone = 'muted', children }: { tone?: 'muted' | 'success' | 'gold'; children: ReactNode }) { return <span className={`status-badge badge-${tone}`}><i aria-hidden="true" />{children}</span>; }
+export function StatusBadge({ tone = 'muted', children }: { tone?: 'muted' | 'success' | 'gold' | 'violet'; children: ReactNode }) { return <span className={`status-badge badge-${tone}`}><i aria-hidden="true" />{children}</span>; }
 export function DatePicker({ label, id, ...props }: ComponentProps<'input'> & { label: string; id: string }) {
   return <div className="date-picker"><label htmlFor={id}>{label}</label><div><CalendarDays size={19} /><input type="date" id={id} {...props} /></div></div>;
 }

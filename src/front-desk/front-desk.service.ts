@@ -379,7 +379,7 @@ export class FrontDeskService {
           where,
           select: {
             ...roomSelect,
-            tasks: { where: { status: { not: "DONE" } }, select: { id: true } },
+            tasks: { where: { status: { not: "DONE" } }, select: { status: true, assignedStaff: { select: { fullName: true } } } },
             bookings: {
               where: start && end ? {
                 OR: [
@@ -413,6 +413,8 @@ export class FrontDeskService {
           data: rows.map(({ bookings, tasks, ...r }) => ({
             ...roomView(r),
             openTaskCount: tasks.length,
+            awaitingHousekeepingStart: tasks.some(task => task.status === "TODO" && task.assignedStaff !== null),
+            housekeepingAssignees: [...new Set(tasks.flatMap(task => task.assignedStaff ? [task.assignedStaff.fullName] : []))].sort(),
             bookings: bookings.map(({ user, bookingPayments, ...b }) => ({
               ...bookingView(b),
               roomPaidAmount: bookingPayments.reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0)).toFixed(2),

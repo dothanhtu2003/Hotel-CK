@@ -307,6 +307,7 @@ model Invoice {
 }
 
 model Payment {
+  checkoutOnPaid Boolean @default(false) @map("checkout_on_paid")
   payosOrderCode BigInt? @unique @map("payos_order_code")
   checkoutUrl String? @map("checkout_url") @db.VarChar(2048)
   id        String        @id @default(uuid()) @db.Uuid

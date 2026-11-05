@@ -15,11 +15,13 @@ export function CreateTaskDialog({ room, onClose }: { room: BoardRoom; onClose: 
   return <Dialog open onClose={() => { if (!mutation.locked()) onClose(); }} title="Tạo công việc dọn phòng"><p>Phòng {room.roomNumber} · {room.roomType.name}. Chỉ tạo khi chưa có công việc đang mở.</p><form noValidate onSubmit={form.handleSubmit(v => mutation.run(v))} className="hk-form"><FormField name="task-notes" label="Ghi chú công việc" error={form.formState.errors.notes?.message} hint="Không bắt buộc. Tối đa 2000 ký tự."><textarea id="task-notes" className="input" rows={4} {...form.register('notes')} aria-invalid={!!form.formState.errors.notes} aria-describedby="task-notes-hint task-notes-error" disabled={mutation.isPending} /></FormField>{mutation.error && <p className="form-error" role="alert">{housekeepingError(mutation.error, 'create')}</p>}<div className="dialog-actions"><Button type="button" variant="secondary" disabled={mutation.isPending} onClick={onClose}>Quay lại</Button><Button type="submit" busy={mutation.isPending} disabled={!!mutation.error || !!room.openTask}>Xác nhận tạo công việc</Button></div></form></Dialog>;
 }
 export function AssignTaskForm({ task }: { task: Task }) {
+  const assigned = Boolean(task.assignedStaffId);
+  const [editing, setEditing] = useState(!assigned);
   const { user } = useAuth(),
     [review, setReview] = useState<AssignTaskInput | null>(null),
     form = useForm<AssignTaskInput>({
       resolver: zodResolver(assignTaskSchema),
-      defaultValues: { assignedStaffId: task.assignedStaffId ?? '' },
+      defaultValues: { assignedStaffId: '' },
     });
   const mutation = useWorkMutation(
     'assign',
@@ -33,7 +35,7 @@ export function AssignTaskForm({ task }: { task: Task }) {
   );
   const staff = useHousekeepingGet<
     { id: string; fullName: string; email: string }[]
-  >('/housekeeping/staff', !!user && canAssign(task, user.role));
+  >('/housekeeping/staff', !!user && canAssign(task, user.role) && editing);
   const selected = staff.data?.find(
     (person) => person.id === review?.assignedStaffId,
   );
@@ -43,11 +45,14 @@ export function AssignTaskForm({ task }: { task: Task }) {
     <section className="panel guest-box border border-zinc-200 rounded-xl bg-white p-5 shadow-2xs space-y-4">
       <div className="flex items-center gap-2 pb-3 border-b border-zinc-100">
         <UserPlus className="size-4 text-emerald-700" />
-        <h2 className="text-sm font-bold text-zinc-900 m-0">Phân công nhân viên</h2>
+        <h2 className="text-sm font-bold text-zinc-900 m-0">{assigned ? "Phân công hiện tại" : "Phân công nhân viên"}</h2>
       </div>
-      <p className="text-xs text-zinc-500 leading-relaxed m-0">
-        Chọn nhân viên buồng phòng đang hoạt động. Chỉ công việc chưa bắt đầu mới được phân công hoặc phân công lại.
-      </p>
+      {assigned && <p className="text-sm">
+        {task.assignedStaff ? <>Đã giao cho <strong>{task.assignedStaff.fullName}</strong> · </> : null}Chờ nhận việc
+      </p>}
+      {!editing ? (
+        <Button type="button" variant="secondary" onClick={() => setEditing(true)}>Đổi nhân viên</Button>
+      ) : <>
       {staff.isPending ? (
         <p role="status" className="text-xs text-zinc-500">
           Đang tải danh sách nhân viên…
@@ -86,7 +91,7 @@ export function AssignTaskForm({ task }: { task: Task }) {
             disabled={mutation.isPending || !staff.data?.length}
           >
             <option value="">Chọn nhân viên</option>
-            {staff.data?.map((person) => (
+            {staff.data?.filter(person => person.id !== task.assignedStaffId).map((person) => (
               <option key={person.id} value={person.id}>
                 {person.fullName} — {person.email}
               </option>
@@ -102,7 +107,9 @@ export function AssignTaskForm({ task }: { task: Task }) {
         >
           Xem lại phân công
         </Button>
+        {assigned && <Button type="button" variant="secondary" onClick={() => { form.reset(); setEditing(false); }}>Quay lại</Button>}
       </form>
+      </>}
       <Dialog
         open={!!review}
         onClose={() => {
@@ -113,11 +120,6 @@ export function AssignTaskForm({ task }: { task: Task }) {
         <p>
           Phòng {task.room.roomNumber} · Nhân viên: {selected?.fullName} ({selected?.email})
         </p>
-        {task.assignedStaff && (
-          <p className="text-xs text-zinc-500">
-            Thay thế phân công hiện tại cho {task.assignedStaff.fullName} nếu công việc vẫn ở trạng thái TODO.
-          </p>
-        )}
         {mutation.error && (
           <p className="form-error" role="alert">
             {housekeepingError(mutation.error, 'assign')}

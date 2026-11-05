@@ -1216,7 +1216,7 @@ export function HousekeepingTaskDetailPage() {
                 <span className="text-xs font-semibold text-zinc-500">
                   Trạng thái:
                 </span>
-                <TaskBadge status={task.status} />
+                <TaskBadge status={task.status} assigned={Boolean(task.assignedStaffId)} />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-zinc-500">
