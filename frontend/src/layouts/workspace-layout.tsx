@@ -25,6 +25,7 @@ import { Button, Dialog, StatusBadge } from '../components/ui';
 import { readAttempt } from '../features/reception/payment-attempt';
 import { useToast } from '../components/toast-context';
 import { CommandPalette } from '../components/command-palette';
+import { HousekeepingShiftProgress } from '../features/housekeeping/components';
 
 export function WorkspaceLayout() {
   const { user, logout } = useAuth(),
@@ -231,6 +232,8 @@ export function WorkspaceLayout() {
           ? 'guest-workspace'
           : isReception
           ? 'staff-workspace kamra-workspace'
+          : user.role === 'HOUSEKEEPING'
+          ? 'staff-workspace housekeeping-workspace'
           : 'staff-workspace'
       } ${location.pathname.endsWith('/tape-chart') ? 'workspace-tape-chart' : ''} ${hideDesktopTopbar ? 'workspace-without-topbar' : ''}`}
     >
@@ -376,20 +379,20 @@ export function WorkspaceLayout() {
             {/* Left: Brand + Role Badge */}
             <div className="flex items-center gap-3">
               <Link to={home} className="flex items-center gap-2 group outline-none">
-                <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-600/30 border border-emerald-500/40 text-amber-200 font-bold text-sm shadow-xs">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-sm shadow-2xs">
                   A
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-semibold tracking-wider text-white">
+                  <span className="text-sm font-bold tracking-tight text-zinc-900">
                     AN NHIÊN
                   </span>
-                  <span className="text-[9px] tracking-widest text-emerald-300/80 uppercase font-medium">
+                  <span className="text-[9px] tracking-wider text-zinc-400 uppercase font-semibold">
                     Hotel & Suites
                   </span>
                 </div>
               </Link>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-950/70 text-emerald-200 border border-emerald-700/50 shadow-2xs">
-                <Brush className="size-3 text-emerald-300" />
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600 border border-zinc-200/80 shadow-2xs">
+                <Brush className="size-3 text-zinc-500" />
                 Nhân viên buồng phòng
               </span>
             </div>
@@ -402,8 +405,8 @@ export function WorkspaceLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     isActive
-                      ? 'bg-white/20 text-white font-semibold shadow-2xs border border-white/20'
-                      : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
+                      ? 'bg-brand-50 text-brand-800 font-semibold shadow-2xs border border-brand-200/60'
+                      : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                   }`
                 }
               >
@@ -415,8 +418,8 @@ export function WorkspaceLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     isActive
-                      ? 'bg-white/20 text-white font-semibold shadow-2xs border border-white/20'
-                      : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
+                      ? 'bg-brand-50 text-brand-800 font-semibold shadow-2xs border border-brand-200/60'
+                      : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                   }`
                 }
               >
@@ -428,8 +431,8 @@ export function WorkspaceLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     isActive
-                      ? 'bg-white/20 text-white font-semibold shadow-2xs border border-white/20'
-                      : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
+                      ? 'bg-brand-50 text-brand-800 font-semibold shadow-2xs border border-brand-200/60'
+                      : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                   }`
                 }
               >
@@ -438,26 +441,23 @@ export function WorkspaceLayout() {
               </NavLink>
             </nav>
 
-            {/* Right: Live Shift Badge & User Menu */}
-            <div className="flex items-center gap-2">
-              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-900/60 border border-emerald-700/40 text-[11px] text-emerald-200">
-                <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Đang trong ca trực</span>
-              </div>
+            {/* Right: Live Shift Progress & User Menu */}
+            <div className="flex items-center gap-2.5">
+              <HousekeepingShiftProgress />
 
               <div className="sidebar-user-container relative" ref={dropdownRef}>
                 <button
                   type="button"
                   onClick={() => setUserDropdownOpen((prev) => !prev)}
-                  className="flex items-center gap-2 rounded-lg bg-white/10 hover:bg-white/15 px-2.5 py-1.5 text-xs font-medium text-white transition-colors cursor-pointer border border-white/10"
+                  className="flex items-center gap-2 rounded-lg bg-white hover:bg-zinc-50 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors cursor-pointer border border-zinc-200 shadow-2xs"
                 >
-                  <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/30 text-amber-200 font-bold text-xs">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-brand-50 text-brand-700 font-bold text-xs">
                     {user.fullName.slice(0, 1).toUpperCase()}
                   </span>
-                  <span className="hidden sm:inline font-semibold max-w-[120px] truncate">
+                  <span className="hidden sm:inline font-semibold max-w-[120px] truncate text-zinc-900">
                     {user.fullName}
                   </span>
-                  <ChevronDown className={`size-3.5 opacity-70 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`size-3.5 text-zinc-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {userDropdownOpen && (

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { Page } from '../guest/contracts';
 import { Link } from 'react-router';
 import {
   AlertCircle,
@@ -10,6 +12,7 @@ import {
   Layers,
   Play,
   Plus,
+  RefreshCw,
   Sparkles,
   User,
 } from 'lucide-react';
@@ -29,7 +32,7 @@ import {
   type Task,
   type TaskStatus,
 } from './contracts';
-import { useHousekeepingBase, useWorkMutation } from './queries';
+import { useHousekeepingBase, useHousekeepingGet, useWorkMutation } from './queries';
 import './housekeeping.css';
 
 export function CleaningBadge({ status }: { status: CleaningStatus }) {
@@ -368,7 +371,7 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
                   task={t}
                   action="start"
                   customLabel="Bắt đầu"
-                  className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-amber-600 hover:!bg-amber-700 !text-white !rounded-md"
+                  className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-amber-50 hover:!bg-amber-100 !text-amber-800 !border !border-amber-200 !rounded-md"
                 />
               )}
               {t.status === 'IN_PROGRESS' && (
@@ -376,7 +379,7 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
                   task={t}
                   action="complete"
                   customLabel="Hoàn tất"
-                  className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-emerald-600 hover:!bg-emerald-700 !text-white !rounded-md"
+                  className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-emerald-50 hover:!bg-emerald-100 !text-emerald-800 !border !border-emerald-200 !rounded-md"
                 />
               )}
               <Link
@@ -390,5 +393,50 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
         },
       ]}
     />
+  );
+}
+
+
+export function HousekeepingShiftProgress() {
+  const client = useQueryClient();
+  const todoQuery = useHousekeepingGet<Page<Task>>('/housekeeping/tasks?status=TODO&page=1&pageSize=50');
+  const progressQuery = useHousekeepingGet<Page<Task>>('/housekeeping/tasks?status=IN_PROGRESS&page=1&pageSize=50');
+  const doneQuery = useHousekeepingGet<Page<Task>>('/housekeeping/tasks?status=DONE&page=1&pageSize=50');
+
+  const allQueries = [todoQuery, progressQuery, doneQuery];
+  const isFetching = allQueries.some((q) => q.isFetching);
+
+  const todoCount = todoQuery.data?.meta.total ?? todoQuery.data?.data?.length ?? 0;
+  const progressCount = progressQuery.data?.meta.total ?? progressQuery.data?.data?.length ?? 0;
+  const doneCount = doneQuery.data?.meta.total ?? doneQuery.data?.data?.length ?? 0;
+  const totalShift = todoCount + progressCount + doneCount;
+  const percentComplete = totalShift > 0 ? Math.round((doneCount / totalShift) * 100) : 100;
+
+  const refreshAll = () => {
+    void client.invalidateQueries({ queryKey: ['housekeeping'] });
+  };
+
+  return (
+    <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-50 border border-zinc-200/80 text-xs">
+      <span className="size-2 rounded-full bg-emerald-400 shrink-0" title="Đang trong ca trực" />
+      <span className="text-zinc-500 font-medium">Tiến độ ca:</span>
+      <strong className="text-zinc-900 font-bold">{doneCount}/{totalShift}</strong>
+      <span className="text-zinc-400 font-mono text-[11px]">({percentComplete}%)</span>
+      <div className="w-16 lg:w-20 h-1.5 bg-zinc-200 rounded-full overflow-hidden shrink-0">
+        <div
+          className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+          style={{ width: `${percentComplete}%` }}
+        />
+      </div>
+      <button
+        type="button"
+        disabled={isFetching}
+        onClick={refreshAll}
+        title="Làm mới tiến độ ca"
+        className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer disabled:opacity-50 ml-0.5"
+      >
+        <RefreshCw className={`size-3 ${isFetching ? 'animate-spin' : ''}`} />
+      </button>
+    </div>
   );
 }

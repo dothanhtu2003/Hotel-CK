@@ -25,20 +25,21 @@ function show(options: { serviceAmount?: string; balance?: string; invoice?: obj
 }
 it('subtracts the payOS prepayment before issuing an invoice', () => {
   show();
-  expect(screen.getByText('ĐÃ THANH TOÁN ĐỦ CHI PHÍ HIỆN TẠI:')).toBeTruthy();
+  expect(screen.getByText('Đã thu đủ chi phí hiện tại')).toBeTruthy();
   expect(screen.getByLabelText('Biên nhận payOS').textContent).toContain('5.000 ₫');
   expect(screen.getByText('0 ₫', { selector: '.font-extrabold' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: /Trả phòng & Chốt hóa đơn · Không thu thêm/ })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Mở quyết toán' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: /Thu tiền.*5.000/ })).toBeNull();
 });
 it('asks only for extra service charges after room prepayment', () => {
   show({ serviceAmount: '2000.00', balance: '2000.00' });
-  expect(screen.getByRole('link', { name: 'Trả phòng & Thu phần còn lại (2.000 ₫)' })).toBeTruthy();
+  expect(screen.getByText('Còn phải thu (tạm tính)')).toBeTruthy();
+  expect(screen.getByText('2.000 ₫', { selector: '.font-extrabold' })).toBeTruthy();
 });
 it('uses the issued invoice balance after additional receipts', () => {
   show({ serviceAmount: '2000.00', balance: '2000.00', invoice: { balance: '0.00', paidAmount: '7000.00' } });
   expect(screen.getByText(/Đã thu.*7.000 ₫/)).toBeTruthy();
-  expect(screen.getByRole('link', { name: /Không thu thêm/ })).toBeTruthy();
+  expect(screen.getByText('Đã tất toán')).toBeTruthy();
 });
 it('shows payment information before check-in too', () => {
   show({ status: 'CONFIRMED' });

@@ -1,0 +1,140 @@
+/* ========================================================
+   MODERN POS ADD SERVICE ORDER MODAL (WIDE 2-COLUMN LAYOUT)
+   ======================================================== */
+
+dialog.create-service-dialog {
+  width: min(1160px, calc(100vw - 32px)) !important;
+  max-width: 1160px !important;
+  height: min(840px, calc(100dvh - 36px)) !important;
+  max-height: min(840px, calc(100dvh - 36px)) !important;
+  padding: 22px 24px !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  border: 1px solid #e4e7eb !important;
+  box-shadow: 0 25px 70px -15px rgba(0, 0, 0, 0.3) !important;
+  overflow: hidden !important;
+}
+
+dialog.create-service-dialog[open] {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.create-service-dialog .dialog-heading {
+  flex-shrink: 0 !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid #f1f1f4 !important;
+}
+
+.create-service-dialog .dialog-heading h2 {
+  font-size: 19px !important;
+  font-weight: 700 !important;
+  color: #18181b !important;
+  letter-spacing: -0.01em !important;
+}
+
+.create-service-dialog > form {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.create-service-dialog > form > fieldset {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.create-service-modal-body {
+  display: grid !important;
+  grid-template-columns: 1.45fr 1fr !important;
+  gap: 22px !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  align-items: stretch !important;
+}
+
+.create-service-catalog-pane {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  padding-right: 18px !important;
+  border-right: 1px solid #f1f1f4 !important;
+}
+
+.create-service-items-grid {
+  flex: 1 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  padding-right: 6px !important;
+}
+
+.create-service-cart-pane {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  background: #fcfcfc !important;
+  border: 1px solid #f1f1f4 !important;
+  border-radius: 14px !important;
+  padding: 16px 18px !important;
+}
+
+.create-service-cart-list {
+  flex: 1 !important;
+  min-height: 130px !important;
+  max-height: 280px !important;
+  overflow-y: auto !important;
+}
+
+@media (max-width: 900px) {
+  dialog.create-service-dialog {
+    width: calc(100vw - 20px) !important;
+    height: calc(100dvh - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    padding: 16px !important;
+  }
+
+  .create-service-dialog > form {
+    overflow-y: auto !important;
+  }
+
+  .create-service-dialog > form > fieldset {
+    display: block !important;
+    overflow-y: auto !important;
+  }
+
+  .create-service-modal-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    height: auto !important;
+  }
+
+  .create-service-catalog-pane {
+    border-right: none !important;
+    padding-right: 0 !important;
+    border-bottom: 1px solid #f1f1f4 !important;
+    padding-bottom: 16px !important;
+    height: auto !important;
+  }
+
+  .create-service-items-grid {
+    max-height: 320px !important;
+  }
+
+  .create-service-cart-pane {
+    height: auto !important;
+  }
+}

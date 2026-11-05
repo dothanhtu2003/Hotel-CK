@@ -74,6 +74,12 @@ export function ReceptionBillingPage() {
   const overallTotal = decimal(cents(amount) + cents(separatePaid));
   const overallPaid = decimal(cents(paid) + cents(separatePaid));
   const isPaidInFull = Number(balance) <= 0;
+  const roomAmount = i?.roomAmount ?? p.roomAmount;
+  const extension = p.roomExtension;
+  const roomCharges = extension ? [
+    { label: `Tiền phòng ban đầu (${b.nights - extension.addedNights} đêm)`, amount: decimal(cents(roomAmount) - cents(extension.addedAmount)) },
+    { label: `Tiền gia hạn (${extension.addedNights} đêm)`, amount: extension.addedAmount },
+  ] : [{ label: `Tiền phòng (${b.nights} đêm)`, amount: roomAmount }];
 
   return (
     <div className="billing-workspace">
@@ -135,42 +141,32 @@ export function ReceptionBillingPage() {
             </div>
 
             <div className="billing-receipt-lines">
-              <div className="billing-receipt-row">
-                <div className="billing-receipt-label">
-                  <span className="font-semibold text-zinc-800">Tiền phòng ({b.nights} đêm)</span>
+              <h3 className="px-2.5 text-xs font-bold text-zinc-700">Hóa đơn phòng</h3>
+              {roomCharges.map(charge => (
+                <div key={charge.label} className="billing-receipt-row">
+                  <span className="billing-receipt-label font-semibold text-zinc-800">{charge.label}</span>
+                  <div className="billing-receipt-leader" />
+                  <strong className="billing-receipt-value font-semibold text-zinc-900">{money(charge.amount)}</strong>
                 </div>
-                <div className="billing-receipt-leader" />
-                <strong className="billing-receipt-value font-semibold text-zinc-900">{money(i?.roomAmount ?? p.roomAmount)}</strong>
-              </div>
+              ))}
 
               <div className="billing-receipt-row">
                 <div className="billing-receipt-label">
-                  <span className="font-semibold text-zinc-800">Dịch vụ ghi vào hóa đơn phòng</span>
+                  <span className="font-semibold text-zinc-800">Dịch vụ ghi phòng</span>
                 </div>
                 <div className="billing-receipt-leader" />
                 <strong className="billing-receipt-value font-semibold text-zinc-900">{money(i?.serviceAmount ?? p.serviceAmount)}</strong>
               </div>
 
               {Number(separatePaid) > 0 && (
-                <div className="billing-receipt-row">
-                  <div className="billing-receipt-label">
-                    <span className="font-semibold text-zinc-800">Dịch vụ đã thu tại quầy</span>
-                    <span className="billing-receipt-sub">{usedOrders.length} món thanh toán trực tiếp</span>
-                  </div>
-                  <div className="billing-receipt-leader" />
+                <div className="billing-receipt-row rounded-lg bg-zinc-50">
+                  <span className="billing-receipt-label font-semibold text-zinc-800">Dịch vụ đã trả riêng</span>
                   <strong className="billing-receipt-value font-semibold text-zinc-900">{money(separatePaid)}</strong>
                 </div>
               )}
 
               <div className="billing-receipt-row billing-receipt-total">
-                <div className="billing-receipt-label">
-                  <strong className="text-base font-bold text-zinc-900">Tổng chi phí lưu trú</strong>
-                  {Number(separatePaid) > 0 && (
-                    <span className="billing-receipt-sub text-emerald-800 font-medium">
-                      Hóa đơn phòng: {money(amount)} · Dịch vụ quầy: {money(separatePaid)}
-                    </span>
-                  )}
-                </div>
+                <strong className="billing-receipt-label text-base font-bold text-zinc-900">Tổng chi phí lưu trú</strong>
                 <div className="billing-receipt-leader billing-leader-thick" />
                 <strong className="billing-receipt-value text-base font-bold text-emerald-800">{money(overallTotal)}</strong>
               </div>
@@ -220,13 +216,13 @@ export function ReceptionBillingPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
                     {usedOrders.flatMap(o => o.items.map(item => ({ ...item, paymentMethod: o.paymentMethod, key: `${o.id}-${item.id ?? item.serviceName}` }))).map(item => (
-                      <tr key={item.key} className="hover:bg-zinc-50/50 transition-colors">
+                      <tr key={item.key} className={`transition-colors ${!item.paymentMethod && !isPaidInFull ? "bg-amber-50 hover:bg-amber-100/70" : "hover:bg-zinc-50/50"}`}>
                         <td className="py-2.5 px-3.5 font-medium text-zinc-900">
                           {cleanServiceName(item.serviceName)}
                         </td>
                         <td className="py-2.5 px-2 text-center">
                           <span className={item.paymentMethod === 'CASH' ? 'billing-pill-cash' : item.paymentMethod === 'BANK_TRANSFER' ? 'billing-pill-transfer' : 'billing-pill-room'}>
-                            {item.paymentMethod === 'CASH' ? 'Tiền mặt' : item.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : 'Ghi phòng'}
+                            {item.paymentMethod === 'CASH' ? 'Tiền mặt' : item.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : isPaidInFull ? 'Ghi phòng' : 'Ghi phòng · Thu khi trả phòng'}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center tabular-nums text-zinc-700 font-semibold">{item.quantity}</td>
@@ -262,16 +258,6 @@ export function ReceptionBillingPage() {
                 <dt>Tổng chi phí lưu trú</dt>
                 <dd className="font-bold text-zinc-900 text-sm tabular-nums">{money(overallTotal)}</dd>
               </div>
-              <div className="flex justify-between items-center text-zinc-600">
-                <dt>Đã thu tiền phòng</dt>
-                <dd className="text-zinc-800 font-medium tabular-nums">{money(paid)}</dd>
-              </div>
-              {Number(separatePaid) > 0 && (
-                <div className="flex justify-between items-center text-zinc-600">
-                  <dt>Dịch vụ đã thu tại quầy</dt>
-                  <dd className="text-zinc-800 font-medium tabular-nums">{money(separatePaid)}</dd>
-                </div>
-              )}
               <div className="flex justify-between items-center pt-2 border-t border-zinc-100">
                 <dt className="font-semibold text-zinc-800">Tổng đã thu</dt>
                 <dd className="text-emerald-700 font-bold text-sm tabular-nums">{money(overallPaid)}</dd>
@@ -298,9 +284,7 @@ export function ReceptionBillingPage() {
                   {money(balance)}
                 </span>
               </div>
-              <p className="billing-status-sub">
-                {isPaidInFull ? "Đã thanh toán đủ." : "Cần thu đủ số tiền trước khi trả phòng."}
-              </p>
+              {isPaidInFull && <p className="billing-status-sub">Đã thanh toán đủ.</p>}
             </div>
 
             {!i ? (

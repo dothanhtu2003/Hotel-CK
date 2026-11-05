@@ -57,7 +57,17 @@ export class BillingService {
       } : undefined;
       const total = booking.totalRoomAmount.add(serviceAmount);
       const view = billingBookingView(booking);
-      return { guestSummary, booking: view, completedOrders: completed.map(orderView), pendingOrderCount, counterPaidAmount, counterPaidOrders: counterPaid.map(orderView),
+      const extensions = actor.role === 'GUEST' ? undefined : await tx.stayExtension.aggregate({
+        where: { bookingId: id },
+        _min: { oldCheckOut: true },
+        _sum: { oldAmount: true, newAmount: true },
+      });
+      const originalCheckOut = extensions?._min.oldCheckOut;
+      const roomExtension = originalCheckOut && extensions._sum.newAmount && extensions._sum.oldAmount ? {
+        addedNights: (booking.checkOutDate.getTime() - originalCheckOut.getTime()) / 86400000,
+        addedAmount: extensions._sum.newAmount.sub(extensions._sum.oldAmount).toFixed(2),
+      } : undefined;
+      return { guestSummary, roomExtension, booking: view, completedOrders: completed.map(orderView), pendingOrderCount, counterPaidAmount, counterPaidOrders: counterPaid.map(orderView),
         prepaidAmount: prepaid.toFixed(2), paidAmount: paid.toFixed(2), balance: total.sub(paid).toFixed(2),
         roomPayments: roomPayments.map(payment => ({ ...payment, amount: payment.amount.toFixed(2) })),
         roomAmount: booking.totalRoomAmount.toFixed(2), serviceAmount: serviceAmount.toFixed(2), totalAmount: booking.totalRoomAmount.add(serviceAmount).toFixed(2) };

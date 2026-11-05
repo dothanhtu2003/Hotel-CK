@@ -1,3 +1,5 @@
+import { BankTransferQr } from './bank-transfer-qr';
+import './create-service-order.css';
 import { useMemo, useRef, useState } from 'react';
 import { Button, Dialog, ErrorState, Pagination } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -144,8 +146,8 @@ export function CreateServiceOrder({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [busy, setBusy] = useState(false);
+  const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
   const [settlement, setSettlement] = useState<'ROOM' | 'CASH' | 'BANK_TRANSFER'>('ROOM');
-  const [verifiedReceipt, setVerifiedReceipt] = useState('');
   const requestId = useRef<string | null>(null);
   const submitting = useRef(false);
   const [error, setError] = useState('');
@@ -179,8 +181,6 @@ export function CreateServiceOrder({
   }, [selected, allServices, selectedServices]);
 
   const totalDisplay = money(decimal(totalCents));
-  const receiptFingerprint = `${bookingId}:${settlement}:${decimal(totalCents)}`;
-  const paymentVerified = verifiedReceipt === receiptFingerprint;
 
   const filteredServices = useMemo(() => {
     return allServices.filter((s) => {
@@ -225,10 +225,35 @@ export function CreateServiceOrder({
     });
   };
 
+  if (paymentOrder) return (
+    <Dialog open title="Thanh toán chuyển khoản" onClose={() => onCreated(paymentOrder)}>
+      <BankTransferQr orderId={paymentOrder.id} amount={paymentOrder.totalAmount}
+        expiresAt={Date.parse(paymentOrder.orderedAt) + 15 * 60_000}
+        allowChangeAfterClose
+        onPaid={() => onCreated(paymentOrder)}
+        onClosed={async () => {
+          const path = `/service-orders/${paymentOrder.id}`;
+          try {
+            await api.request<Order>(`${path}/cancel`, { method: 'PATCH', body: {} });
+          } catch (error) {
+            const current = await api.request<Order>(path);
+            if (current.status !== 'CANCELLED') throw error;
+          }
+          void refresh();
+          requestId.current = null;
+          submitting.current = false;
+          setBusy(false);
+          setSettlement('CASH');
+          setPaymentOrder(null);
+        }} />
+    </Dialog>
+  );
+
   return (
     <Dialog
       open
       title="Thêm đơn dịch vụ phòng"
+      closeOnBackdrop={false}
       onClose={() => {
         if (!submitting.current) onClose();
       }}
@@ -237,15 +262,17 @@ export function CreateServiceOrder({
       <form
         onSubmit={async (event) => {
           event.preventDefault();
-          if (submitting.current || !bookingId || !selected.length || (settlement !== 'ROOM' && !paymentVerified)) return;
+          if (submitting.current || !bookingId || !selected.length) return;
           submitting.current = true;
           setBusy(true);
           setError('');
           let order: Order;
           try {
             const body = {
-              bookingId, settlement,
-              ...(settlement !== 'ROOM' ? { paymentVerified, expectedAmount: decimal(totalCents) } : {}),
+              bookingId,
+              ...(settlement === 'BANK_TRANSFER'
+                ? { requestedPaymentMethod: 'BANK_TRANSFER', expectedAmount: decimal(totalCents) }
+                : { settlement, ...(settlement === 'CASH' ? { paymentVerified: true, expectedAmount: decimal(totalCents) } : {}) }),
               items: selected.map(([serviceId, quantity]) => ({ serviceId, quantity })),
             };
             requestId.current ??= crypto.randomUUID();
@@ -264,10 +291,11 @@ export function CreateServiceOrder({
             return;
           }
           void refresh();
-          onCreated(order);
+          if (settlement === 'BANK_TRANSFER' && !order.paymentMethod) setPaymentOrder(order);
+          else onCreated(order);
         }}
       >
-        <fieldset disabled={busy} className="min-w-0 border-0 p-0 m-0">
+        <fieldset disabled={busy} className="min-w-0 border-0 p-0 m-0 flex-1 flex flex-col min-h-0">
         <div className="create-service-modal-body">
           {/* CỘT TRÁI (60%): MENU DỊCH VỤ */}
           <div className="create-service-catalog-pane">
@@ -370,7 +398,7 @@ export function CreateServiceOrder({
                             <button
                               type="button"
                               onClick={() => updateQuantity(service.id, 1)}
-                              className="w-full h-8 text-xs font-semibold rounded-lg bg-zinc-100/80 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 border border-transparent text-zinc-700 transition-colors cursor-pointer inline-flex items-center justify-center gap-1"
+                              className="w-full h-8 text-xs font-semibold rounded-lg bg-zinc-100/80 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 border border-transparent text-zinc-700 transition-colors cursor-pointer inline-flex items-center justify-center gap-1 whitespace-nowrap"
                             >
                               <Plus className="size-3.5" /> Thêm vào đơn
                             </button>
@@ -580,13 +608,13 @@ export function CreateServiceOrder({
             {/* Tóm tắt & Nút tạo đơn */}
             <div className="pt-3 border-t border-zinc-200/90 mt-3 space-y-2.5">
               <label className="block text-xs sm:text-sm font-semibold space-y-1.5">Cách thanh toán
-                <select aria-label="Cách thanh toán" className="input w-full h-10 text-xs sm:text-sm px-3 rounded-xl border-zinc-200" value={settlement} disabled={busy} onChange={event => { setSettlement(event.target.value as typeof settlement); setVerifiedReceipt(''); }}>
+                <select aria-label="Cách thanh toán" className="input w-full h-10 text-xs sm:text-sm px-3 rounded-xl border-zinc-200" value={settlement} disabled={busy} onChange={event => { setSettlement(event.target.value as typeof settlement); }}>
                   <option value="ROOM">Ghi vào hóa đơn phòng</option>
                   <option value="CASH">Thanh toán ngay · Tiền mặt</option>
                   <option value="BANK_TRANSFER">Thanh toán ngay · Chuyển khoản</option>
                 </select>
               </label>
-              {settlement !== 'ROOM' ? <label className="flex items-start gap-2 text-xs text-zinc-600"><input type="checkbox" required disabled={busy} checked={paymentVerified} onChange={event => setVerifiedReceipt(event.target.checked ? receiptFingerprint : '')} />Đã nhận đủ {totalDisplay}.</label> : <p className="text-xs text-zinc-500">Thanh toán cùng hóa đơn phòng.</p>}
+              {settlement === 'ROOM' && <p className="text-xs text-zinc-500">Thanh toán cùng hóa đơn phòng.</p>}
               <div className="flex items-baseline justify-between pt-1">
                 <div>
                   <span className="text-xs sm:text-sm text-zinc-500 font-medium">Tổng tiền dự kiến:</span>
@@ -624,12 +652,11 @@ export function CreateServiceOrder({
                     !bookingId ||
                     selected.length === 0 ||
                     totalParts > 50 ||
-                    (settlement !== 'ROOM' && !paymentVerified) ||
                     busy
                   }
                   className="flex-2 h-10 px-4 text-xs sm:text-sm font-semibold rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors cursor-pointer shadow-2xs inline-flex items-center justify-center gap-1.5"
                 >
-                  {busy ? 'Đang tạo đơn…' : `Tạo đơn · ${totalDisplay}`}
+                  {busy ? 'Đang tạo đơn…' : `${settlement === 'BANK_TRANSFER' ? 'Thanh toán' : settlement === 'CASH' ? 'Đã thu tiền · Tạo đơn' : 'Tạo đơn'} · ${totalDisplay}`}
                 </button>
               </div>
             </div>

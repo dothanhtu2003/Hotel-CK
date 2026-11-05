@@ -59,8 +59,14 @@ export class ServiceOrdersService {
         // Staff entries are recorded immediately. Guest requests still await staff acceptance.
         if (actor.role !== 'GUEST') {
           const stored = await tx.serviceOrder.findUniqueOrThrow({ where: { id: order.id }, select: { totalAmount: true } });
-          const receipt = this.receiptData(actor, { ...dto, settlement }, stored.totalAmount);
-          await tx.serviceOrder.update({ where: { id: order.id }, data: { status: 'COMPLETED', ...receipt } });
+          if (dto.requestedPaymentMethod === 'BANK_TRANSFER') {
+            if (settlement !== 'ROOM' || !dto.expectedAmount || !stored.totalAmount.equals(dto.expectedAmount)) {
+              throw new ConflictException('Service prices changed or the payment method is invalid');
+            }
+          } else {
+            const receipt = this.receiptData(actor, { ...dto, settlement }, stored.totalAmount);
+            await tx.serviceOrder.update({ where: { id: order.id }, data: { status: 'COMPLETED', ...receipt } });
+          }
         }
         return orderView(await tx.serviceOrder.findUniqueOrThrow({ where: { id: order.id }, select: orderSelect }));
       });

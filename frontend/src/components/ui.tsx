@@ -19,10 +19,10 @@ export function StatusBadge({ tone = 'muted', children }: { tone?: 'muted' | 'su
 export function DatePicker({ label, id, ...props }: ComponentProps<'input'> & { label: string; id: string }) {
   return <div className="date-picker"><label htmlFor={id}>{label}</label><div><CalendarDays size={19} /><input type="date" id={id} {...props} /></div></div>;
 }
-export function Dialog({ open, onClose, title, children, className = '' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; className?: string }) {
+export function Dialog({ open, onClose, title, children, className = '', closeOnBackdrop = true }: { open: boolean; onClose: () => void; title: string; children: ReactNode; className?: string; closeOnBackdrop?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const dialog = ref.current; if (!dialog) return; if (open && !dialog.open) dialog.showModal(); else if (!open && dialog.open) dialog.close(); }, [open]);
-  return <dialog ref={ref} className={`dialog ${className}`} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }} onClose={() => { if (open) onClose(); }} onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose(); } }}>
+  return <dialog ref={ref} className={`dialog ${className}`} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }} onClose={() => { if (open) onClose(); }} onClick={event => { if (closeOnBackdrop && event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose(); } }}>
     <div className="dialog-heading"><h2>{title}</h2><button aria-label="Đóng hộp thoại" onClick={onClose}><X size={22} /></button></div>{children}
   </dialog>;
 }

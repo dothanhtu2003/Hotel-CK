@@ -7,13 +7,13 @@ import { money } from '../guest/contracts';
 import { useRefreshDesk } from './queries';
 
 type Link = { paid: boolean; checkoutUrl?: string; qrCode?: string; closed?: boolean; expired?: boolean };
-export function BankTransferQr({ orderId, amount, onPaid, onClosed, guest = false, expiresAt }: { orderId: string; amount: string; guest?: boolean; expiresAt?: number; onPaid: () => void; onClosed: () => void }) {
+export function BankTransferQr({ orderId, amount, onPaid, onClosed, guest = false, expiresAt, allowChangeAfterClose = false }: { orderId: string; amount: string; guest?: boolean; expiresAt?: number; onPaid: () => void; onClosed: () => void | Promise<void>; allowChangeAfterClose?: boolean }) {
   const [now, setNow] = useState(Date.now);
   useEffect(() => { if (!expiresAt) return; const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, [expiresAt]);
   const refresh = useRefreshDesk();
   const link = useQuery({ queryKey: ['service-payos-link', orderId], queryFn: async () => { try { return await api.request<Link>(`/service-orders/${orderId}/payos`, { method: 'POST' }); } finally { void refresh(); } }, retry: false, staleTime: 0, refetchOnWindowFocus: false });
   const sync = useQuery({ queryKey: ['service-payos-sync', orderId, link.data?.checkoutUrl], queryFn: () => api.request<{ paid: boolean; closed: boolean; expired?: boolean }>(`/service-orders/${orderId}/payos/sync`, { method: 'POST' }), enabled: !!link.data && !link.data.paid, refetchInterval: query => query.state.data?.paid || query.state.data?.closed ? false : 5000, retry: false });
-  const cancel = useMutation({ mutationFn: () => api.request<{ paid: boolean; closed: boolean; expired?: boolean }>(`/service-orders/${orderId}/payos/cancel`, { method: 'POST' }), onSuccess: async result => { await refresh(); if (result.paid) onPaid(); else if (result.closed) onClosed(); else void sync.refetch(); } });
+  const cancel = useMutation({ mutationFn: () => api.request<{ paid: boolean; closed: boolean; expired?: boolean }>(`/service-orders/${orderId}/payos/cancel`, { method: 'POST' }), onSuccess: async result => { await refresh(); if (result.paid) onPaid(); else if (result.closed) await onClosed(); else throw new Error("Giao dịch vẫn đang chờ xác minh. Vui lòng kiểm tra trước khi thu thêm."); } });
   const expired = link.data?.expired || sync.data?.expired || (!!expiresAt && now >= expiresAt);
   const paid = link.data?.paid || sync.data?.paid;
   const notifyPaid = useEffectEvent(() => { void refresh(); onPaid(); });
@@ -29,11 +29,12 @@ export function BankTransferQr({ orderId, amount, onPaid, onClosed, guest = fals
     {link.data?.checkoutUrl && !expired && !sync.data?.closed && <a href={link.data.checkoutUrl} target="_blank" rel="noopener noreferrer" className="underline text-brand-700">Mở trang thanh toán payOS</a>}
     {expired && <p role="status">Đã quá hạn thanh toán 15 phút. Đơn chưa thanh toán sẽ được hủy sau khi đối soát.</p>}
     {!expired && sync.data?.closed && <p role="status">Mã QR đã hết hiệu lực.</p>}
-    {(link.error || sync.error || cancel.error || image.error) && <p role="alert">Chưa thể tải hoặc kiểm tra thanh toán payOS. Vui lòng thử lại.</p>}
+    {(link.error || sync.error || image.error) && <p role="alert">Chưa thể tải hoặc kiểm tra thanh toán payOS. Vui lòng thử lại.</p>}
+    {cancel.error && <p role="alert">Chưa thể đổi cách thanh toán. Vui lòng kiểm tra giao dịch rồi thử lại.</p>}
     <div className="flex flex-wrap gap-2">
-      {!expired && (link.error || sync.data?.closed) && <Button type="button" variant="secondary" onClick={() => void link.refetch()}>{sync.data?.closed ? 'Tạo QR mới' : 'Tải lại QR'}</Button>}
+      {!expired && !cancel.isPending && (link.error || sync.data?.closed) && <Button type="button" variant="secondary" onClick={() => void link.refetch()}>{sync.data?.closed ? 'Tạo QR mới' : 'Tải lại QR'}</Button>}
       {!expired && link.data && !paid && <Button type="button" variant="secondary" busy={sync.isFetching} onClick={() => void sync.refetch()}>Kiểm tra thanh toán</Button>}
-      {!guest && !link.isPending && !paid && !expired && !sync.data?.closed && <Button type="button" variant="secondary" busy={cancel.isPending} onClick={() => cancel.mutate()}>Đổi cách thanh toán</Button>}
+      {!guest && !link.isPending && !paid && (!expired || allowChangeAfterClose) && (!sync.data?.closed || allowChangeAfterClose) && <Button type="button" variant="secondary" disabled={link.isFetching} busy={cancel.isPending} onClick={() => cancel.mutate()}>Đổi cách thanh toán</Button>}
     </div>
   </section>;
 }

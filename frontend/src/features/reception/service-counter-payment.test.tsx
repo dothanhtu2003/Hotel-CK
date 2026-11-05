@@ -42,13 +42,15 @@ it('requires a full refund confirmation before cancelling a paid order', async (
   await waitFor(() => expect(request).toHaveBeenCalledWith('/service-orders/order-1/cancel', { method: 'PATCH', body: { refundConfirmed: true } }));
 });
 
-it('rechecks funds after quantity changes and retries creation with the same request id', async () => {
+it.each(['CASH', 'BANK_TRANSFER'])('records %s with the current total and retries with the same request id', async settlement => {
   let posts = 0;
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options) => {
+    if (path.endsWith('/payos/sync')) return { paid: true, closed: false };
+    if (path.endsWith('/payos')) return { paid: false, checkoutUrl: 'https://pay.payos.vn/web/test', qrCode: 'payload' };
     if (options?.method === 'POST') {
       posts++;
       if (posts === 1) throw new Error('Mất kết nối');
-      return order;
+      return settlement === 'CASH' ? order : { ...order, status: 'PENDING', orderedAt: new Date().toISOString() };
     }
     if (path.startsWith('/services?')) return { data: [{ id: 'coffee', name: 'Cà phê', currentPrice: '45000.00', isActive: true }], meta: { page: 1, pageSize: 100, total: 1, totalPages: 1 } };
     return { data: [{ id: 'booking-1', roomNumber: '101', reference: 'BK-1', customer: { fullName: 'Khách A' } }], meta: { page: 1, pageSize: 100, total: 1, totalPages: 1 } };
@@ -57,19 +59,21 @@ it('rechecks funds after quantity changes and retries creation with the same req
   mount(<CreateServiceOrder onClose={vi.fn()} onCreated={created} />);
   fireEvent.click(await screen.findByRole('button', { name: /Thêm vào đơn/ }));
   fireEvent.change(screen.getByRole('combobox', { name: 'Phòng nhận dịch vụ' }), { target: { value: 'booking-1' } });
-  fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: 'CASH' } });
-  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: settlement } });
   fireEvent.click(screen.getByTitle('Tăng 1'));
-  expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false);
-  fireEvent.click(screen.getByRole('checkbox'));
-  fireEvent.click(screen.getByRole('button', { name: /Tạo đơn ·/ }));
+  expect(screen.queryByRole('checkbox')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: settlement === 'CASH' ? /Tạo đơn ·/ : /^Thanh toán ·/ }));
   await screen.findByText('Mất kết nối');
-  fireEvent.click(screen.getByRole('button', { name: /Tạo đơn ·/ }));
+  fireEvent.click(screen.getByRole('button', { name: settlement === 'CASH' ? /Tạo đơn ·/ : /^Thanh toán ·/ }));
   await waitFor(() => expect(created).toHaveBeenCalledTimes(1));
-  const calls = request.mock.calls.filter(([, options]) => options?.method === 'POST');
+  const calls = request.mock.calls.filter(([path]) => path === '/service-orders');
   expect(calls).toHaveLength(2);
   expect(calls[0][1]?.body).toEqual(calls[1][1]?.body);
-  expect(calls[0][1]?.body).toMatchObject({ settlement: 'CASH', expectedAmount: '90000.00', paymentVerified: true, requestId: expect.any(String) });
+  expect(calls[0][1]?.body).toMatchObject({ expectedAmount: '90000.00', requestId: expect.any(String), ...(settlement === 'CASH' ? { settlement, paymentVerified: true } : { requestedPaymentMethod: settlement }) });
+  if (settlement === 'BANK_TRANSFER') {
+    expect(calls[0][1]?.body).not.toHaveProperty('paymentVerified');
+    expect(request).toHaveBeenCalledWith('/service-orders/order-1/payos', { method: 'POST' });
+  }
 });
 
 
@@ -124,4 +128,41 @@ it('never opens a payment dialog for guest transfer requests awaiting payOS', as
   expect(screen.queryByRole('button')).toBeNull();
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.queryByRole('combobox')).toBeNull();
+});
+
+
+it('closes an unpaid QR and preserves the cart when changing to cash', async () => {
+  const request = vi.spyOn(api, 'request').mockImplementation(async (path, options) => {
+    if (path.endsWith('/payos/cancel')) return { paid: false, closed: true };
+    if (path.endsWith('/payos/sync')) return { paid: false, closed: false };
+    if (path.endsWith('/payos')) return { paid: false, checkoutUrl: 'https://pay.payos.vn/web/test', qrCode: 'payload' };
+    if (path.endsWith('/cancel')) return { ...order, status: 'CANCELLED' };
+    if (path === '/service-orders' && options?.method === 'POST') {
+      return { ...order, status: 'PENDING', orderedAt: new Date().toISOString() };
+    }
+    if (path.startsWith('/services?')) return { data: [{ id: 'coffee', name: 'Cà phê', currentPrice: '45000.00', isActive: true }], meta: { page: 1, pageSize: 100, total: 1, totalPages: 1 } };
+    return { data: [{ id: 'booking-1', roomNumber: '101', reference: 'BK-1' }], meta: { page: 1, pageSize: 100, total: 1, totalPages: 1 } };
+  });
+  const created = vi.fn();
+  const close = vi.fn();
+  mount(<CreateServiceOrder onClose={close} onCreated={created} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Thêm vào đơn/ }));
+  fireEvent.change(screen.getByRole('combobox', { name: 'Phòng nhận dịch vụ' }), { target: { value: 'booking-1' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Cách thanh toán' }), { target: { value: 'BANK_TRANSFER' } });
+  expect(screen.getByRole('dialog', { name: 'Thêm đơn dịch vụ phòng' })).toBeTruthy();
+  expect(close).not.toHaveBeenCalled();
+  expect(request.mock.calls.some(([path]) => path === '/service-orders')).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: /^Thanh toán ·/ }));
+  await screen.findByRole('link', { name: 'Mở trang thanh toán payOS' });
+  fireEvent.click(screen.getByRole('button', { name: 'Đổi cách thanh toán' }));
+  const method = await screen.findByRole<HTMLSelectElement>('combobox', { name: 'Cách thanh toán' });
+  expect(method.value).toBe('CASH');
+  expect(request).toHaveBeenCalledWith('/service-orders/order-1/payos/cancel', { method: 'POST' });
+  expect(request).toHaveBeenCalledWith('/service-orders/order-1/cancel', { method: 'PATCH', body: {} });
+  expect(created).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: /Đã thu tiền · Tạo đơn/ }));
+  await waitFor(() => expect(created).toHaveBeenCalledOnce());
+  const orders = request.mock.calls.filter(([path]) => path === '/service-orders').map(([, options]) => options?.body as { requestId: string; items: unknown });
+  expect(orders[1].items).toEqual(orders[0].items);
+  expect(orders[1].requestId).not.toBe(orders[0].requestId);
 });
