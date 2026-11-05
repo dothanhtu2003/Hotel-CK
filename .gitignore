@@ -32,3 +32,6 @@ docs/
 docs/*
 !docs/kamra-migration.md
 !docs/kamra-verification.md
+
+# Local screenshots and previews
+/*-preview.png
