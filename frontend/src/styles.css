@@ -7617,3 +7617,29 @@
 
 .dialog.create-service-dialog { width: min(1160px, calc(100vw - 32px)) !important; max-width: 1160px !important; height: min(840px, calc(100dvh - 36px)) !important; max-height: min(840px, calc(100dvh - 36px)) !important; padding: 22px 24px !important; border-radius: 18px !important; background: #ffffff !important; box-shadow: 0 25px 70px -15px rgba(0, 0, 0, 0.3) !important; }
 .dialog.create-service-dialog[open] { display: flex !important; flex-direction: column !important; overflow: hidden !important; }
+
+@media (max-width: 600px) {
+ .btn-explore-all { max-width:100%; white-space:normal; text-align:center; box-sizing:border-box; }
+ .guest-stay-pass-card { min-width:0; max-width:100%; box-sizing:border-box; }
+ .guest-card-top, .guest-card-footer { flex-wrap:wrap; min-width:0; }
+ .guest-card-ref-badge { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+ .guest-card-ref-badge > * { min-width:0; overflow-wrap:anywhere; }
+ .guest-card-action-links { flex-wrap:wrap; }
+}
+
+@media (max-width: 360px) {
+ .guest-portal-header-inner { gap: 6px; }
+ .guest-portal-actions { gap: 4px; }
+ .guest-portal-brand-wrap { min-width: 0; flex-shrink: 1; }
+}
+
+@media (max-width: 600px) {
+ .guest-service-catalog-grid, .guest-order-cards-list { grid-template-columns: minmax(0,1fr) !important; }
+ .guest-service-menu-item, .guest-order-card { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+ .order-card-header { flex-wrap: wrap; min-width: 0; }
+}
+
+@media (max-width: 360px) {
+ .header-actions { gap: 4px; min-width: 0; }
+ .header-actions > .button { padding-inline: 8px; font-size: 11px; white-space: normal; }
+}

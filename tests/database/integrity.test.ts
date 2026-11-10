@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -153,9 +154,9 @@ test('28 Valid counter payment settles invoice and blocks overpayment',()=>withT
   await rejects(c,"INSERT INTO payments(id,invoice_id,amount,method,status) VALUES($1,$2,1,'CASH','COMPLETED')",[randomUUID(),inv.id]);
 }));
 
-test('29 CHECKED_OUT retains historical exclusion',()=>withTx(async c=>{
+test('29 CHECKED_OUT releases planned dates without deleting history',()=>withTx(async c=>{
   const f=await fixture(c),bid=await booking(c,f); await checkIn(c,bid); await checkoutSql(c,bid);
-  await rejects(c,`INSERT INTO bookings(id,reference,user_id,room_id,check_in_date,check_out_date,guest_count) SELECT $1::uuid,$1::text,user_id,room_id,check_in_date,check_out_date,guest_count FROM bookings WHERE id=$2`,[randomUUID(),bid],['23P01']);
+  await c.query(`INSERT INTO bookings(id,reference,user_id,room_id,check_in_date,check_out_date,guest_count) SELECT $1::uuid,$1::text,user_id,room_id,check_in_date,check_out_date,guest_count FROM bookings WHERE id=$2`,[randomUUID(),bid]);
 }));
 test('30 Check-in rejects dirty, inactive and out-of-date rooms',()=>withTx(async c=>{
   const f=await fixture(c),bid=await booking(c,f); await c.query("UPDATE bookings SET status='CONFIRMED' WHERE id=$1",[bid]);
@@ -244,7 +245,7 @@ test('37 Restricted backend role can execute trigger workflows without DDL acces
   const role=`test_runtime_${randomUUID().replaceAll('-','')}`;
   await c.query(`CREATE ROLE ${role} NOLOGIN`);
   await c.query(`GRANT USAGE ON SCHEMA hotel TO ${role}`);
-  await c.query(`GRANT SELECT, INSERT, UPDATE ON hotel.users,hotel.room_types,hotel.rooms,hotel.room_images,hotel.bookings,hotel.services,hotel.service_orders,hotel.service_order_items,hotel.housekeeping_tasks,hotel.invoices,hotel.payments,hotel.booking_payments TO ${role}`);
+  await c.query(readFileSync(new URL('../../scripts/release-runtime-grants.sql', import.meta.url), 'utf8').replaceAll('hotel_runtime', role));
   await c.query(`SET LOCAL ROLE ${role}`);
   await order(c,f,bid); const inv=await issueInvoiceSql(c,bid);
   await c.query("INSERT INTO payments(id,invoice_id,amount,method,status) VALUES($1,$2,$3,'CASH','COMPLETED')",[randomUUID(),inv.id,inv.total_amount]);
@@ -259,4 +260,37 @@ test('38 Monetary values reject NUMERIC NaN',()=>withTx(async c=>{
   await rejects(c,"UPDATE services SET current_price='NaN' WHERE id=$1",[f.sid]);
   const bid=await booking(c,f);await checkIn(c,bid);const inv=await issueInvoiceSql(c,bid);
   await rejects(c,"INSERT INTO payments(id,invoice_id,amount,method) VALUES($1,$2,'NaN','CASH')",[randomUUID(),inv.id]);
+}));
+
+test('39 Documented runtime grants support check-in, extension, transfer and checkout',()=>withTx(async c=>{
+  const f=await fixture(c),bid=await booking(c,f);
+  await c.query("UPDATE users SET role='RECEPTIONIST' WHERE id=$1",[f.staff]);
+  const target=randomUUID();
+  await c.query('INSERT INTO rooms(id,room_number,room_type_id,floor) VALUES($1,$2,$3,1)',[target,target.slice(0,12),f.tid]);
+  const role=`qa_runtime_${randomUUID().replaceAll('-','')}`;
+  await c.query(`CREATE ROLE ${role} NOLOGIN`);
+  await c.query(readFileSync(new URL('../../scripts/release-runtime-grants.sql',import.meta.url),'utf8').replaceAll('hotel_runtime',role));
+  await c.query(`SET LOCAL ROLE ${role}`);
+  await checkIn(c,bid);
+  await c.query('UPDATE bookings SET checkout_requested_at=clock_timestamp() WHERE id=$1',[bid]);
+  const serviceOrder=await order(c,f,bid,1);
+  await c.query("UPDATE service_orders SET payment_method='CASH',paid_at=clock_timestamp(),received_by=$2 WHERE id=$1",[serviceOrder.id,f.staff]);
+  for(const transfer of [false,true]){
+    const extension=randomUUID();
+    await c.query(`INSERT INTO stay_extensions(id,booking_id,actor_id,old_room_id,new_room_id,old_check_out,new_check_out,room_since,old_amount,new_amount,overdue_amount,extension_amount,price_difference,paid_before)
+      SELECT $1,b.id,b.user_id,b.room_id,$3::uuid,b.check_out_date,b.check_out_date+1,
+      CASE WHEN $4 THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date ELSE b.current_room_since END,
+      b.total_room_amount,b.total_room_amount+1000,0,1000,0,0 FROM bookings b WHERE b.id=$2`,[extension,bid,transfer?target:f.rid,transfer]);
+    if(transfer){
+      await c.query("UPDATE stay_segments SET ended_at=clock_timestamp(),end_date=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date WHERE booking_id=$1 AND ended_at IS NULL",[bid]);
+      await c.query("INSERT INTO stay_segments(booking_id,room_id,started_at,start_date,end_date) SELECT id,$2,clock_timestamp(),(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,check_out_date+1 FROM bookings WHERE id=$1",[bid,target]);
+    }else await c.query('UPDATE stay_segments SET end_date=end_date+1 WHERE booking_id=$1 AND ended_at IS NULL',[bid]);
+    await c.query(`UPDATE bookings b SET room_id=e.new_room_id,current_room_since=e.room_since,check_out_date=e.new_check_out,total_room_amount=e.new_amount FROM stay_extensions e WHERE e.id=$1 AND b.id=e.booking_id`,[extension]);
+  }
+  const b=(await c.query('SELECT room_id,total_room_amount FROM bookings WHERE id=$1',[bid])).rows[0];
+  assert.equal(b.room_id,target);assert.equal(b.total_room_amount,'2602000.00');
+  await checkoutSql(c,bid);
+  assert.equal((await c.query('SELECT status FROM bookings WHERE id=$1',[bid])).rows[0].status,'CHECKED_OUT');
+  await rejects(c,'DELETE FROM stay_extensions WHERE booking_id=$1',[bid],['42501']);
+  await rejects(c,"UPDATE users SET role='ADMIN' WHERE id=$1",[f.uid],['42501']);
 }));

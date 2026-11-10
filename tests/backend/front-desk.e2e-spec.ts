@@ -83,7 +83,7 @@ describe("Front desk API — isolated local hotel_test", () => {
     }
     const list = await api().get('/api/front-desk/bookings').set(auth()).query({ q: actors.guest.email, status: 'PENDING', pageSize: 100 }).expect(200);
     for (const b of bookings) expect(list.body.data.some((row: { id: string }) => row.id === b.id)).toBe(true);
-    await api().patch(`/api/bookings/${bookings[1].id}/confirm`).set(auth()).send({}).expect(200);
+    await api().patch(`/api/bookings/${bookings[1].id}/confirm`).set(auth()).send({}).expect(409);
     const overdue = await api().get('/api/front-desk/bookings').set(auth()).query({ view: 'overdue', date: tomorrow, q: actors.guest.email, pageSize: 100 }).expect(200);
     for (const b of bookings) expect(overdue.body.data.some((row: { id: string }) => row.id === b.id)).toBe(true);
     const arrivals = await api().get('/api/front-desk/bookings').set(auth()).query({ view: 'arrivals', date: tomorrow, q: actors.guest.email }).expect(200);
@@ -208,7 +208,7 @@ describe("Front desk API — isolated local hotel_test", () => {
     expect(b.customer.fullName).toContain(run);
     expect(b.reference).toMatch(/^CK-/);
     expect(b.totalRoomAmount).toBe("123456.75");
-    expect(b.status).toBe("PENDING");
+    expect(b.status).toBe("CHECKED_IN");
     expect(b).not.toHaveProperty("accessToken");
     expect(await c.prisma.client.user.count()).toBe(before);
     const stored = await c.prisma.client.booking.findUniqueOrThrow({
@@ -296,8 +296,8 @@ describe("Front desk API — isolated local hotel_test", () => {
         q: b.reference,
         checkIn: today,
         checkOut: tomorrow,
-        view: "arrivals",
-        status: "PENDING",
+        view: "staying",
+        status: "CHECKED_IN",
       })
       .expect(200)
       .expect((res) => expect(res.body.meta.total).toBe(1));
@@ -388,7 +388,7 @@ describe("Front desk API — isolated local hotel_test", () => {
     const r = await room();
     const results = await Promise.all(
       [1, 2].map(() =>
-        api().post("/api/front-desk/walk-in").set(auth()).send(body(r.id)),
+        api().post("/api/front-desk/walk-in").set(auth()).send({...body(r.id),receiveNow:false}),
       ),
     );
     expect(results.map((x) => x.status).sort()).toEqual([201, 409]);
@@ -398,7 +398,7 @@ describe("Front desk API — isolated local hotel_test", () => {
       .set(auth())
       .send({})
       .expect(200);
-    expect((await create(r.id)).status).toBe("PENDING");
+    expect((await create(r.id)).status).toBe("CHECKED_IN");
   });
   it("rolls back newly created profiles when booking insert conflicts", async () => {
     const r = await room();
@@ -426,12 +426,12 @@ describe("Front desk API — isolated local hotel_test", () => {
       .patch("/api/bookings/" + current.id + "/confirm")
       .set(auth())
       .send({})
-      .expect(200);
+      .expect(409);
     await api()
       .patch("/api/bookings/" + current.id + "/check-in")
       .set(auth())
       .send({})
-      .expect(200);
+      .expect(409);
 
     expect(
       await c.prisma.client.booking.count({
@@ -495,7 +495,7 @@ describe("Front desk API — isolated local hotel_test", () => {
         .patch("/api/bookings/" + b.id + "/" + action)
         .set(auth())
         .send({})
-        .expect(200);
+        .expect(409);
     const ready = await api()
       .get("/api/front-desk/rooms")
       .set(auth())
@@ -595,7 +595,7 @@ describe("Front desk API — isolated local hotel_test", () => {
         .patch(`/api/bookings/${b.id}/${action}`)
         .set(auth())
         .send({})
-        .expect(200);
+        .expect(409);
     const service = await c.prisma.client.service.create({
       data: { name: "Desk service " + run, currentPrice: "100.25" },
     });

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -6,7 +6,8 @@ import { api } from "../../lib/api";
 import { ToastContext } from "../../components/toast-context";
 import { ReceptionBillingPage } from "../../pages/reception-billing-pages";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+beforeEach(() => { vi.setSystemTime(new Date('2026-10-29T05:00:00Z')); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 function setup(pendingOrderCount: number, paid = false, orders: unknown[] = []) {
   const booking = { id: "b1", reference: "BK-001", status: "CHECKED_IN", roomNumber: "201", nights: 4, checkIn: "2026-10-26", checkOut: "2026-10-30", customer: { fullName: "Ngô Kim Chi" } };
   vi.spyOn(api, "request").mockImplementation(async path => {
@@ -44,5 +45,17 @@ describe("Billing workspace next action", () => {
     expect(await screen.findByRole("button", { name: "Xác nhận trả phòng" })).toBeTruthy();
     expect(screen.getByText("Đã thanh toán đủ.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Phát hành hóa đơn" })).toBeNull();
+  });
+  it('requires overdue charges before issuing an invoice', async () => {
+    vi.setSystemTime(new Date('2026-11-02T05:00:00Z'));
+    setup(0);
+    expect(await screen.findByRole('button', {name:'Tính tiền đến hôm nay'})).toBeTruthy();
+    expect(screen.queryByRole('button', {name:'Phát hành hóa đơn'})).toBeNull();
+  });
+  it('explains an already issued overdue invoice and blocks checkout', async () => {
+    vi.setSystemTime(new Date('2026-11-02T05:00:00Z'));
+    setup(0, true);
+    expect(await screen.findByText(/Chưa thể tự sửa hóa đơn đã chốt/)).toBeTruthy();
+    expect(screen.queryByRole('button', {name:'Xác nhận trả phòng'})).toBeNull();
   });
 });

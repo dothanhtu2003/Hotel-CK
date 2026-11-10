@@ -56,10 +56,11 @@ describe('Phase 6 housekeeping — every write uses hotel_test', () => {
 
   it('01/23 board contains room/type/status, nullable open task and assignee with no sensitive data', async () => {
     const clean = await room(), dirty = await room(); const task = await create(dirty); await assign(task.id).expect(200);
-    const response = await board({ pageSize: 100 }).expect(200); safe(response.body);
+    const response = await board({ pageSize: 100, roomTypeId: typeId, housekeepingStatus: 'CLEAN' }).expect(200); safe(response.body);
     expect(response.headers['cache-control']).toBe('no-store');
     const cleanRow = response.body.data.find((r: { id: string }) => r.id === clean); expect(cleanRow.openTask).toBeNull(); expect(cleanRow.housekeepingStatus).toBe('CLEAN');
-    const dirtyRow = response.body.data.find((r: { id: string }) => r.id === dirty);
+    const dirtyResponse=await board({roomId:dirty}).expect(200);
+    const dirtyRow = dirtyResponse.body.data.find((r: { id: string }) => r.id === dirty);
     expect(dirtyRow.roomType.id).toBe(typeId); expect(dirtyRow.openTask.id).toBe(task.id); expect(dirtyRow.openTask.assignedStaff).toEqual({ id: actors.h1.id, fullName: 'HK Test h1' });
   });
   it('02 board filters CLEAN/DIRTY/CLEANING and operational/room/assignee scope with pagination', async () => {
@@ -183,7 +184,8 @@ describe('Phase 6 housekeeping — every write uses hotel_test', () => {
   it('check-in remains blocked while dirty/open task, and succeeds after cleaning completes', async () => {
     const rid = await room(); const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const end = new Date(`${today}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 2);
-    const b = await api().post('/api/bookings').auth(actors.guest.token, { type: 'bearer' }).send({ roomId: rid, checkIn: today, checkOut: end.toISOString().slice(0, 10), guests: 1 }).expect(201);
+    // Legacy unpaid stay isolates housekeeping readiness from online payment.
+    const b={body:await context.prisma.client.booking.create({data:{roomId:rid,userId:actors.guest.id,checkInDate:new Date(today),checkOutDate:end,guestCount:1}})};
     await api().patch(`/api/bookings/${b.body.id}/confirm`).auth(actors.receptionist.token, { type: 'bearer' }).send({}).expect(200);
     const t = await assigned(rid); await api().patch(`/api/bookings/${b.body.id}/check-in`).auth(actors.receptionist.token, { type: 'bearer' }).send({}).expect(409);
     await action(t.id, 'start').expect(200); await action(t.id, 'complete').expect(200);

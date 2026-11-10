@@ -22,7 +22,7 @@ test('homepage search → room → registration/login return → booking → can
   await page.getByLabel('Họ và tên', { exact: true }).fill('Guest Phase 8B'); await page.getByLabel('Địa chỉ email', { exact: true }).fill(email); await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password); await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill(f.password); await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/); await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password); await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(new RegExp('/rooms/' + f.room.id + '\\?'));
-  await page.getByRole('button', { name: 'Đặt phòng này ngay', exact: true }).click(); await expect(page.getByRole('dialog')).toContainText('1.950.000,75');
+  await page.getByRole('button', { name: 'Đặt phòng ngay', exact: true }).click(); await expect(page.getByRole('dialog')).toContainText('1.950.000,75');
   const response = page.waitForResponse(r => r.url() === base + '/bookings' && r.request().method() === 'POST'); await page.getByRole('button', { name: 'Xác nhận đặt phòng', exact: true }).click();
   const created = await response; expect(created.status()).toBe(201); const b = await created.json(); expect(Object.keys(created.request().postDataJSON()).sort()).toEqual(['checkIn', 'checkOut', 'guests', 'roomId']);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(b.reference); await expect(page.getByText('3 đêm · 2 khách', { exact: true })).toBeVisible();
@@ -63,7 +63,7 @@ test('checked-in guest orders multiple services, cancels pending order, sees pre
 });
 
 test('real booking race returns 409 and blocks duplicate submission', async ({ page, request }) => {
-  const f = fixtures(); await login(page); await navigate(page, `/rooms/${f.room.id}?checkIn=2036-01-01&checkOut=2036-01-03&guests=2`); await page.getByRole('button', { name: 'Đặt phòng này' }).click();
+  const f = fixtures(); await login(page); await navigate(page, `/rooms/${f.room.id}?checkIn=2036-01-01&checkOut=2036-01-03&guests=2`); await page.getByRole('button', { name: 'Đặt phòng ngay' }).click();
   await book(request, f.room.id, '2036-01-01', '2036-01-03');
   await page.getByRole('button', { name: 'Xác nhận đặt phòng', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('Phòng không còn khả dụng'); await expect(page.getByRole('button', { name: 'Xác nhận đặt phòng', exact: true })).toBeDisabled();
 });

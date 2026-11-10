@@ -6,7 +6,7 @@ Booking mới trên web yêu cầu **thanh toán 100% tiền phòng qua payOS ng
 
 Booking ở trạng thái **Chờ thanh toán** cho đến khi máy chủ xác minh nhận đủ tiền, sau đó tự chuyển **Đã xác nhận**. Cơ sở dữ liệu cũng chặn xác nhận/nhận phòng khi chưa trả đủ. Các booking web cũ đang chờ xác nhận được áp dụng chính sách mới khi migration chạy; booking đã xác nhận và booking do lễ tân tạo giữ nguyên quy trình hiện có. Dịch vụ phát sinh tính riêng. Khi phát hành hóa đơn cuối kỳ, hệ thống tự ghi nhận tiền phòng đã trả, chỉ thu phần còn lại. Việc trả phòng vẫn do lễ tân thực hiện.
 
-Khách có thể hủy booking chưa trả tiền; hệ thống hủy liên kết payOS trước khi mở lại phòng. Booking đã nhận tiền cần lễ tân hỗ trợ hủy/hoàn tiền; hệ thống chưa tự hoàn tiền. Các yêu cầu chưa thanh toán chưa có cơ chế tự hết hạn giữ phòng.
+Khách có thể hủy booking chưa trả tiền; hệ thống hủy liên kết payOS trước khi mở lại phòng. Booking đã nhận tiền cần lễ tân hỗ trợ hủy/hoàn tiền; hệ thống chưa tự hoàn tiền. Booking online giữ phòng trong 15 phút. Khi hết hạn, hệ thống đối soát và đóng liên kết chưa nhận tiền trước khi giải phóng phòng; lỗi gateway hoặc giao dịch chưa rõ kết quả tiếp tục giữ phòng để xử lý an toàn. Tiền đến muộn được khôi phục booking nếu phòng còn phù hợp hoặc đưa vào danh sách cần đối soát.
 
 Thiết lập trong `.env` của backend (không đưa khóa vào frontend hoặc Git):
 
@@ -97,7 +97,7 @@ Unlike conventional web systems that rely solely on application-level checks, Ho
 ### 🛡️ Platform Security & Session Management
 
 - **Role-Based Access Control (RBAC)**: Strict role barriers for `GUEST`, `RECEPTIONIST`, `HOUSEKEEPING`, and `ADMIN`. Global NestJS guards inspect roles against live database records on every request.
-- **In-Memory JWT Tokens**: Access tokens are kept in browser memory (never written to `localStorage` or `sessionStorage`), limiting persistent token storage. Reloading requires login again; this does not prevent active XSS from accessing authenticated functionality.
+- **Persistent JWT sessions**: Access tokens and expiry are stored in localStorage. Reload validates the saved session through `/auth/me`. Logout, expiry and authenticated 401 clear the saved session. Same-origin scripts can read the token; this does not provide an HttpOnly-cookie security boundary.
 - **Argon2id Password Hashing**: State-of-the-art password security with memory-hardened parameters and timing-safe fallback comparison for legacy records.
 - **Ownership Scoping**: Owner-based access checks restricting guests to their own reservations, orders, and bills (enforced with strict 404 responses to avoid resource ID probing).
 - **Brute-Force Rate Limiting**: In-memory IP/handler bucket limits protecting authentication and walk-in creation endpoints.
@@ -113,7 +113,7 @@ graph TD
     subgraph Frontend [React 19 Client Application]
         UI[App Shell & Routing: react-router v8]
         QueryClient[TanStack React Query Cache]
-        AuthContext[In-Memory Auth Provider]
+        AuthContext[Persistent Session Provider]
         APIClient[Typed HTTP Client: lib/api-client.ts]
     end
 
@@ -518,3 +518,7 @@ Online booking holds expire after 15 minutes (database clock); payOS links use t
 Late-payment webhooks and a periodic audit reconcile released bookings. Full payment restores the original booking only if PostgreSQL overlap constraints and room/guest checks allow it; otherwise received funds remain in a durable review queue under Reception > Billing. Partial payments also require review. The current payOS SDK exposes no refund operation: staff must refund through their bank and record the verified transfer reference; the app does not send money automatically. Recorded refund resolutions cannot restore a booking on replay. Counter bookings older than 24 hours are listed for manual review/cancellation.
 
 Hold abuse limits are enforced in the insert transaction using advisory locks: 2 active holds and 10 bookings/hour per account or normalized phone; 5 active holds and 30 bookings/hour per IP hash. Configure trusted proxies correctly before using proxy-provided IP addresses. Clients never decide expiry; they display the server deadline using monotonic elapsed time and refresh server state.
+
+### Chính sách gia hạn được xác nhận ngày 10/11/2026
+
+Tiền gia hạn và đêm quá hạn áp dụng mức cố định 1.000 VND/đêm, kể cả chuyển phòng. Tiền phòng ban đầu giữ snapshot; chỉ cộng phần tăng thêm, không thu lại tiền đã ghi nhận. Đây là chính sách được yêu cầu cho phiên bản hiện tại, không lấy giá niêm yết 650.000 VND để thay thế mức gia hạn.

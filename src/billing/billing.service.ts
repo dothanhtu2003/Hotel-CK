@@ -8,6 +8,13 @@ import { orderSelect, orderView } from '../service-orders/order-view.js';
 import { billingBookingView, invoiceSelect, invoiceView, paymentAmount, paymentKey, paymentSelect } from './billing-view.js';
 import type { CreatePaymentDto } from './dto/create-payment.dto.js';
 import { throwBillingError } from './billing-errors.js';
+import { hotelDay } from '../common/validation/stay-dates.js';
+
+function requireSettledStay(booking: { status: string; checkOutDate: Date }) {
+  if (booking.status === 'CHECKED_IN' && booking.checkOutDate.toISOString().slice(0, 10) < hotelDay()) {
+    throw new ConflictException({ code: 'OVERDUE_STAY_UNSETTLED', message: 'Khách đang ở quá hạn. Cần tính và xác nhận tiền quá hạn đến hôm nay trước khi chốt hóa đơn hoặc trả phòng.' });
+  }
+}
 
 type Actor = Pick<PublicUser, 'id' | 'role'>;
 @Injectable()
@@ -79,8 +86,9 @@ export class BillingService {
     try {
       return await this.prisma.client.$transaction(async tx => {
         await this.lockBooking(tx, id);
-        const booking = await tx.booking.findUniqueOrThrow({ where: { id }, select: { status: true, invoice: { select: { id: true } } } });
+        const booking = await tx.booking.findUniqueOrThrow({ where: { id }, select: { status: true, checkOutDate: true, invoice: { select: { id: true } } } });
         if (booking.status !== 'CHECKED_IN' || booking.invoice) throw new ConflictException('Invoice requires a checked-in booking without an existing invoice');
+        requireSettledStay(booking);
         if (await tx.serviceOrder.count({ where: { bookingId: id, ...checkoutServiceOrdersWhere } })) throw new ConflictException('Resolve pending service orders and payOS payments before issuing the invoice');
         const invoice = await tx.invoice.create({ data: { bookingId: id }, select: { id: true } });
         return invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id: invoice.id }, select: invoiceSelect }));
@@ -109,9 +117,10 @@ export class BillingService {
         await this.lockBooking(tx, target.bookingId); await this.lockInvoice(tx, id);
         const finishCheckout = async () => {
           if (!dto.checkout) return;
-          const booking = await tx.booking.findUniqueOrThrow({ where: { id: target.bookingId }, select: { status: true } });
+          const booking = await tx.booking.findUniqueOrThrow({ where: { id: target.bookingId }, select: { status: true, checkOutDate: true } });
           if (booking.status === 'CHECKED_OUT') return;
           if (booking.status !== 'CHECKED_IN') throw new ConflictException('Booking must be checked in');
+          requireSettledStay(booking);
           const paid = invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect }));
           if (paid.status !== 'PAID' || new Prisma.Decimal(paid.balance).gt(0)) throw new ConflictException('Full payment required for checkout');
           if (await tx.serviceOrder.count({ where: { bookingId: target.bookingId, ...checkoutServiceOrdersWhere } })) throw new ConflictException('Resolve pending service orders before checkout');
@@ -141,8 +150,9 @@ export class BillingService {
     try {
       return await this.prisma.client.$transaction(async tx => {
         await this.lockBooking(tx, id);
-        const booking = await tx.booking.findUniqueOrThrow({ where: { id }, select: { status: true, roomId: true, invoice: { select: { id: true } } } });
+        const booking = await tx.booking.findUniqueOrThrow({ where: { id }, select: { status: true, checkOutDate: true, roomId: true, invoice: { select: { id: true } } } });
         if (booking.status !== 'CHECKED_IN' || !booking.invoice) throw new ConflictException('Checkout requires a checked-in booking with a paid invoice');
+        requireSettledStay(booking);
         await this.lockInvoice(tx, booking.invoice.id);
         const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: booking.invoice.id }, select: invoiceSelect });
         if (invoice.status !== 'PAID' || new Prisma.Decimal(invoiceView(invoice).balance).gt(0)) throw new ConflictException('Invoice must be fully paid before checkout');

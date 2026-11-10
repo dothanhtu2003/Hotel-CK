@@ -11,7 +11,7 @@ export async function login(page: Page, name = 'guest', destination?: string) {
   await page.getByLabel('Địa chỉ email', { exact: true }).fill(user.email);
   await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect(page).toHaveURL(`http://localhost:5174${destination ?? ({ GUEST: '/guest', RECEPTIONIST: '/reception', HOUSEKEEPING: '/housekeeping', ADMIN: '/admin' }[user.role])}`);
+  await expect(page).toHaveURL(`http://localhost:5174${destination ?? ({ GUEST: '/', RECEPTIONIST: '/reception', HOUSEKEEPING: '/housekeeping', ADMIN: '/admin' }[user.role])}`);
 }
 export async function disableIsolatedFixture(name: string) {
   config({ path: new URL('../../.env', import.meta.url), quiet: true });

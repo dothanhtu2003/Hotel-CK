@@ -42,6 +42,11 @@ function RouteEffects() {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); document.title = `${pathname === '/login' ? 'Đăng nhập' : pathname === '/register' ? 'Tạo tài khoản' : pathname.includes('/profile') ? 'Hồ sơ cá nhân' : pathname === '/' ? 'Một kỳ nghỉ trọn vẹn' : 'Không gian của bạn'} · An Nhiên Hotel`; }, [pathname]);
   return null;
 }
+function HomeEntry() {
+  const { user } = useAuth();
+  if (user && user.role !== 'GUEST') return <Navigate to={homeForRole[user.role]} replace />;
+  return <HomePage />;
+}
 export function App() {
   const staffRoles: Role[] = ['RECEPTIONIST', 'ADMIN', 'HOUSEKEEPING'];
 
@@ -52,7 +57,7 @@ export function App() {
         <Routes>
           {/* Public Website */}
           <Route element={<PublicLayout />}>
-            <Route index element={<HomePage />} />
+            <Route index element={<HomeEntry />} />
             <Route path="rooms" element={<RoomsPage />} />
             <Route path="rooms/:id" element={<RoomDetailPage />} />
             <Route path="*" element={<NotFoundPage />} />

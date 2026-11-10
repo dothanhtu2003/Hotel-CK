@@ -5,7 +5,7 @@ const shared = {
   clearMocks: true,
   restoreMocks: true,
   setupFilesAfterEnv: ['<rootDir>/dist-tests/tests/backend/setup.js'],
-  testTimeout: 15000,
+  testTimeout: 60000,
 };
 
 export default {

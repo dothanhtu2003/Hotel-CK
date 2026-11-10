@@ -20,11 +20,18 @@ export async function createAuthTestApp(limit = 100, controllers: Type<unknown>[
     .overrideProvider(ConfigService).useValue(new ConfigService(config)).compile();
   const app = module.createNestApplication({ logger: false });
   try {
+    // Independent test apps represent different clients. Keep limiter enforcement
+    // within an app while preventing unrelated suites sharing loopback hold buckets.
+    const clientIdentity = { ip: `198.19.${randomBytes(1)[0]}.${1 + randomBytes(1)[0] % 254}` };
+    app.use((req: object, _res: unknown, next: () => void) => {
+      Object.defineProperty(req, 'ip', { configurable: true, get: () => clientIdentity.ip });
+      next();
+    });
     configureApp(app);
     await app.init();
     const prisma = app.get(PrismaService);
     const database = await prisma.client.$queryRaw<{ name: string }[]>`SELECT current_database() AS name`;
     if (database[0]?.name !== 'hotel_test') throw new Error('Refusing to write to any database except hotel_test');
-    return { app, prisma, config };
+    return { app, prisma, config, clientIdentity };
   } catch (error) { await app.close(); throw error; }
 }

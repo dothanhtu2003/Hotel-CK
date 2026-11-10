@@ -3,15 +3,14 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { disableIsolatedFixture, fixtures, login } from './fixtures';
 
-test('homepage: real local assets, active availability planner and keyboard dialog', async ({ page }) => {
-  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/'); await expect(page.getByRole('heading', { level: 1 })).toContainText('Một khoảng lặng');
-  await expect(page.getByRole('button', { name: 'Tìm phòng' })).toBeEnabled();
-  await page.locator('.room-card').last().scrollIntoViewIfNeeded();
-  await expect.poll(() => page.locator('img').evaluateAll(images => images.every(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0))).toBe(true);
-  await page.getByRole('button', { name: 'Khám phá Một giấc ngủ thật sâu' }).click(); await expect(page.getByRole('dialog')).toBeVisible();
-  await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).not.toBeVisible(); await expect(page.getByRole('button', { name: 'Khám phá Một giấc ngủ thật sâu' })).toBeFocused();
-  expect(errors).toEqual([]);
+test('homepage serves room images and supports keyboard navigation to room details', async ({ page }) => {
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/');await expect(page.getByRole('heading',{level:1})).toContainText('Một khoảng lặng');
+  await expect(page.getByRole('button',{name:'Tìm phòng',exact:true})).toBeEnabled();
+  const card=page.locator('.showcase-room-card').first();await card.scrollIntoViewIfNeeded();
+  await expect.poll(()=>card.locator('img').evaluate(e=>e instanceof HTMLImageElement&&e.complete&&e.naturalWidth>0)).toBe(true);
+  await card.getByRole('link',{name:'Xem chi tiết phòng',exact:true}).focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/rooms\?roomTypeId=/);expect(errors).toEqual([]);
 });
 
 test('register: client validation blocks bad input without an API write', async ({ page }) => {
@@ -28,13 +27,13 @@ test('real register -> login -> auth/me -> users/me -> profile update/clear phon
   const calls: string[] = [], statuses: number[] = []; page.on('response', response => { if (/\/api\/(auth|users)\//.test(response.url())) { calls.push(`${response.request().method()} ${new URL(response.url()).pathname}`); statuses.push(response.status()); } });
   await page.goto('/register'); await page.getByLabel('Họ và tên', { exact: true }).fill('Frontend Guest Journey'); await page.getByLabel('Địa chỉ email', { exact: true }).fill(email); await page.getByLabel('Số điện thoại (không bắt buộc)', { exact: true }).fill('+84901234567'); await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password); await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill(f.password); await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/); await expect(page.getByRole('status')).toContainText('Tạo tài khoản thành công'); await expect(page.getByLabel('Địa chỉ email', { exact: true })).toHaveValue(email);
-  await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password); await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click(); await expect(page).toHaveURL(/\/guest$/);
-  await page.locator('.workspace-sidebar').getByRole('link', { name: 'Hồ sơ cá nhân', exact: true }).click(); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hồ sơ cá nhân'); await expect(page.locator('dd').filter({ hasText: email })).toBeVisible();
+  await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password); await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click(); await expect(page).toHaveURL('http://localhost:5174/');
+  await page.evaluate(()=>{history.pushState({},'', '/guest/profile');dispatchEvent(new PopStateEvent('popstate'));}); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hồ sơ cá nhân'); await expect(page.locator('dd').filter({ hasText: email })).toBeVisible();
   await page.getByRole('link', { name: 'Chỉnh sửa hồ sơ' }).click(); await page.getByLabel('Họ và tên', { exact: true }).fill('Updated Guest Journey'); await page.getByLabel('Số điện thoại', { exact: true }).fill('+84907654321'); await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
   await expect(page).toHaveURL(/\/guest\/profile$/); await expect(page.locator('dd').filter({ hasText: 'Updated Guest Journey' })).toBeVisible(); await expect(page.locator('dd').filter({ hasText: '+84907654321' })).toBeVisible();
   await page.getByRole('link', { name: 'Chỉnh sửa hồ sơ' }).click(); await page.getByLabel('Số điện thoại', { exact: true }).fill(''); await page.getByRole('button', { name: 'Lưu thay đổi' }).click(); await expect(page.locator('dd').filter({ hasText: 'Chưa cập nhật' })).toBeVisible();
   expect(calls).toEqual(expect.arrayContaining(['POST /api/auth/register', 'POST /api/auth/login', 'GET /api/auth/me', 'GET /api/users/me', 'PATCH /api/users/me'])); expect(statuses.every(status => status === 200 || status === 201)).toBe(true);
-  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, cookie: document.cookie }))).toEqual({ local: 0, session: 0, cookie: '' });
+  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, cookie: document.cookie }))).toEqual({ local: 1, session: 0, cookie: '' });
   await page.getByRole('button', { name: 'Đăng xuất', exact: true }).last().click(); await expect(page.getByRole('dialog')).toBeVisible(); await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).not.toBeVisible();
   await page.getByRole('button', { name: 'Đăng xuất', exact: true }).last().click(); await page.getByRole('button', { name: 'Xác nhận đăng xuất' }).click(); await expect(page).toHaveURL(/\/login$/);
   await page.goto('/guest/profile'); await expect(page).toHaveURL(/\/login$/); expect(page.url()).not.toMatch(/token|Bearer|eyJ/);
@@ -56,9 +55,9 @@ test('disabled account cannot log in', async ({ page }) => {
 
 for (const path of ['/guest/profile', '/reception', '/housekeeping', '/admin']) test(`unauthenticated guard: ${path}`, async ({ page }) => { await page.goto(path); await expect(page).toHaveURL(/\/login$/); });
 
-for (const [name, destination, label] of [['guest', '/guest', 'Khách lưu trú'], ['reception', '/reception', 'Lễ tân'], ['housekeeping', '/housekeeping', 'Nhân viên buồng phòng'], ['admin', '/admin', 'Quản trị viên']]) test(`real backend role navigation and 403 UX: ${name}`, async ({ page }) => {
-  await login(page, name); await expect(page.locator('.sidebar-role')).toContainText(label);
-  const forbidden = destination === '/admin' ? '/guest' : '/admin';
+for (const [name, destination, label] of [['guest', '/', 'Khách lưu trú'], ['reception', '/reception', 'Lễ tân'], ['housekeeping', '/housekeeping', 'Nhân viên buồng phòng'], ['admin', '/admin', 'Quản trị viên']]) test(`real backend role navigation and 403 UX: ${name}`, async ({ page }) => {
+  await login(page, name); await expect(page.locator('body')).toContainText(fixtures().users[name].fullName);
+  const forbidden = destination === '/admin' ? '/guest/bookings' : '/admin';
   await page.evaluate(path => { history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); }, forbidden);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('vai trò khác'); await expect(page.getByText('403 · QUYỀN TRUY CẬP')).toBeVisible();
   await page.getByRole('link', { name: 'Về không gian của bạn' }).click(); await expect(page).toHaveURL(`http://localhost:5174${destination}`);
@@ -68,20 +67,20 @@ test('login restores only an authorized same-role return path', async ({ page })
   const f = fixtures(); await page.goto('/guest/profile'); await expect(page).toHaveURL(/\/login$/); await page.getByLabel('Địa chỉ email', { exact: true }).fill(f.users.guest.email); await page.getByLabel('Mật khẩu', { exact: true }).fill(f.password); await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click(); await expect(page).toHaveURL(/\/guest\/profile$/); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hồ sơ cá nhân');
 });
 
-test('reload deliberately loses the in-memory session', async ({ page }) => { await login(page); await page.reload(); await expect(page).toHaveURL(/\/login$/); expect(await page.evaluate(() => localStorage.length + sessionStorage.length)).toBe(0); });
+test('reload restores the saved session after backend validation', async ({ page }) => { await login(page); const profile=page.waitForResponse(r=>r.url().endsWith('/auth/me')&&r.ok()); await page.reload(); await profile; await expect(page).toHaveURL('http://localhost:5174/'); expect(await page.evaluate(() => !!localStorage.getItem('an-nhien.auth-session'))).toBe(true); });
 
 test('authenticated 401 clears the client session after test account is disabled', async ({ page }) => {
   await login(page, 'expired'); await disableIsolatedFixture('expired');
-  await page.locator('.workspace-sidebar').getByRole('link', { name: 'Hồ sơ cá nhân', exact: true }).click(); await expect(page).toHaveURL(/\/login$/); await expect(page.locator('.notice[role="status"]')).toContainText('Phiên đăng nhập đã hết hạn');
+  await page.evaluate(()=>{history.pushState({},'', '/guest/profile');dispatchEvent(new PopStateEvent('popstate'));}); await expect(page).toHaveURL(/\/login$/); await expect(page.locator('.notice[role="status"]')).toContainText('Phiên đăng nhập đã hết hạn');
 });
 
 test('real offline/network error offers retry and recovers', async ({ page, context }) => {
-  await login(page); await context.setOffline(true); await page.locator('.workspace-sidebar').getByRole('link', { name: 'Hồ sơ cá nhân', exact: true }).click();
+  await login(page); await context.setOffline(true); await page.evaluate(()=>{history.pushState({},'', '/guest/profile');dispatchEvent(new PopStateEvent('popstate'));});
   await expect(page.getByRole('alert')).toContainText('Chưa thể kết nối'); await context.setOffline(false); await page.getByRole('button', { name: 'Thử lại', exact: true }).click(); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hồ sơ cá nhân');
 });
 
 test('guest booking page remains connected after portal updates', async ({ page }) => {
-  await login(page); await page.locator('.workspace-sidebar').getByRole('link', { name: /Đặt phòng/ }).click();
+  await login(page); await page.locator('.header-login').click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Booking của tôi');
   await expect(page.locator('.coming-soon')).toHaveCount(0);
 });
@@ -89,18 +88,18 @@ test('guest booking page remains connected after portal updates', async ({ page 
 test('a real delayed profile request shows a loading state before rendering', async ({ page, context }) => {
   await login(page); const session = await context.newCDPSession(page);
   await session.send('Network.enable'); await session.send('Network.emulateNetworkConditions', { offline: false, latency: 700, downloadThroughput: -1, uploadThroughput: -1 });
-  await page.locator('.workspace-sidebar').getByRole('link', { name: 'Hồ sơ cá nhân', exact: true }).click();
+  await page.evaluate(()=>{history.pushState({},'', '/guest/profile');dispatchEvent(new PopStateEvent('popstate'));});
   await expect(page.getByRole('status').filter({ hasText: 'Đang tải thông tin' })).toBeVisible(); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hồ sơ cá nhân');
   await session.detach();
 });
 
 test('desktop staff portal renders operational cards and role-specific navigation', async ({ page }) => {
   await login(page, 'reception');
-  await expect(page.locator('.desk-stats>a')).toHaveCount(6);
-  await expect(page.getByRole('heading', { name: 'Bảng trạng thái phòng (Room Board)', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Tổng quan lễ tân',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bảng trạng thái phòng', exact: true })).toBeVisible();
   await expect(page.getByText('Điều phối khách')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Đặt phòng mới', exact: true })).toBeVisible();
-  for (const name of ['Quản lý booking', 'Tape Chart', 'Đơn dịch vụ phòng', 'Buồng phòng', 'Doanh thu']) {
+  await expect(page.getByRole('button', { name: 'Làm mới', exact: true })).toBeVisible();
+  for (const name of ['Quản lý booking', 'Tape Chart', 'Buồng phòng', 'Doanh thu']) {
     await expect(page.locator('.workspace-sidebar').getByRole('link', { name, exact: true })).toBeVisible();
   }
   await page.screenshot({ path: fileURLToPath(new URL('../../.local/frontend-portal-desktop.png', import.meta.url)), fullPage: true });
@@ -120,7 +119,7 @@ test('reception opens the revenue report and changes its date range', async ({ p
 });
 
 test('edit form validates and confirms discarding unsaved changes', async ({ page }) => {
-  await login(page); await page.locator('.workspace-sidebar').getByRole('link', { name: 'Hồ sơ cá nhân', exact: true }).click(); await page.getByRole('link', { name: 'Chỉnh sửa hồ sơ' }).click();
+  await login(page); await page.evaluate(()=>{history.pushState({},'', '/guest/profile');dispatchEvent(new PopStateEvent('popstate'));}); await page.getByRole('link', { name: 'Chỉnh sửa hồ sơ' }).click();
   await page.getByLabel('Họ và tên', { exact: true }).fill(''); await page.getByRole('button', { name: 'Lưu thay đổi' }).click(); await expect(page.getByText('Vui lòng nhập họ và tên.')).toBeVisible();
   await page.getByRole('button', { name: 'Hủy thay đổi' }).click(); await expect(page.getByRole('dialog')).toBeVisible(); await page.getByRole('button', { name: 'Tiếp tục chỉnh sửa' }).click(); await expect(page.getByRole('dialog')).not.toBeVisible(); await page.getByRole('button', { name: 'Hủy thay đổi' }).click(); await page.getByRole('button', { name: 'Bỏ thay đổi', exact: true }).click(); await expect(page).toHaveURL(/\/guest\/profile$/);
 });

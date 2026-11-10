@@ -43,6 +43,7 @@ export function StickyBookingBar({
   nightlyPrice,
   stayNights,
   estimatedTotal,
+  actionButton,
 }: {
   roomNumber: string;
   roomTypeName: string;
@@ -70,7 +71,11 @@ export function StickyBookingBar({
             </div>
           )}
           <div className="sticky-action-wrap">
-            <a href="#dat-phong" className="button button-primary">Xem thông tin đặt phòng</a>
+            {actionButton || (
+              <a href="#dat-phong" className="button button-primary">
+                Đặt phòng ngay
+              </a>
+            )}
           </div>
         </div>
       </div>

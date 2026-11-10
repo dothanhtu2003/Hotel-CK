@@ -48,7 +48,8 @@ describe('Phase 9 timestamp, security and transition regressions — local hotel
     const staff = await db.user.create({ data: { email: `${randomUUID()}@release-test.invalid`, fullName: 'Race staff', role: 'RECEPTIONIST', passwordHash: (await db.user.findUniqueOrThrow({ where: { id: guest.body.id } })).passwordHash } });
     const staffLogin = await http.post('/api/auth/login').send({ email: staff.email, password }).expect(200);
     const checkIn = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()), checkOut = new Date(Date.parse(checkIn + 'T00:00:00Z') + 2 * 86400000).toISOString().slice(0, 10);
-    const b = await http.post('/api/bookings').auth(login.body.accessToken, { type: 'bearer' }).send({ roomId: room.id, checkIn, checkOut, guests: 1 }).expect(201);
+    // Legacy unpaid fixture: this case tests transition concurrency, not online checkout.
+    const b={body:await db.booking.create({data:{roomId:room.id,userId:guest.body.id,checkInDate:new Date(checkIn),checkOutDate:new Date(checkOut),guestCount:1}})};
     const action = (name: string) => http.patch(`/api/bookings/${b.body.id}/${name}`).auth(staffLogin.body.accessToken, { type: 'bearer' }).send({});
     const results = await Promise.all([action('confirm'), action('check-in')]);
     expect(results[0].status).toBe(200); expect([200, 409]).toContain(results[1].status);

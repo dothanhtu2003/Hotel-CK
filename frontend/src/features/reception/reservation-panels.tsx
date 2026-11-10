@@ -148,11 +148,12 @@ export function ReservationPanels({ bookingId }: { bookingId: string }) {
 }
 
 export function CheckoutSummary({ bookingId }: { bookingId: string }) {
+  const customer = useDeskGet<{ customer?: { fullName?: string } }>(`/front-desk/bookings/${bookingId}`);
   const invoice = useDeskInvoice(bookingId);
   const preview = useDeskGet<Preview>(`/bookings/${bookingId}/billing-preview`);
 
-  if (invoice.isPending || preview.isPending) return <Skeleton />;
-  if (invoice.error) return <ErrorState message={invoice.error.message} />;
+  if (invoice.isPending || preview.isPending || customer.isPending) return <Skeleton />;
+  if (invoice.error || customer.error) return <ErrorState message={(invoice.error || customer.error)!.message} />;
   const inv = invoice.data;
   if (!inv) return <p role="alert">Chưa có hóa đơn.</p>;
 
@@ -161,7 +162,7 @@ export function CheckoutSummary({ bookingId }: { bookingId: string }) {
   const overallTotal = decimal(cents(inv.totalAmount) + cents(separatePaid));
   const isSettled = Number(inv.balance) <= 0;
 
-  const rawName = (prev?.booking as { customer?: { fullName?: string } } | undefined)?.customer?.fullName || (inv.booking as { customer?: { fullName?: string } }).customer?.fullName || "Khách tại quầy";
+  const rawName = customer.data?.customer?.fullName?.trim() || (prev?.booking as { customer?: { fullName?: string } } | undefined)?.customer?.fullName || (inv.booking as { customer?: { fullName?: string } }).customer?.fullName || "Khách tại quầy";
   const guestName = rawName
     .split(" ")
     .filter(Boolean)

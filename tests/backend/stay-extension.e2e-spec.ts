@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { randomUUID } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
@@ -101,5 +101,30 @@ describe('Stay extension and room transfer', () => {
     await api().post(`/api/bookings/${booking.id}/invoice`).set(auth()).send({}).expect(201);
     await preview(booking.id).expect(409);
     expect(await c.prisma.client.stayExtension.count({where:{bookingId:booking.id}})).toBe(0);
+  });
+  it('settles only overdue nights through today, then invoices, collects and checks out without double charging', async () => {
+    const {booking, room} = await fixture(false, true);
+    const expectedCheckOut = shift(1), today = shift(4);
+    const previousToken = token;
+    // Advance only the JS clock; PostgreSQL and network timers stay real.
+    jest.useFakeTimers({ doNotFake: ['hrtime', 'performance', 'nextTick', 'queueMicrotask', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });
+    jest.setSystemTime(new Date(today + 'T05:00:00Z'));
+    try {
+      token = await c.app.get(JwtService).signAsync({sub:staffId,tokenType:'access'});
+      const blocked = await api().post(`/api/bookings/${booking.id}/invoice`).set(auth()).send({}).expect(409);
+      expect(blocked.body.code).toBe('OVERDUE_STAY_UNSETTLED');
+      const q = await api().post(`/api/bookings/${booking.id}/extension-preview`).set(auth()).send({checkOut:today,expectedCheckOut}).expect(201);
+      expect(q.body).toMatchObject({overdueNights:3,overdueAmount:'3000.00',extensionNights:0,extensionAmount:'0.00',totalRoomAmount:'4000.00',paidAmount:'1000.00',balance:'3000.00'});
+      const body = {checkOut:today,expectedCheckOut,quoteToken:q.body.quoteToken,requestId:randomUUID(),targetRoomId:room.id};
+      await api().patch(`/api/bookings/${booking.id}/extend`).set(auth()).send(body).expect(200);
+      await api().patch(`/api/bookings/${booking.id}/extend`).set(auth()).send(body).expect(200);
+      expect(await c.prisma.client.stayExtension.count({where:{bookingId:booking.id}})).toBe(1);
+      const bill = await api().post(`/api/bookings/${booking.id}/invoice`).set(auth()).send({}).expect(201);
+      expect(bill.body).toMatchObject({roomAmount:'4000.00',paidAmount:'1000.00',balance:'3000.00'});
+      await api().patch(`/api/bookings/${booking.id}/check-out`).set(auth()).send({}).expect(409);
+      await api().post(`/api/invoices/${bill.body.id}/payments`).set(auth()).set('Idempotency-Key',randomUUID()).send({amount:'3000.00',method:'CASH'}).expect(201);
+      await api().patch(`/api/bookings/${booking.id}/check-out`).set(auth()).send({}).expect(200);
+      expect((await c.prisma.client.booking.findUniqueOrThrow({where:{id:booking.id}})).status).toBe('CHECKED_OUT');
+    } finally { token = previousToken; jest.useRealTimers(); }
   });
 });

@@ -24,18 +24,18 @@ export class RoomsService {
     return roomView(room);
   }
 
-  async available(query: AvailabilityQueryDto, frontDesk = false) {
+  async available(query: AvailabilityQueryDto, _frontDesk = false) {
     const { start, end, nights } = parseStay(query.checkIn, query.checkOut);
     const today = new Date(`${hotelDay()}T00:00:00.000Z`);
     const isToday = start.getTime() <= today.getTime();
     const rooms = await this.prisma.client.room.findMany({
       where: {
         operationalStatus: 'ACTIVE',
-        ...(frontDesk && isToday ? { housekeepingStatus: 'CLEAN' as const, tasks: { none: { status: { not: 'DONE' as const } } } } : {}),
+        ...(isToday ? { housekeepingStatus: 'CLEAN' as const, tasks: { none: { status: { not: 'DONE' as const } } } } : {}),
         ...(query.roomTypeId ? { roomTypeId: query.roomTypeId } : {}),
         roomType: { maxGuests: { gte: query.guests } },
-        bookings: { none: { OR: [ ...(frontDesk && isToday ? [{ status: 'CHECKED_IN' as const }] : []), {
-          status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'] },
+        bookings: { none: { OR: [ ...(isToday ? [{ status: 'CHECKED_IN' as const }] : []), {
+          status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
           checkInDate: { lt: end }, checkOutDate: { gt: start },
         }] } },
       },

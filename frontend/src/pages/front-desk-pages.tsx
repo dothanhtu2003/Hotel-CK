@@ -4,13 +4,12 @@ import { CashierPage } from "../features/reception/cashier";
 import { Navigate, useLocation, useSearchParams } from "react-router";
 import {
   Calendar,
+  ChevronDown,
+  SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
-  LogIn,
-  LogOut,
   Plus,
   Search,
-  Users,
   X,
 } from "lucide-react";
 import {
@@ -54,13 +53,16 @@ function ReceptionBookingList() {
   const filters = new URLSearchParams(params);
   filters.set("page", String(page));
   filters.set("pageSize", "10");
-  if (params.get("view") && !params.get("date")) filters.set("date", hotelToday());
+  if (params.get("view")) filters.set("date", params.get("date") ?? hotelToday());
+  else filters.delete("date");
   const query = useDeskGet<Page<DeskBooking>>(
     "/front-desk/bookings?" + filters,
   );
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     next.delete("page");
+    // Custom filters open a history search; operational tabs always show their full scope.
+    if (key !== "date") next.delete("view");
     if (value) next.set(key, value);
     else next.delete(key);
     setParams(next);
@@ -69,8 +71,8 @@ function ReceptionBookingList() {
   const currentStatus = params.get("status") ?? "";
 
   const setTab = (view: string, status?: string) => {
-    const next = new URLSearchParams(params);
-    next.delete("page");
+    const next = new URLSearchParams();
+    if (params.get("date")) next.set("date", params.get("date")!);
     if (view) next.set("view", view);
     else next.delete("view");
     if (status) next.set("status", status);
@@ -85,7 +87,7 @@ function ReceptionBookingList() {
   const countValue = (key: keyof DeskBookingCounts) => {
     if (countsQuery.isPending) return <span role="status" aria-label="Đang tải số booking" className="inline-block h-5 w-6 animate-pulse rounded bg-zinc-200/70 align-middle" />;
     if (countsQuery.isError) return <span className="text-xs whitespace-nowrap">Lỗi tải</span>;
-    return `${(countsQuery.data?.[key] ?? 0).toLocaleString("vi-VN")} booking`;
+    return (countsQuery.data?.[key] ?? 0).toLocaleString("vi-VN");
   };
   const prettyDate = new Date(currentDate + "T00:00:00Z").toLocaleDateString("vi-VN", {
     weekday: "short",
@@ -93,6 +95,14 @@ function ReceptionBookingList() {
     month: "numeric",
     timeZone: "UTC",
   });
+  const fullDate = currentDate.split("-").reverse().join("/");
+  const scopeLabel = currentView === "arrivals" ? `Khách đến – Ngày nhận phòng ${fullDate}`
+    : currentView === "staying" ? `Đang ở – Lưu trú trong ngày ${fullDate}`
+    : currentView === "departures" ? `Cần trả phòng – Ngày trả phòng ${fullDate}`
+    : currentView === "overdue" ? `Quá ngày nhận chưa xử lý – Trước ngày ${fullDate}`
+    : currentStatus === "PENDING" ? "Chờ nhận phòng – Không giới hạn ngày"
+    : "Toàn bộ booking – Không giới hạn ngày";
+  const hasCustomFilters = Boolean(params.get("q") || params.get("checkIn") || params.get("checkOut") || (currentStatus && currentStatus !== "PENDING"));
 
   const hasActiveFilters = Boolean(
     params.get("q") ||
@@ -116,8 +126,78 @@ function ReceptionBookingList() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Kamra-styled Date Navigation Pill */}
-          <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-0.5 text-xs shadow-2xs">
+          <LinkButton to={base + "?mode=booking"}>
+            <Plus size={15} /> Đặt phòng mới
+          </LinkButton>
+        </div>
+      </div>
+
+      {countsQuery.isError && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <span>Không thể tải số liệu booking.</span>
+          <button type="button" className="font-medium underline cursor-pointer" onClick={() => void countsQuery.refetch()}>Thử lại</button>
+        </div>
+      )}
+
+      {/* Unified Table Section */}
+      <section className="rounded-2xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+        <div className="border-b border-zinc-200 p-3 sm:p-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-1 rounded-xl bg-zinc-100/70 p-1" role="group" aria-label="Chế độ xem booking">
+            {([
+              { view: "", status: "", label: "Tất cả booking" },
+              { view: "arrivals", status: "", label: "Khách đến", count: "arrivals" },
+              { view: "staying", status: "", label: "Đang ở", count: "staying" },
+              { view: "departures", status: "", label: "Cần trả phòng", count: "departures" },
+              { view: "", status: "PENDING", label: "Chờ nhận phòng" },
+              { view: "overdue", status: "", label: "Quá ngày nhận chưa xử lý" },
+            ] as const).map((tab) => {
+              const selected = currentView === tab.view && currentStatus === tab.status;
+              return (
+                <button
+                  key={tab.label}
+                  type="button"
+                  aria-pressed={selected}
+                  title={"count" in tab ? `Booking ngày ${fullDate}` : undefined}
+                  onClick={() => setTab(tab.view, tab.status)}
+                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${selected
+                    ? "bg-white text-brand-800 shadow-2xs ring-1 ring-zinc-200"
+                    : "text-zinc-600 hover:bg-white/70 hover:text-zinc-900"}`}
+                >
+                  {tab.label}
+                  {"count" in tab && <span className={`rounded-md px-1.5 py-0.5 text-[11px] tabular-nums ${selected ? "bg-brand-50 text-brand-800" : "bg-zinc-200/60 text-zinc-500"}`}>{countValue(tab.count)}</span>}
+                  {tab.label === "Tất cả booking" && selected && query.data?.meta && <span className="text-[11px] tabular-nums text-zinc-500">({query.data.meta.total})</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2">
+            <form
+              className="flex min-w-0 w-full sm:flex-1 sm:min-w-64 items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                update("q", String(new FormData(e.currentTarget).get("q") ?? ""));
+              }}
+            >
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
+                <input
+                  className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-8 pr-3 text-xs text-zinc-800 placeholder-zinc-400 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors"
+                  name="q"
+                  aria-label="Tìm booking hoặc khách"
+                  key={params.get("q") ?? ""}
+                  defaultValue={params.get("q") ?? ""}
+                  placeholder="Tìm mã booking, tên khách, số phòng, SĐT…"
+                />
+              </div>
+              <button
+                type="submit"
+                className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer shrink-0 shadow-2xs transition-colors"
+              >
+                Tìm kiếm
+              </button>
+            </form>
+            {currentView && <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1 text-xs">
             <button
               type="button"
               aria-label="Ngày trước"
@@ -144,176 +224,14 @@ function ReceptionBookingList() {
             >
               <ChevronRight className="size-3.5" />
             </button>
-          </div>
-
-          <LinkButton to={base + "?mode=booking"}>
-            <Plus size={15} /> Đặt phòng mới
-          </LinkButton>
-        </div>
-      </div>
-
-      {/* 3 Prominent Operational Tab Cards spanning full width */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full" role="tablist">
-        {/* Card 1: Khách đến */}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={currentView === "arrivals"}
-          onClick={() => setTab("arrivals", "")}
-          className={`flex flex-col justify-between p-3.5 sm:p-4 rounded-xl border text-start transition-all cursor-pointer ${
-            currentView === "arrivals"
-              ? "border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600/30 shadow-2xs"
-              : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50 shadow-2xs"
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-700">
-              <span className="p-1.5 rounded-lg bg-emerald-100/70 text-emerald-700">
-                <LogIn className="size-4 shrink-0" />
-              </span>
-              <span>Khách đến (Arrivals)</span>
-            </span>
-            <span className="text-[11px] text-zinc-400 font-normal">{prettyDate}</span>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between gap-2">
-            <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-800 tabular-nums">
-              {countValue("arrivals")}
-            </span>
-            
-          </div>
-        </button>
-
-        {/* Card 2: Đang ở */}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={currentView === "staying"}
-          onClick={() => setTab("staying", "")}
-          className={`flex flex-col justify-between p-3.5 sm:p-4 rounded-xl border text-start transition-all cursor-pointer ${
-            currentView === "staying"
-              ? "border-sky-600 bg-sky-50/50 ring-1 ring-sky-600/30 shadow-2xs"
-              : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50 shadow-2xs"
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-700">
-              <span className="p-1.5 rounded-lg bg-sky-100/70 text-sky-700">
-                <Users className="size-4 shrink-0" />
-              </span>
-              <span>Đang ở (In-house)</span>
-            </span>
-            <span className="text-[11px] text-zinc-400 font-normal">Lưu trú</span>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between gap-2">
-            <span className="text-xl sm:text-2xl font-bold tracking-tight text-sky-800 tabular-nums">
-              {countValue("staying")}
-            </span>
-            
-          </div>
-        </button>
-
-        {/* Card 3: Khách đi */}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={currentView === "departures"}
-          onClick={() => setTab("departures", "")}
-          className={`flex flex-col justify-between p-3.5 sm:p-4 rounded-xl border text-start transition-all cursor-pointer ${
-            currentView === "departures"
-              ? "border-amber-600 bg-amber-50/50 ring-1 ring-amber-600/30 shadow-2xs"
-              : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50 shadow-2xs"
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-700">
-              <span className="p-1.5 rounded-lg bg-amber-100/70 text-amber-700">
-                <LogOut className="size-4 shrink-0" />
-              </span>
-              <span>Khách đi (Departures)</span>
-            </span>
-            <span className="text-[11px] text-zinc-400 font-normal">{prettyDate}</span>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between gap-2">
-            <span className="text-xl sm:text-2xl font-bold tracking-tight text-amber-800 tabular-nums">
-              {countValue("departures")}
-            </span>
-            
-          </div>
-        </button>
-      </div>
-
-      {countsQuery.isError && (
-        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          <span>Không thể tải số liệu booking.</span>
-          <button type="button" className="font-medium underline cursor-pointer" onClick={() => void countsQuery.refetch()}>Thử lại</button>
-        </div>
-      )}
-
-      {/* Unified Table Section */}
-      <section className="rounded-2xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
-        {/* Unified Filter & Search Bar Header */}
-        <div className="border-b border-zinc-200 bg-zinc-50/50 p-3 sm:p-4 space-y-3">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            {/* Quick Status View Pills */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all cursor-pointer ${
-                  !currentView && !currentStatus
-                    ? "bg-white text-brand-700 font-semibold shadow-2xs border border-zinc-200"
-                    : "text-zinc-600 hover:bg-zinc-100/80 border border-transparent"
-                }`}
-                onClick={() => setTab("", "")}
-              >
-                Tất cả booking {query.data?.meta && !currentView && !currentStatus ? `(${query.data.meta.total})` : ""}
-              </button>
-              <button
-                type="button"
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-all cursor-pointer ${
-                  currentStatus === "PENDING"
-                    ? "bg-amber-100 text-amber-800 font-semibold shadow-2xs border border-amber-200"
-                    : "text-zinc-600 hover:bg-zinc-100/80 border border-transparent"
-                }`}
-                onClick={() => setTab("", "PENDING")}
-              >
-                <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
-                Chờ nhận phòng
-              </button>
-              <button type="button" onClick={() => setTab('overdue')} className={`px-3 py-1.5 text-xs rounded-lg border ${currentView === 'overdue' ? 'bg-amber-100 text-amber-900 border-amber-300' : 'border-transparent text-zinc-600'}`}>
-                Quá ngày nhận chưa xử lý
-              </button>
-            </div>
-
-            {/* Search Input Form */}
-            <form
-              className="flex items-center gap-2 flex-1 max-w-md lg:ml-auto"
-              onSubmit={(e) => {
-                e.preventDefault();
-                update("q", String(new FormData(e.currentTarget).get("q") ?? ""));
-              }}
-            >
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
-                <input
-                  className="w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-xs text-zinc-800 placeholder-zinc-400 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors"
-                  name="q"
-                  aria-label="Tìm booking hoặc khách"
-                  key={params.get("q") ?? ""}
-                  defaultValue={params.get("q") ?? ""}
-                  placeholder="Tìm mã booking, tên khách, số phòng, SĐT…"
-                />
-              </div>
-              <button
-                type="submit"
-                className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer shrink-0 shadow-2xs transition-colors"
-              >
-                Tìm kiếm
-              </button>
-            </form>
-          </div>
-
-          {/* Secondary Filters row */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-200/60 text-xs">
+          </div>}
+            <details className="group w-auto open:w-full">
+              <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 [&::-webkit-details-marker]:hidden">
+                <SlidersHorizontal className="size-3.5" /> Bộ lọc nâng cao
+                {hasCustomFilters && <span className="size-1.5 rounded-full bg-brand-600" aria-label="Có bộ lọc bổ sung" />}
+                <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 sm:justify-end">
             <select
               className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 focus:outline-brand-600 shadow-2xs cursor-pointer"
               value={params.get("status") ?? ""}
@@ -350,16 +268,16 @@ function ReceptionBookingList() {
               />
             </label>
 
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={() => setParams({})}
-                className="inline-flex items-center gap-1 text-xs text-rose-600 font-medium hover:underline cursor-pointer ml-auto"
-              >
-                <X className="size-3.5" />
-                <span>Xóa bộ lọc</span>
-              </button>
-            )}
+
+              </div>
+            </details>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <p role="status" className="text-zinc-500">{scopeLabel}{hasCustomFilters ? " · Đang áp dụng bộ lọc bổ sung" : ""}</p>
+            {hasActiveFilters && <button type="button" onClick={() => setParams({})} className="inline-flex items-center gap-1 text-zinc-500 hover:text-rose-600 cursor-pointer">
+              <X className="size-3.5" /> Xóa bộ lọc
+            </button>}
           </div>
         </div>
 

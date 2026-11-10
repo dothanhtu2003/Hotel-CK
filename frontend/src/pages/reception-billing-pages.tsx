@@ -42,6 +42,8 @@ import {
   type DeskBooking,
 } from "../features/reception/contracts";
 import { PaymentForm } from "../features/reception/payment-form";
+import { ExtendStayDialog } from "../features/reception/extend-stay-dialog";
+import { hotelToday } from "../features/reception/room-state";
 import {
   useDeskBase,
   useDeskGet,
@@ -59,6 +61,7 @@ export function ReceptionBillingPage() {
   const { id = "" } = useParams();
   const base = useDeskBase();
   const [checkoutResult, setCheckoutResult] = useState<Checkout | null>(null);
+  const [settlingOverdue, setSettlingOverdue] = useState(false);
   const guest = useDeskGet<DeskBooking>(`/front-desk/bookings/${id}`);
   const preview = useDeskGet<Preview>(`/bookings/${id}/billing-preview`);
   const invoice = useDeskInvoice(id);
@@ -66,6 +69,7 @@ export function ReceptionBillingPage() {
   const error = guest.error || preview.error || invoice.error;
   if (error) return <ErrorState message={error.message} retry={() => { void guest.refetch(); void preview.refetch(); void invoice.refetch(); }} />;
   const b = guest.data!, p = preview.data!, i = invoice.data;
+  const overdue = b.status === 'CHECKED_IN' && b.checkOut < hotelToday();
   const usedOrders = [...p.completedOrders, ...(p.counterPaidOrders ?? [])];
   const formatDate = (value: string) => value.split("-").reverse().join("/");
   const amount = i?.totalAmount ?? p.totalAmount;
@@ -79,7 +83,7 @@ export function ReceptionBillingPage() {
   const extension = p.roomExtension;
   const roomCharges = extension ? [
     { label: `Tiền phòng ban đầu (${b.nights - extension.addedNights} đêm)`, amount: decimal(cents(roomAmount) - cents(extension.addedAmount)) },
-    { label: `Tiền gia hạn (${extension.addedNights} đêm)`, amount: extension.addedAmount },
+    { label: `Tiền gia hạn / quá hạn (${extension.addedNights} đêm)`, amount: extension.addedAmount },
   ] : [{ label: `Tiền phòng (${b.nights} đêm)`, amount: roomAmount }];
 
   return (
@@ -126,6 +130,15 @@ export function ReceptionBillingPage() {
           </div>
         </div>
       </header>
+
+      {overdue && <section className="billing-pending-card" role="alert">
+        <h2>Khách đang ở quá hạn trả phòng</h2>
+        {i ? <p>Hóa đơn đã phát hành trước khi hoàn tất kỳ lưu trú. Chưa thể tự sửa hóa đơn đã chốt; cần đối soát phần tiền quá hạn trước khi trả phòng.</p> : <>
+          <p className="billing-help">Cần xác nhận tiền các đêm phát sinh đến hôm nay trước khi chốt hóa đơn. Giá phát sinh: 1.000đ/đêm.</p>
+          <Button onClick={() => setSettlingOverdue(true)}>Tính tiền đến hôm nay</Button>
+        </>}
+      </section>}
+      {settlingOverdue && <ExtendStayDialog booking={b} checkoutToday onClose={() => setSettlingOverdue(false)} />}
 
       <div className="billing-columns">
         <main className="billing-breakdown">
@@ -290,7 +303,7 @@ export function ReceptionBillingPage() {
 
             {!i ? (
               <div className="space-y-3 pt-1">
-                {canIssue(p.booking, p.pendingOrderCount, null) ? (
+                {!overdue && canIssue(p.booking, p.pendingOrderCount, null) ? (
                   <DeskAction
                     path={`/bookings/${id}/invoice`}
                     action="invoice"
@@ -303,7 +316,8 @@ export function ReceptionBillingPage() {
                   <div className="billing-blocked flex items-start gap-2.5">
                     <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-xs leading-relaxed text-amber-800 m-0">
-                      {p.pendingOrderCount > 0
+                      {overdue ? "Hãy xác nhận tiền quá hạn đến hôm nay trước."
+                        : p.pendingOrderCount > 0
                         ? "Hãy xử lý các đơn dịch vụ đang chờ ở bên trái trước."
                         : "Chỉ phát hành hóa đơn khi khách đang lưu trú."}
                     </p>
@@ -319,7 +333,7 @@ export function ReceptionBillingPage() {
                 {i.status !== "PAID" && b.status !== "CANCELLED" && (
                   <PaymentForm key={i.id} invoice={i} />
                 )}
-                {canCheckout(p.booking, p.pendingOrderCount, i) && (
+                {!overdue && canCheckout(p.booking, p.pendingOrderCount, i) && (
                   <DeskAction
                     path={`/bookings/${id}/check-out`}
                     action="check-out"

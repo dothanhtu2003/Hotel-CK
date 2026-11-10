@@ -468,6 +468,54 @@ describe("Unified Room Board & Booking Flow", () => {
     expect(submitBtn.disabled).toBe(true);
   });
 
+  it("booking scopes follow the selected day, clear conflicting filters, and leave history and pending independent of day", async () => {
+    const requests: URLSearchParams[] = [];
+    vi.spyOn(api, "request").mockImplementation(async (path: string) => {
+      if (path.includes("booking-counts")) return { arrivals: 0, departures: 1, staying: 0 };
+      if (path.includes("front-desk/bookings?")) {
+        requests.push(new URLSearchParams(path.split("?")[1]));
+        return { data: [], meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 } };
+      }
+      return {};
+    });
+    render(<MemoryRouter initialEntries={["/reception/bookings?date=2026-11-11&q=old&checkIn=2026-01-01&checkOut=2026-01-02&status=CANCELLED&page=2"]}>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0 } } })}>
+        <ToastContext.Provider value={() => {}}><ReceptionBookingsPage /></ToastContext.Provider>
+      </QueryClientProvider>
+    </MemoryRouter>);
+    await screen.findByText(/Toàn bộ booking – Không giới hạn ngày/);
+    expect(screen.queryByRole("button", { name: "Ngày sau" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Chế độ xem booking" })).toBeTruthy();
+    for (const [name, view] of [["Khách đến", "arrivals"], ["Đang ở", "staying"], ["Cần trả phòng", "departures"]]) {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(name) }));
+      await waitFor(() => {
+        const last = requests.at(-1)!;
+        expect(last.get("view")).toBe(view);
+        expect(last.get("date")).toBe("2026-11-11");
+        for (const key of ["q", "status", "checkIn", "checkOut"]) expect(last.has(key)).toBe(false);
+        expect(last.get("page")).toBe("1");
+      });
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Ngày sau" }));
+    await waitFor(() => expect(requests.at(-1)!.get("date")).toBe("2026-11-12"));
+    expect(requests.at(-1)!.get("view")).toBe("departures");
+    expect(screen.getByText("Cần trả phòng – Ngày trả phòng 12/11/2026")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Tất cả booking/ }));
+    await waitFor(() => expect(requests.at(-1)!.has("view")).toBe(false));
+    expect(requests.at(-1)!.has("date")).toBe(false);
+    expect(screen.getByText("Toàn bộ booking – Không giới hạn ngày")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Ngày sau" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Chờ nhận phòng" }));
+    await waitFor(() => expect(requests.at(-1)!.get("status")).toBe("PENDING"));
+    expect(requests.at(-1)!.has("date")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Ngày sau" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Quá ngày nhận chưa xử lý" }));
+    await waitFor(() => expect(requests.at(-1)!.get("view")).toBe("overdue"));
+    expect(requests.at(-1)!.get("date")).toBe("2026-11-12");
+    expect(requests.at(-1)!.has("status")).toBe(false);
+    expect(screen.getByRole("button", { name: "Ngày sau" })).toBeTruthy();
+  });
+
   it("ReceptionBookingsPage displays 3 operational tab cards with exact counts from booking-counts API", async () => {
     vi.spyOn(api, "request").mockImplementation(async (path: string) => {
       if (path.includes("booking-counts")) {
@@ -517,11 +565,11 @@ describe("Unified Room Board & Booking Flow", () => {
 
     // Verify 3 operational tab cards show exact numbers even on 'All bookings' view
     await waitFor(() => {
-      const arrivalsTab = screen.getByRole("tab", { name: /Khách đến/ });
+      const arrivalsTab = screen.getByRole("button", { name: /Khách đến/ });
       expect(arrivalsTab.textContent).toContain("4");
-      const stayingTab = screen.getByRole("tab", { name: /Đang ở/ });
+      const stayingTab = screen.getByRole("button", { name: /Đang ở/ });
       expect(stayingTab.textContent).toContain("7");
-      const departuresTab = screen.getByRole("tab", { name: /Khách đi/ });
+      const departuresTab = screen.getByRole("button", { name: /Cần trả phòng/ });
       expect(departuresTab.textContent).toContain("2");
     });
 
@@ -563,13 +611,13 @@ describe("Unified Room Board & Booking Flow", () => {
         <ReceptionBookingsPage />
       </QueryClientProvider>
     </MemoryRouter>);
-    await waitFor(() => expect(screen.getAllByText("0 booking")).toHaveLength(3));
-    fireEvent.click(screen.getByRole("tab", { name: /Đang ở/ }));
-    await waitFor(() => expect(request.mock.calls.some(([path]) => path.includes("view=staying") && path.includes("q=test") && !path.includes("page=2"))).toBe(true));
-    expect(screen.getAllByText("0 booking")).toHaveLength(3);
+    await waitFor(() => expect(screen.getAllByText("0")).toHaveLength(3));
+    fireEvent.click(screen.getByRole("button", { name: /Đang ở/ }));
+    await waitFor(() => expect(request.mock.calls.some(([path]) => path.includes("view=staying") && !path.includes("q=test") && !path.includes("page=2"))).toBe(true));
+    expect(screen.getAllByText("0")).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: "Ngày sau" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/front-desk/booking-counts?date=2026-10-30", expect.anything()));
-    expect(screen.getAllByText("0 booking")).toHaveLength(3);
+    expect(screen.getAllByText("0")).toHaveLength(3);
   });
 
   it("booking totals show an actionable API error and recover on retry", async () => {
@@ -586,7 +634,7 @@ describe("Unified Room Board & Booking Flow", () => {
     expect(screen.getAllByText("Lỗi tải")).toHaveLength(3);
     failed = false;
     fireEvent.click(screen.getByRole("button", { name: /Thử lại/ }));
-    await waitFor(() => expect(screen.getAllByText("0 booking")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByText("0")).toHaveLength(3));
   });
 
   it("BookingTable renders prominent customer name and booking reference link with fallback for missing customer", () => {

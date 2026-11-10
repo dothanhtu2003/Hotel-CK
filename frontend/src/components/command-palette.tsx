@@ -373,7 +373,7 @@ function CommandPaletteModal({
                   {
                     id: "bookings",
                     icon: <User className="size-4 text-zinc-500" />,
-                    title: "Khách đến / Đang lưu trú / Khách đi",
+                    title: "Khách đến / Đang lưu trú / Cần trả phòng",
                     to: `${home}/bookings`,
                   },
                   {

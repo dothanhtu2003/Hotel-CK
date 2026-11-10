@@ -6,6 +6,7 @@ import type { PrismaService } from '../../src/database/prisma.service.js';
 import type { BillingService } from '../../src/billing/billing.service.js';
 import type { PublicUser } from '../../src/users/public-user.js';
 import { Prisma } from '../../generated/prisma/client.js';
+import { hotelDay } from '../../src/common/validation/stay-dates.js';
 
 function fixture() {
   const attempt = { id: 'payment', invoiceId: 'invoice', status: 'PENDING', payosOrderCode: 123n, amount: new Prisma.Decimal(10000), checkoutUrl: 'https://pay.payos.vn/web/test' };
@@ -49,7 +50,7 @@ describe('payOS verification', () => {
       booking: { room: {}, checkInDate: new Date(), checkOutDate: new Date(), nightlyPrice: amount, totalRoomAmount: amount },
     });
     await f.service.webhook({});
-    expect(f.tx.booking.updateMany).toHaveBeenCalledWith({ where: { id: 'booking', status: 'CHECKED_IN' }, data: { status: 'CHECKED_OUT' } });
+    expect(f.tx.booking.updateMany).toHaveBeenCalledWith({ where: { id: 'booking', status: 'CHECKED_IN', checkOutDate: { gte: new Date(hotelDay() + 'T00:00:00Z') } }, data: { status: 'CHECKED_OUT' } });
   });
   it.each([
     { orderCode: 999, amount: 10000, amountPaid: 10000, amountRemaining: 0, status: 'PAID' },

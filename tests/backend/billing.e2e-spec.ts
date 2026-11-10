@@ -25,8 +25,8 @@ describe('Phase 7 billing and complete hotel workflow — hotel_test only', () =
   });
   afterAll(async () => { if (context) await context.app.close(); });
 
-  // Only staff accounts/catalog/rooms require direct fixture writes. The final workflow
-  // below uses actual register/login and HTTP for every business step, with real PostgreSQL.
+  // Legacy unpaid booking fixtures isolate billing rules from online payment setup.
+  // The final workflow below separately covers the current prepaid HTTP journey.
   async function room(price = '100000.25') {
     const type = await context.prisma.client.roomType.create({ data: { name: `Billing ${randomUUID()}`, nightlyPrice: price, maxGuests: 2 } });
     const r = await context.prisma.client.room.create({ data: { roomNumber: randomUUID().replaceAll('-', '').slice(0, 12), roomTypeId: type.id, floor: 1 } });
@@ -35,7 +35,8 @@ describe('Phase 7 billing and complete hotel workflow — hotel_test only', () =
   const bookingAction = (id: string, action: string, who: keyof typeof actors = 'receptionist', body = {}) => api().patch(`/api/bookings/${id}/${action}`).auth(actors[who].token, { type: 'bearer' }).send(body);
   async function stay(state: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' = 'CHECKED_IN', price?: string) {
     const fixture = await room(price);
-    const result = await api().post('/api/bookings').auth(actors.guest.token, { type: 'bearer' }).send({ roomId: fixture.room.id, checkIn: today, checkOut: end.toISOString().slice(0, 10), guests: 2 }).expect(201);
+    const seeded = await context.prisma.client.booking.create({data:{userId:actors.guest.id,roomId:fixture.room.id,checkInDate:new Date(today),checkOutDate:end,guestCount:2}});
+    const result = {body:seeded};
     if (state !== 'PENDING') await bookingAction(result.body.id, 'confirm').expect(200);
     if (state === 'CHECKED_IN') await bookingAction(result.body.id, 'check-in').expect(200);
     return { ...fixture, id: result.body.id as string };
@@ -162,7 +163,9 @@ describe('Phase 7 billing and complete hotel workflow — hotel_test only', () =
   it('15 overpayment returns conflict and leaves invoice/payments unchanged', async () => {
     const b = await issued(); const before = (await invoice(b.invoice.id).expect(200)).body;
     const failed = await pay(b.invoice.id, '300000.76').expect(409); safe(failed.body);
-    expect((await invoice(b.invoice.id).expect(200)).body).toEqual(before);
+    const after=(await invoice(b.invoice.id).expect(200)).body;
+    delete before.booking.serverNow; delete after.booking.serverNow;
+    expect(after).toEqual(before);
   });
   it('16 DTO rejects zero, negatives, imprecise numbers, unsupported method and mass assignment', async () => {
     const b = await issued();
@@ -266,10 +269,13 @@ describe('Phase 7 billing and complete hotel workflow — hotel_test only', () =
     const fixture = await room();
     const available = await http.get('/api/rooms/available').query({ checkIn: today, checkOut: end.toISOString().slice(0, 10), guests: 2, roomTypeId: fixture.type.id }).expect(200); expect(available.body.data.some((r: { id: string }) => r.id === fixture.room.id)).toBe(true);
     const b = await http.post('/api/bookings').auth(token, { type: 'bearer' }).send({ roomId: fixture.room.id, checkIn: today, checkOut: end.toISOString().slice(0, 10), guests: 2 }).expect(201);
-    await bookingAction(b.body.id, 'confirm').expect(200); await bookingAction(b.body.id, 'check-in').expect(200);
+    // Simulated verified counter receipt: no external payment service is called.
+    const prepayment=await context.prisma.client.bookingPayment.create({data:{bookingId:b.body.id,amount:b.body.totalRoomAmount,method:'CASH',collectedById:actors.receptionist.id}});
+    await context.prisma.client.bookingPayment.update({where:{id:prepayment.id},data:{status:'COMPLETED'}});
+    await bookingAction(b.body.id, 'check-in').expect(200);
     const order = await http.post('/api/service-orders').auth(token, { type: 'bearer' }).send({ bookingId: b.body.id, items: [{ serviceId, quantity: 2 }] }).expect(201); await orderAction(order.body.id).expect(200);
     const bill = await http.get(`/api/bookings/${b.body.id}/billing-preview`).auth(token, { type: 'bearer' }).expect(200); expect(bill.body.totalAmount).toBe('390001.25');
-    const inv = await issue(b.body.id).expect(201); await pay(inv.body.id, inv.body.totalAmount, 'BANK_TRANSFER').expect(201);
+    const inv = await issue(b.body.id).expect(201); expect(inv.body.paidAmount).toBe(b.body.totalRoomAmount); await pay(inv.body.id, inv.body.balance, 'BANK_TRANSFER').expect(201);
     const checkout = await bookingAction(b.body.id, 'check-out').expect(200); expect(checkout.body.room.housekeepingStatus).toBe('DIRTY'); const taskId = checkout.body.housekeepingTask.id;
     await http.patch(`/api/housekeeping/tasks/${taskId}/assign`).auth(actors.receptionist.token, { type: 'bearer' }).send({ assignedStaffId: actors.housekeeping.id }).expect(200);
     await http.get(`/api/housekeeping/tasks/${taskId}`).auth(actors.housekeeping.token, { type: 'bearer' }).expect(200);

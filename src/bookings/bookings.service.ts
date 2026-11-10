@@ -55,9 +55,16 @@ export class BookingsService {
     try {
       // Do not pre-SELECT availability or send any prices/status/user-supplied userId.
       // PostgreSQL trigger snapshots price and exclusion constraint arbitrates races.
-      return await this.prisma.client.$transaction(async tx => bookingView(await tx.booking.create({
+      return await this.prisma.client.$transaction(async tx => {
+        if (dto.checkIn === hotelDay()) {
+          await tx.$queryRaw`SELECT id FROM hotel.rooms WHERE id=${dto.roomId}::uuid FOR UPDATE`;
+          const ready = await tx.room.findFirst({ where: { id: dto.roomId, operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN', tasks: { none: { status: { not: 'DONE' } } }, bookings: { none: { status: 'CHECKED_IN' } } }, select: { id: true } });
+          if (!ready) throw new ConflictException('Room is not ready for arrival today');
+        }
+        return bookingView(await tx.booking.create({
         data: { reference: await nextBookingReference(tx), userId: actor.id, roomId: dto.roomId, checkInDate: start, checkOutDate: end, guestCount: dto.guests, onlinePaymentRequired: true, ...(clientIp ? { clientIpHash:createHash('sha256').update(clientIp).digest('hex') } : {}) }, select: bookingSelect,
-      })));
+      }));
+      });
     } catch (error) { throwBookingError(error); }
   }
 

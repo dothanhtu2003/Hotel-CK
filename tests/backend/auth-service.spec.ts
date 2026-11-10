@@ -36,7 +36,7 @@ describe('AuthService boundaries', () => {
   });
   it('login signs only subject/token type and omits password hash', async () => {
     const f = fixture(); const response = await f.service.login({ email: ' GUEST@UNIT.INVALID ', password: 'input-secret' });
-    expect(f.signAsync).toHaveBeenCalledWith({ sub: f.user.id, tokenType: 'access' });
+    expect(f.signAsync).toHaveBeenCalledWith({ sub: f.user.id, tokenType: 'access' }, { expiresIn: 900 });
     expect(response.user).not.toHaveProperty('passwordHash'); expect(response.user).not.toHaveProperty('password_hash');
     expect(response.expiresIn).toBe(900);
   });

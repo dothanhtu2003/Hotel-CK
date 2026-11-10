@@ -394,7 +394,7 @@ export function RoomDetailPage() {
               })
         }
       >
-        {auth.user ? 'Đặt phòng này ngay' : 'Đăng nhập để đặt phòng'}
+        {auth.user ? 'Đặt phòng ngay' : 'Đăng nhập để đặt phòng'}
       </Button>
     )
   ) : (
@@ -517,9 +517,6 @@ export function RoomDetailPage() {
 
           {isValidDates && isCapacityValid && availability.error && <ErrorState message="Chưa kiểm tra được phòng trống." retry={() => void availability.refetch()} />}
           {isValidDates && isCapacityValid && availability.data && !isAvailable && <p role="status" className="notice">Hãy đổi ngày lưu trú hoặc <Link to={'/rooms?' + params.toString()}>xem phòng khác còn trống</Link>.</p>}
-          <div className="booking-action-wrap">
-            {primaryActionButton}
-          </div>
 
           <div className="booking-perks-list">
             <p>Thanh toán 100% tiền phòng qua payOS để xác nhận giữ phòng.</p>

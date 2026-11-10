@@ -24,3 +24,16 @@ GRANT UPDATE (status, checkout_url) ON hotel.payments, hotel.booking_payments TO
 
 GRANT UPDATE (hold_state,payment_check_at) ON hotel.bookings TO hotel_runtime;
 GRANT UPDATE (received_amount,review_reason,review_resolved_at,refund_reference,resolved_by_id) ON hotel.booking_payments TO hotel_runtime;
+
+-- Stay audit records use UUID defaults; no sequence privileges are required.
+GRANT SELECT, INSERT ON hotel.stay_segments, hotel.stay_extensions, hotel.room_status_changes TO hotel_runtime;
+GRANT UPDATE (ended_at, end_date) ON hotel.stay_segments TO hotel_runtime;
+GRANT UPDATE (room_id,current_room_since,check_out_date,total_room_amount) ON hotel.bookings TO hotel_runtime;
+GRANT UPDATE (operational_status) ON hotel.rooms TO hotel_runtime;
+GRANT UPDATE (manual_completed_by) ON hotel.housekeeping_tasks TO hotel_runtime;
+GRANT UPDATE (checkout_data) ON hotel.booking_payments TO hotel_runtime;
+GRANT UPDATE (checkout_requested_at) ON hotel.bookings TO hotel_runtime;
+GRANT UPDATE (payment_method,paid_at,received_by,refunded_at,refunded_by,
+  payos_order_code,payos_checkout_url,payos_qr_code,payos_status,payos_created_by,delivered_at)
+  ON hotel.service_orders TO hotel_runtime;
+GRANT UPDATE (checkout_on_paid) ON hotel.payments TO hotel_runtime;

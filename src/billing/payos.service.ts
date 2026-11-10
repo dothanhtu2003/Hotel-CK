@@ -9,6 +9,7 @@ import type { PublicUser } from '../users/public-user.js';
 import { BillingService } from './billing.service.js';
 import { postgresCode } from '../common/database/postgres-code.js';
 import { invoiceSelect, invoiceView } from './billing-view.js';
+import { hotelDay } from '../common/validation/stay-dates.js';
 
 @Injectable()
 export class PayosService implements OnModuleInit, OnModuleDestroy {
@@ -473,7 +474,8 @@ export class PayosService implements OnModuleInit, OnModuleDestroy {
           const paid = invoiceView(await tx.invoice.findUniqueOrThrow({ where: { id }, select: invoiceSelect }));
           if (paid.status !== 'PAID' || !new Prisma.Decimal(paid.balance).isZero()) return;
           if (await tx.serviceOrder.count({ where: { bookingId: invoice.bookingId, ...checkoutServiceOrdersWhere } })) return;
-          await tx.booking.updateMany({ where: { id: invoice.bookingId, status: 'CHECKED_IN' }, data: { status: 'CHECKED_OUT' } });
+          // Keep the verified receipt even if another night became due while payment was pending.
+          await tx.booking.updateMany({ where: { id: invoice.bookingId, status: 'CHECKED_IN', checkOutDate: { gte: new Date(hotelDay() + 'T00:00:00Z') } }, data: { status: 'CHECKED_OUT' } });
         });
       } else if (['CANCELLED', 'EXPIRED', 'FAILED'].includes(remote.status) && remote.amountPaid === 0) {
         await this.prisma.client.payment.updateMany({ where: { id: attempt.id, status: 'PENDING' }, data: { status: 'FAILED' } });

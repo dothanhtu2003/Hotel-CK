@@ -5,19 +5,21 @@ import { hotelDay, parseStay } from '../common/validation/stay-dates.js';
 import { bookingSelect, bookingView } from './booking-view.js';
 import type { ExtensionPreviewDto, ExtendBookingDto } from './dto/extend-booking.dto.js';
 
-const TEST_NIGHTLY_RATE = new Prisma.Decimal(1000);
+const EXTENSION_NIGHTLY_RATE = new Prisma.Decimal(1000);
 const days = (a: string, b: string) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 86400000));
 const conflict = (message: string) => new ConflictException({ code: 'EXTENSION_CHANGED', message });
 export async function previewStayExtension(tx: Prisma.TransactionClient, id: string, dto: ExtensionPreviewDto) {
   const today = hotelDay();
   const { end } = parseStay(dto.expectedCheckOut, dto.checkOut);
-  if (dto.checkOut <= today) throw new BadRequestException({ code: 'EXTENSION_INVALID_DATE', message: 'Ngày trả mới phải sau hôm nay' });
+  // An overdue guest can settle through today without buying another night.
+  if (dto.checkOut < today) throw new BadRequestException({ code: 'EXTENSION_INVALID_DATE', message: 'Ngày trả mới không được trước hôm nay' });
   const booking = await tx.booking.findUnique({ where: { id }, include: { room: true, invoice: { select: { id: true } }, bookingPayments: { where: { status: 'COMPLETED' }, select: { amount: true } } } });
   if (!booking) throw new NotFoundException('Booking not found');
   if (booking.invoice) throw new ConflictException({ code: 'EXTENSION_INVOICED', message: 'Hóa đơn đã chốt, cần hoàn tất kỳ lưu trú hiện tại trước khi lập kỳ mới' });
   if (booking.status !== 'CHECKED_IN') throw conflict('Booking không còn đang lưu trú');
   if (booking.checkOutDate.toISOString().slice(0, 10) !== dto.expectedCheckOut) throw conflict('Ngày trả đã thay đổi. Vui lòng kiểm tra lại');
   const overlap = await tx.booking.findFirst({ where: { id: { not: id }, roomId: booking.roomId, status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] }, checkInDate: { lt: end }, checkOutDate: { gt: booking.checkOutDate } }, orderBy: [{ checkInDate: 'asc' }, { id: 'asc' }], select: { reference: true, checkInDate: true, checkOutDate: true } });
+  if (dto.checkOut === today && overlap) throw conflict('Lịch ở quá hạn trùng booking khác. Cần xử lý booking trùng trước khi chốt tiền phòng.');
   const todayDate = new Date(today + 'T00:00:00Z');
   const rooms = overlap ? await tx.room.findMany({ where: {
     id: { not: booking.roomId }, operationalStatus: 'ACTIVE', housekeepingStatus: 'CLEAN',
@@ -28,8 +30,8 @@ export async function previewStayExtension(tx: Prisma.TransactionClient, id: str
     || a.roomType.maxGuests - b.roomType.maxGuests || a.roomNumber.localeCompare(b.roomNumber, 'vi', { numeric: true }));
   const overdueNights = days(dto.expectedCheckOut, today);
   const extensionNights = days(today > dto.expectedCheckOut ? today : dto.expectedCheckOut, dto.checkOut);
-  const overdueAmount = TEST_NIGHTLY_RATE.mul(overdueNights);
-  const extensionAmount = TEST_NIGHTLY_RATE.mul(extensionNights);
+  const overdueAmount = EXTENSION_NIGHTLY_RATE.mul(overdueNights);
+  const extensionAmount = EXTENSION_NIGHTLY_RATE.mul(extensionNights);
   const extra = overdueAmount.add(extensionAmount);
   const paid = booking.bookingPayments.reduce((sum, p) => sum.add(p.amount), new Prisma.Decimal(0));
   const total = booking.totalRoomAmount.add(extra);
