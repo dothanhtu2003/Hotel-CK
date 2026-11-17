@@ -25,7 +25,10 @@ if (Test-Path (Join-Path $dataDir 'postmaster.pid')) {
   try {
     $pidContent = (Get-Content (Join-Path $dataDir 'postmaster.pid') -ErrorAction SilentlyContinue)[0].Trim()
     $proc = Get-Process -Id ([int]$pidContent) -ErrorAction SilentlyContinue
-    if (!$proc) { Remove-Item (Join-Path $dataDir 'postmaster.pid') -Force -ErrorAction SilentlyContinue }
+    # Windows can reuse a stopped server's PID for an unrelated process.
+    if (!$proc -or $proc.ProcessName -ne 'postgres') {
+      Remove-Item (Join-Path $dataDir 'postmaster.pid') -Force -ErrorAction Stop
+    }
   } catch {}
 }
 if (!(Test-Path (Join-Path $dataDir 'postmaster.pid'))) {
