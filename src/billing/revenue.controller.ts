@@ -26,14 +26,16 @@ function midnight(value: string) {
 const zero = new Prisma.Decimal(0);
 const paymentSelect = { id: true, amount: true, paidAt: true, method: true, payosOrderCode: true } as const;
 
+type RevenueSourceCode = 'ROOM' | 'PAYOS_ROOM' | 'INVOICE' | 'PAYOS_INVOICE' | 'SERVICE' | 'PAYOS_SERVICE';
+
 type BookingInfo = Prisma.BookingGetPayload<{ select: typeof bookingSelect }>;
 
 function entry(id: string, booking: BookingInfo, date: Date, amount: Prisma.Decimal,
-  method: 'CASH' | 'BANK_TRANSFER', source: string, collector: string | null, roomAmount: Prisma.Decimal, refund = false) {
+  method: 'CASH' | 'BANK_TRANSFER', source: string, collector: string | null, roomAmount: Prisma.Decimal, refund = false, sourceCode?: RevenueSourceCode) {
   return {
     id, bookingId: booking.id, reference: booking.reference, invoiceId: booking.invoice?.id,
     room: booking.room.roomNumber, guestId: booking.user.id, guest: booking.user.fullName, date: date.toISOString(),
-    amount: amount.toFixed(2), roomAmount: roomAmount.toFixed(2), serviceAmount: amount.sub(roomAmount).toFixed(2), method, source, collector, refund,
+    amount: amount.toFixed(2), roomAmount: roomAmount.toFixed(2), serviceAmount: amount.sub(roomAmount).toFixed(2), method, source, sourceCode, collector, refund,
   };
 }
 
@@ -104,21 +106,21 @@ export class RevenueController {
       })).map(user => [user.id, user.fullName]));
       const rows = [
         ...bookingPayments.map(p => entry(p.id, p.booking, p.paidAt!, p.amount, p.method,
-          p.payosOrderCode ? 'payOS · Tiền phòng' : 'Tiền phòng', collectors.get(p.collectedById ?? '') ?? null, p.amount)),
+          p.payosOrderCode ? 'payOS · Tiền phòng' : 'Tiền phòng', collectors.get(p.collectedById ?? '') ?? null, p.amount, false, p.payosOrderCode ? 'PAYOS_ROOM' : 'ROOM')),
         ...invoicePayments.flatMap(p => {
           const allocation = allocations.get(p.id);
           return allocation ? [entry(p.id, allocation.booking, p.paidAt!, p.amount, p.method,
-            p.payosOrderCode ? 'payOS · Hóa đơn' : 'Hóa đơn', null, allocation.roomAmount)] : [];
+            p.payosOrderCode ? 'payOS · Hóa đơn' : 'Hóa đơn', null, allocation.roomAmount, false, p.payosOrderCode ? 'PAYOS_INVOICE' : 'INVOICE')] : [];
         }),
         ...orders.flatMap(order => {
           const rows = [];
           if (order.paidAt && order.paymentMethod) {
             rows.push(entry(order.id, order.booking, order.paidAt, order.totalAmount, order.paymentMethod,
-              order.payosOrderCode ? 'payOS · Dịch vụ' : 'Dịch vụ', order.collector?.fullName ?? null, zero));
+              order.payosOrderCode ? 'payOS · Dịch vụ' : 'Dịch vụ', order.collector?.fullName ?? null, zero, false, order.payosOrderCode ? 'PAYOS_SERVICE' : 'SERVICE'));
           }
           if (order.refundedAt && order.paymentMethod) {
             rows.push(entry(order.id + '-refund', order.booking, order.refundedAt, order.totalAmount.negated(),
-              order.paymentMethod, 'Dịch vụ', order.refunder?.fullName ?? null, zero, true));
+              order.paymentMethod, 'Dịch vụ', order.refunder?.fullName ?? null, zero, true, 'SERVICE'));
           }
           return rows;
         }),

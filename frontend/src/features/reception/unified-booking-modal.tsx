@@ -1,3 +1,7 @@
+import { catalogName } from "../../i18n/catalog";
+import { message as uiMessage, resolveMessage, safeError, t as tr, useLocale } from "../../i18n";
+
+import { Trans } from "react-i18next";
 import { useDeskNavigate } from "./navigation-state";
 import { DeskBookingPayment } from "./booking-payment";
 import { hotelToday } from "./room-state";
@@ -41,6 +45,7 @@ export function UnifiedBookingModal({
   initialGuests,
   onSuccess,
 }: UnifiedBookingModalProps) {
+  useLocale();
   const base = useDeskBase(),
     navigate = useDeskNavigate(),
     toast = useToast(),
@@ -99,7 +104,7 @@ export function UnifiedBookingModal({
         body: { ...data, receiveNow: data.checkIn === hotelToday() },
       }),
     onSuccess: async (b) => {
-      toast(paymentMethod === "BANK_TRANSFER" ? "Đã giữ phòng, chờ thanh toán payOS." : b.status === "CHECKED_IN" ? "Đã nhận phòng thành công." : "Đã tạo đặt phòng trước.");
+      toast(() => (paymentMethod === "BANK_TRANSFER" ? tr("reception:unifiedBookingModal.roomHeldAwaitingPayosPayment") : b.status === "CHECKED_IN" ? tr("reception:unifiedBookingModal.checkedInSuccessfully") : tr("reception:unifiedBookingModal.advanceReservationCreated")));
       await refresh();
       if (paymentMethod === 'BANK_TRANSFER') {
         setReview(null);
@@ -121,7 +126,7 @@ export function UnifiedBookingModal({
       );
       const msg = deskError(error, "booking");
       setFormError(msg);
-      toast(msg, "error");
+      toast(() => (msg), "error");
     },
     onSettled: () => {
       lock.current = false;
@@ -133,18 +138,18 @@ export function UnifiedBookingModal({
     setFormError(null);
 
     if (!room) {
-      setFormError("Vui lòng chọn phòng trước khi đặt.");
+      setFormError(uiMessage("reception:unifiedBookingModal.pleaseSelectARoomBeforeBooking"));
       return;
     }
 
     if (!isStayValid) {
-      setFormError("Ngày trả phòng phải sau ngày nhận phòng.");
+      setFormError(uiMessage("reception:unifiedBookingModal.checkOutMustBeAfterCheckIn"));
       return;
     }
 
     if (!isCapacityValid) {
       setFormError(
-        `Số khách (${guests}) vượt quá sức chứa tối đa của phòng (${room.roomType.maxGuests} khách).`,
+        uiMessage("reception:unifiedBookingModal.theGuestCountValueExceedsTheRoomCapacityValueGuests", { value0: (guests), value1: (room.roomType.maxGuests) }),
       );
       return;
     }
@@ -155,17 +160,17 @@ export function UnifiedBookingModal({
       const trimmedEmail = email.trim().toLowerCase();
 
       if (!trimmedName) {
-        setFormError("Vui lòng nhập họ và tên của khách hàng.");
+        setFormError(uiMessage("reception:unifiedBookingModal.pleaseEnterTheGuestSFullName"));
         return;
       }
       if (!trimmedPhone || trimmedPhone.length < 6 || trimmedPhone.length > 24) {
-        setFormError("Vui lòng nhập số điện thoại hợp lệ (6-24 ký tự).");
+        setFormError(uiMessage("reception:unifiedBookingModal.pleaseEnterAValidPhoneNumber624Characters"));
         return;
       }
       // Validate email only when the guest provides one.
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (trimmedEmail && !emailRegex.test(trimmedEmail)) {
-        setFormError("Vui lòng nhập địa chỉ email hợp lệ của khách.");
+        setFormError(uiMessage("reception:unifiedBookingModal.pleaseEnterAValidGuestEmailAddress"));
         return;
       }
 
@@ -181,7 +186,7 @@ export function UnifiedBookingModal({
       });
     } else {
       if (!customer) {
-        setFormError("Vui lòng tìm và chọn hồ sơ khách hàng đã có hoặc chuyển sang tạo hồ sơ mới.");
+        setFormError(uiMessage("reception:unifiedBookingModal.findAndSelectAnExistingGuestRecordOrSwitchToCreatingA"));
         return;
       }
 
@@ -198,11 +203,11 @@ export function UnifiedBookingModal({
 
   if (!open || !room) return null;
 
-  if (createdBooking) return <Dialog open onClose={() => { onClose(); onSuccess?.(createdBooking); }} title={`Thanh toán đặt phòng ${room.roomNumber}`} className="desk-room-action-modal">
+  if (createdBooking) return <Dialog open onClose={() => { onClose(); onSuccess?.(createdBooking); }} title={tr("reception:unifiedBookingModal.paymentForReservationValue", { value0: (room.roomNumber) })} className="desk-room-action-modal">
     <div className="drawer-body p-4 space-y-4">
-      <p>Mã đặt phòng: <strong>{createdBooking.reference}</strong></p>
+      <p><Trans ns="reception" i18nKey="unifiedBookingModal.reservationCodeValue" values={{ value0: (createdBooking.reference) }} components={{ part0: <strong /> }} /></p>
       <DeskBookingPayment bookingId={createdBooking.id} embedded />
-      <Button onClick={() => { onClose(); onSuccess?.(createdBooking); navigate(`${base}/bookings/${createdBooking.id}`); }}>Mở chi tiết đặt phòng</Button>
+      <Button onClick={() => { onClose(); onSuccess?.(createdBooking); navigate(`${base}/bookings/${createdBooking.id}`); }}>{tr("reception:unifiedBookingModal.openReservationDetails")}</Button>
     </div>
   </Dialog>;
 
@@ -211,25 +216,19 @@ export function UnifiedBookingModal({
       <Dialog
         open={open && !review}
         onClose={onClose}
-        title={`Đặt phòng ${room.roomNumber} (${room.roomType.name})`}
+        title={tr("reception:unifiedBookingModal.bookRoomValueValue", { value0: (room.roomNumber), value1: (catalogName(room.roomType.name)) })}
         className="desk-room-action-modal unified-booking-dialog"
       >
         <div className="drawer-body p-4 sm:p-6 space-y-5">
           {/* Room Banner */}
           <div className="drawer-room-hero flex items-center justify-between p-3.5 bg-brand-50/60 border border-brand-200/60 rounded-lg">
             <div>
-              <span className="drawer-room-number text-lg font-bold text-zinc-900">
-                Phòng {room.roomNumber}
-              </span>
-              <p className="drawer-room-type text-xs text-zinc-600 mt-0.5">
-                {room.roomType.name} · Tầng {room.floor} · Tối đa {room.roomType.maxGuests} khách
-              </p>
+              <span className="drawer-room-number text-lg font-bold text-zinc-900">{tr("reception:cashier.roomValue", { value0: (room.roomNumber) })}</span>
+              <p className="drawer-room-type text-xs text-zinc-600 mt-0.5">{tr("reception:unifiedBookingModal.valueFloorValueUpToValueGuests", { value0: (catalogName(room.roomType.name)), value1: (room.floor), value2: (room.roomType.maxGuests) })}</p>
             </div>
             <div className="text-right">
-              <span className="text-xs text-zinc-500 block">Giá niêm yết</span>
-              <strong className="text-brand-700 font-semibold text-sm">
-                {money(room.roomType.nightlyPrice)}/đêm
-              </strong>
+              <span className="text-xs text-zinc-500 block">{tr("reception:unifiedBookingModal.publishedRate")}</span>
+              <strong className="text-brand-700 font-semibold text-sm">{tr("reception:extendStayDialog.valueNight", { value0: (money(room.roomType.nightlyPrice)) })}</strong>
             </div>
           </div>
 
@@ -237,19 +236,17 @@ export function UnifiedBookingModal({
           {formError && (
             <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs flex items-center gap-2" role="alert">
               <AlertTriangle className="size-4 shrink-0 text-rose-600" />
-              <span>{formError}</span>
+              <span>{resolveMessage(formError)}</span>
             </div>
           )}
 
           <form onSubmit={handleReviewSubmit} noValidate className="space-y-4">
             {/* Dates & Guests Row */}
             <div className="bg-zinc-50 border border-zinc-200 p-3.5 rounded-lg space-y-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 block">
-                1. Thông tin lưu trú
-              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 block">{tr("reception:unifiedBookingModal.1StayInformation")}</span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label className="block">
-                  <span className="text-xs text-zinc-600 block mb-1">Ngày nhận phòng</span>
+                  <span className="text-xs text-zinc-600 block mb-1">{tr("reception:unifiedBookingModal.checkInDate")}</span>
                   <input
                     type="date"
                     className="input w-full text-xs"
@@ -259,7 +256,7 @@ export function UnifiedBookingModal({
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs text-zinc-600 block mb-1">Ngày trả phòng</span>
+                  <span className="text-xs text-zinc-600 block mb-1">{tr("reception:unifiedBookingModal.checkOutDate")}</span>
                   <input
                     type="date"
                     className="input w-full text-xs"
@@ -269,7 +266,7 @@ export function UnifiedBookingModal({
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs text-zinc-600 block mb-1">Số khách</span>
+                  <span className="text-xs text-zinc-600 block mb-1">{tr("reception:unifiedBookingModal.guests")}</span>
                   <input
                     type="number"
                     min={1}
@@ -283,23 +280,17 @@ export function UnifiedBookingModal({
               </div>
 
               {!isStayValid && (
-                <p className="text-xs text-rose-600 font-medium">
-                  ⚠️ Ngày trả phòng phải sau ngày nhận phòng.
-                </p>
+                <p className="text-xs text-rose-600 font-medium">{tr("reception:unifiedBookingModal.checkOutMustBeAfterCheckIn2")}</p>
               )}
               {!isCapacityValid && (
-                <p className="text-xs text-rose-600 font-medium">
-                  ⚠️ Vượt quá sức chứa tối đa ({room.roomType.maxGuests} khách).
-                </p>
+                <p className="text-xs text-rose-600 font-medium">{tr("reception:unifiedBookingModal.maximumCapacityExceededValueGuests", { value0: (room.roomType.maxGuests) })}</p>
               )}
             </div>
 
             {/* Guest Information Section */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                  2. Thông tin khách hàng
-                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{tr("reception:unifiedBookingModal.2GuestInformation")}</span>
                 <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-100 p-0.5 text-xs">
                   <button
                     type="button"
@@ -312,9 +303,7 @@ export function UnifiedBookingModal({
                       setNewGuest(false);
                       setFormError(null);
                     }}
-                  >
-                    Tìm khách đã có
-                  </button>
+                  >{tr("reception:unifiedBookingModal.findExistingGuest")}</button>
                   <button
                     type="button"
                     className={`px-2.5 py-1 rounded font-medium transition-colors cursor-pointer ${
@@ -327,9 +316,7 @@ export function UnifiedBookingModal({
                       setCustomer(null);
                       setFormError(null);
                     }}
-                  >
-                    Tạo hồ sơ mới
-                  </button>
+                  >{tr("reception:unifiedBookingModal.createNewRecord")}</button>
                 </div>
               </div>
 
@@ -340,13 +327,13 @@ export function UnifiedBookingModal({
                     <input
                       type="search"
                       className="input pl-9 w-full text-xs"
-                      placeholder="Tìm theo tên, SĐT hoặc email (ít nhất 2 ký tự)…"
+                      placeholder={tr("reception:unifiedBookingModal.searchNamePhoneOrEmailAtLeast2Characters")}
                       value={search}
                       onChange={(e) => {
                         setSearch(e.target.value);
                         setCustomerPage(1);
                       }}
-                      aria-label="Tìm kiếm khách hàng"
+                      aria-label={tr("reception:unifiedBookingModal.searchGuests")}
                     />
                   </div>
 
@@ -369,9 +356,7 @@ export function UnifiedBookingModal({
                         type="button"
                         onClick={() => setCustomer(null)}
                         className="text-xs text-emerald-800 hover:underline cursor-pointer"
-                      >
-                        Đổi khách
-                      </button>
+                      >{tr("reception:unifiedBookingModal.changeGuest")}</button>
                     </div>
                   )}
 
@@ -383,7 +368,7 @@ export function UnifiedBookingModal({
                         </div>
                       ) : customers.error ? (
                         <div className="p-3 text-xs text-rose-600">
-                          {customers.error.message}
+                          {safeError(customers.error)}
                         </div>
                       ) : customers.data?.data.length ? (
                         customers.data.data.map((c) => (
@@ -404,35 +389,29 @@ export function UnifiedBookingModal({
                                 {c.phone ? `${c.phone} · ` : ""}{c.email}
                               </span>
                             </div>
-                            <span className="text-xs font-semibold text-brand-600 hover:underline">
-                              Chọn →
-                            </span>
+                            <span className="text-xs font-semibold text-brand-600 hover:underline">{tr("reception:unifiedBookingModal.select")}</span>
                           </button>
                         ))
                       ) : (
-                        <div className="p-3 text-center text-xs text-zinc-500">
-                          Không tìm thấy khách hàng. Bạn có thể chọn tab <strong>Tạo hồ sơ mới</strong>.
-                        </div>
+                        <div className="p-3 text-center text-xs text-zinc-500"><Trans ns="reception" i18nKey="unifiedBookingModal.noGuestFoundYouCanChooseTheCreateNewRecordTab" components={{ part0: <strong /> }} /></div>
                       )}
                     </div>
                   )}
 
                   {!customer && search.length < 2 && (
-                    <p className="text-xs text-zinc-500 bg-zinc-50 p-2.5 rounded border border-zinc-200">
-                      💡 Nhập tên, SĐT hoặc email để chọn khách đã từng lưu trú.
-                    </p>
+                    <p className="text-xs text-zinc-500 bg-zinc-50 p-2.5 rounded border border-zinc-200">{tr("reception:unifiedBookingModal.enterANamePhoneNumberOrEmailToSelectAReturningGuest")}</p>
                   )}
                 </div>
               ) : (
                 <div className="space-y-3 bg-zinc-50 border border-zinc-200 p-3.5 rounded-lg">
                   <label className="block">
                     <span className="text-xs text-zinc-700 block mb-1">
-                      Họ và tên khách <span className="text-rose-500">*</span>
+                      {tr("reception:unifiedBookingModal.guestFullName")}<span className="text-rose-500">*</span>
                     </span>
                     <input
                       type="text"
                       className="input w-full text-xs"
-                      placeholder="Ví dụ: Nguyễn Văn An"
+                      placeholder={tr("reception:unifiedBookingModal.exampleNguyenVanAn")}
                       value={fullName}
                       maxLength={120}
                       onChange={(e) => setFullName(e.target.value)}
@@ -441,12 +420,12 @@ export function UnifiedBookingModal({
                   </label>
                   <label className="block">
                     <span className="text-xs text-zinc-700 block mb-1">
-                      Số điện thoại <span className="text-rose-500">*</span>
+                      {tr("reception:unifiedBookingModal.phoneNumber")}<span className="text-rose-500">*</span>
                     </span>
                     <input
                       type="tel"
                       className="input w-full text-xs"
-                      placeholder="Ví dụ: 0901234567"
+                      placeholder={tr("reception:unifiedBookingModal.example0901234567")}
                       value={phone}
                       minLength={6}
                       maxLength={24}
@@ -455,13 +434,11 @@ export function UnifiedBookingModal({
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs text-zinc-700 block mb-1">
-                      Địa chỉ Email (không bắt buộc)
-                    </span>
+                    <span className="text-xs text-zinc-700 block mb-1">{tr("reception:unifiedBookingModal.emailAddressOptional")}</span>
                     <input
                       type="email"
                       className="input w-full text-xs"
-                      placeholder="Email thực tế của khách"
+                      placeholder={tr("reception:unifiedBookingModal.guestSActualEmail")}
                       value={email}
                       maxLength={254}
                       onChange={(e) => setEmail(e.target.value)}
@@ -471,37 +448,30 @@ export function UnifiedBookingModal({
               )}
             </div>
 
-            <section className="rounded-lg border border-zinc-200 p-3.5 space-y-3" aria-label="Phương thức thanh toán khi đặt">
-              <h3 className="text-xs font-semibold">3. Thanh toán toàn bộ tiền phòng</h3>
-              <label className="block text-sm">Phương thức thanh toán
-                <select className="input w-full mt-1" value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value as 'CASH' | 'BANK_TRANSFER'); setPaymentVerified(false); }}>
-                  <option value="CASH">Tiền mặt</option>
-                  <option value="BANK_TRANSFER">Chuyển khoản payOS</option>
+            <section className="rounded-lg border border-zinc-200 p-3.5 space-y-3" aria-label={tr("reception:unifiedBookingModal.paymentMethodWhenBooking")}>
+              <h3 className="text-xs font-semibold">{tr("reception:unifiedBookingModal.3PayTheFullRoomCharge")}</h3>
+              <label className="block text-sm">{tr("reception:unifiedBookingModal.paymentMethod")}<select className="input w-full mt-1" value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value as 'CASH' | 'BANK_TRANSFER'); setPaymentVerified(false); }}>
+                  <option value="CASH">{tr("reception:cashier.cash")}</option>
+                  <option value="BANK_TRANSFER">{tr("reception:unifiedBookingModal.payosBankTransfer")}</option>
                 </select>
               </label>
-              <p className="text-xs text-zinc-600">{paymentMethod === 'CASH' ? 'Xác nhận đã nhận đủ tiền mặt ở bước xem lại. Khoản thu sẽ được trừ vào hóa đơn cuối kỳ.' : 'Sau khi tạo booking, mở payOS để khách thanh toán. Booking chờ xác nhận và chưa nhận phòng cho đến khi payOS ghi nhận đủ tiền.'}</p>
+              <p className="text-xs text-zinc-600">{paymentMethod === 'CASH' ? tr("reception:unifiedBookingModal.confirmFullCashCollectionDuringReviewTheReceiptWillBeDeductedFrom") : tr("reception:unifiedBookingModal.afterCreatingTheReservationOpenPayosForGuestPaymentTheReservationAwaits")}</p>
             </section>
             {/* Price Breakdown */}
             <div className="pt-3 border-t border-zinc-200 flex items-center justify-between">
               <div>
-                <span className="text-xs text-zinc-500 block">
-                  Tổng tiền phòng dự kiến ({nights} đêm)
-                </span>
+                <span className="text-xs text-zinc-500 block">{tr("reception:unifiedBookingModal.estimatedRoomChargesValueNights", { value0: (nights) })}</span>
                 <strong className="text-base text-zinc-900 font-bold">
                   {money(estimatedTotal)}
                 </strong>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" type="button" onClick={onClose}>
-                  Hủy
-                </Button>
+                <Button variant="secondary" type="button" onClick={onClose}>{tr("reception:components.cancel")}</Button>
                 <Button
                   type="submit"
                   disabled={!isStayValid || !isCapacityValid || (!customer && !newGuest)}
                   className="font-semibold"
-                >
-                  Xem lại & Xác nhận
-                </Button>
+                >{tr("reception:unifiedBookingModal.reviewConfirm")}</Button>
               </div>
             </div>
           </form>
@@ -514,38 +484,34 @@ export function UnifiedBookingModal({
         onClose={() => {
           if (!lock.current) setReview(null);
         }}
-        title="Xác nhận tạo booking"
+        title={tr("reception:unifiedBookingModal.confirmReservationCreation")}
         className="desk-room-action-modal"
       >
         {review && (
           <div className="drawer-body p-4 sm:p-6 space-y-4">
             <div className="p-3.5 bg-brand-50 border border-brand-200 rounded-lg space-y-2">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-zinc-600">Phòng:</span>
-                <strong className="text-zinc-900 font-semibold">
-                  Phòng {room.roomNumber} ({room.roomType.name} · Tầng {room.floor})
-                </strong>
+                <span className="text-zinc-600">{tr("reception:unifiedBookingModal.room")}</span>
+                <strong className="text-zinc-900 font-semibold">{tr("reception:unifiedBookingModal.roomValueValueFloorValue", { value0: (room.roomNumber), value1: (catalogName(room.roomType.name)), value2: (room.floor) })}</strong>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-zinc-600">Khách hàng:</span>
+                <span className="text-zinc-600">{tr("reception:roomRequests.guest")}</span>
                 <strong className="text-zinc-900 font-semibold">
                   {customer?.fullName ?? String(review.fullName)}
                 </strong>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-zinc-600">Liên hệ:</span>
+                <span className="text-zinc-600">{tr("reception:unifiedBookingModal.contact")}</span>
                 <span className="text-zinc-800">
                   {customer ? [customer.phone, customer.email].filter(Boolean).join(" · ") : [review.phone, review.email].filter(Boolean).join(" · ")}
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-zinc-600">Lưu trú:</span>
-                <span className="text-zinc-800 font-medium">
-                  {String(review.checkIn)} → {String(review.checkOut)} ({nights} đêm · {String(review.guests)} khách)
-                </span>
+                <span className="text-zinc-600">{tr("reception:unifiedBookingModal.stay")}</span>
+                <span className="text-zinc-800 font-medium">{tr("reception:unifiedBookingModal.valueValueValueNightsValueGuests", { value0: (String(review.checkIn)), value1: (String(review.checkOut)), value2: (nights), value3: (String(review.guests)) })}</span>
               </div>
               <div className="flex justify-between items-center text-xs border-t border-brand-200/60 pt-2 mt-2">
-                <span className="text-zinc-700 font-medium">Tổng tiền dự kiến:</span>
+                <span className="text-zinc-700 font-medium">{tr("reception:createServiceOrder.estimatedTotal")}</span>
                 <strong className="text-brand-800 font-bold text-sm">
                   {money(estimatedTotal)}
                 </strong>
@@ -553,10 +519,10 @@ export function UnifiedBookingModal({
             </div>
 
             <p className="text-xs text-zinc-500 bg-amber-50 p-2.5 rounded border border-amber-200 text-amber-800">
-              {paymentMethod === 'BANK_TRANSFER' ? "Booking được giữ 15 phút để thanh toán payOS. Chưa nhận phòng khi chưa thanh toán đủ." : checkIn === hotelToday() ? "Xác nhận sẽ tạo booking và nhận phòng ngay. Phòng chuyển sang Đang ở." : "Đặt trước cho ngày tương lai. Khách sẽ nhận phòng vào ngày đến."}
+              {paymentMethod === 'BANK_TRANSFER' ? tr("reception:unifiedBookingModal.theReservationIsHeldFor15MinutesForPayosPaymentCheckIn") : checkIn === hotelToday() ? tr("reception:unifiedBookingModal.confirmationCreatesTheReservationAndChecksTheGuestInImmediatelyTheRoom") : tr("reception:unifiedBookingModal.advanceReservationForAFutureDateTheGuestWillCheckInOn")}
             </p>
 
-            {paymentMethod === 'CASH' && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={paymentVerified} disabled={mutation.isPending} onChange={e => setPaymentVerified(e.target.checked)} />Đã nhận đủ {money(estimatedTotal)} tiền mặt.</label>}
+            {paymentMethod === 'CASH' && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={paymentVerified} disabled={mutation.isPending} onChange={e => setPaymentVerified(e.target.checked)} />{tr("reception:unifiedBookingModal.receivedFullAmountInCash", { amount: money(estimatedTotal) })}</label>}
             {mutation.error && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded text-rose-800 text-xs" role="alert">
                 {deskError(mutation.error, "booking")}
@@ -568,9 +534,7 @@ export function UnifiedBookingModal({
                 variant="secondary"
                 disabled={mutation.isPending}
                 onClick={() => setReview(null)}
-              >
-                Chỉnh sửa
-              </Button>
+              >{tr("reception:unifiedBookingModal.edit")}</Button>
               <Button
                 busy={mutation.isPending}
                 disabled={uncertain || !!mutation.error || (paymentMethod === 'CASH' && !paymentVerified)}
@@ -579,9 +543,7 @@ export function UnifiedBookingModal({
                   lock.current = true;
                   mutation.mutate({ ...review, paymentMethod, expectedAmount: estimatedTotal, ...(paymentMethod === 'CASH' ? { paymentVerified } : {}) });
                 }}
-              >
-                Xác nhận tạo booking
-              </Button>
+              >{tr("reception:unifiedBookingModal.confirmReservationCreation")}</Button>
             </div>
           </div>
         )}

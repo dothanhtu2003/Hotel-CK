@@ -1,3 +1,9 @@
+import { formatDate as localizedDate } from "../i18n/format";
+import { catalogName } from "../i18n/catalog";
+import { displayLocale, safeError, t as tr, useLocale } from "../i18n";
+
+
+import { Trans } from "react-i18next";
 import { DeskLink, DeskBackLink } from "../features/reception/navigation";
 import "../features/reception/billing-workspace.css";
 import { useState } from "react";
@@ -58,6 +64,7 @@ import {
 } from "../components/kamra-ui";
 
 export function ReceptionBillingPage() {
+  useLocale();
   const { id = "" } = useParams();
   const base = useDeskBase();
   const [checkoutResult, setCheckoutResult] = useState<Checkout | null>(null);
@@ -67,11 +74,11 @@ export function ReceptionBillingPage() {
   const invoice = useDeskInvoice(id);
   if (guest.isPending || preview.isPending || invoice.isPending) return <Skeleton />;
   const error = guest.error || preview.error || invoice.error;
-  if (error) return <ErrorState message={error.message} retry={() => { void guest.refetch(); void preview.refetch(); void invoice.refetch(); }} />;
+  if (error) return <ErrorState message={safeError(error)} retry={() => { void guest.refetch(); void preview.refetch(); void invoice.refetch(); }} />;
   const b = guest.data!, p = preview.data!, i = invoice.data;
   const overdue = b.status === 'CHECKED_IN' && b.checkOut < hotelToday();
   const usedOrders = [...p.completedOrders, ...(p.counterPaidOrders ?? [])];
-  const formatDate = (value: string) => value.split("-").reverse().join("/");
+  const formatDate = (value: string) => localizedDate(value);
   const amount = i?.totalAmount ?? p.totalAmount;
   const paid = i?.paidAmount ?? p.paidAmount ?? "0";
   const balance = i?.balance ?? p.balance ?? p.totalAmount;
@@ -82,27 +89,26 @@ export function ReceptionBillingPage() {
   const roomAmount = i?.roomAmount ?? p.roomAmount;
   const extension = p.roomExtension;
   const roomCharges = extension ? [
-    { label: `Tiền phòng ban đầu (${b.nights - extension.addedNights} đêm)`, amount: decimal(cents(roomAmount) - cents(extension.addedAmount)) },
-    { label: `Tiền gia hạn / quá hạn (${extension.addedNights} đêm)`, amount: extension.addedAmount },
-  ] : [{ label: `Tiền phòng (${b.nights} đêm)`, amount: roomAmount }];
+    { label: tr("reception:receptionBillingPages.initialRoomChargesValueNights", { value0: (b.nights - extension.addedNights) }), amount: decimal(cents(roomAmount) - cents(extension.addedAmount)) },
+    { label: tr("reception:receptionBillingPages.extensionOverdueChargesValueNights", { value0: (extension.addedNights) }), amount: extension.addedAmount },
+  ] : [{ label: tr("reception:receptionBillingPages.roomChargesValueNights", { value0: (b.nights) }), amount: roomAmount }];
 
   return (
     <div className="billing-workspace">
       <DeskBackLink className="billing-back" to={`${base}/billing`}>
-        <ArrowLeft className="size-3.5" /> Danh sách thu ngân
-      </DeskBackLink>
+        <ArrowLeft className="size-3.5" /> {tr("reception:receptionBillingPages.cashierList")}</DeskBackLink>
 
       <header className="billing-header-card">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-3.5">
             <div className="billing-room-hero">
               <span className="billing-room-hero-num">{b.roomNumber}</span>
-              <span className="billing-room-hero-label">Phòng</span>
+              <span className="billing-room-hero-label">{tr("reception:reservationPanels.room")}</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2.5">
+            <div className="min-w-0 max-w-full">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <h1 className="billing-guest-name">
-                  {b.customer?.fullName ?? "Khách tại quầy"}
+                  {b.customer?.fullName ?? tr("reception:cashier.walkInGuest")}
                 </h1>
                 <Badge tone={b.status === "CHECKED_IN" ? "green" : "zinc"} className="text-xs px-2.5 py-0.5 font-semibold">
                   {statusLabels[b.status]}
@@ -111,12 +117,9 @@ export function ReceptionBillingPage() {
               <div className="flex flex-wrap items-center gap-2.5 text-xs text-zinc-500 mt-1">
                 <span className="inline-flex items-center gap-1.5 font-medium text-zinc-700">
                   <Calendar className="size-3.5 text-zinc-400" />
-                  {formatDate(b.checkIn)} → {formatDate(b.checkOut)} · {b.nights} đêm
-                </span>
+                  {tr("common:supplement.stayDateRange", { value0: formatDate(b.checkIn), value1: formatDate(b.checkOut), value2: b.nights })}</span>
                 <span className="text-zinc-300">•</span>
-                <span className="font-mono text-zinc-600">
-                  Hồ sơ <strong>{b.reference}</strong>
-                </span>
+                <span className="font-mono text-zinc-600"><Trans ns="reception" i18nKey="receptionBillingPages.recordValue" values={{ value0: (b.reference) }} components={{ part0: <strong /> }} /></span>
               </div>
             </div>
           </div>
@@ -124,18 +127,16 @@ export function ReceptionBillingPage() {
             <DeskLink
               to={`${base}/bookings/${id}`}
               className="billing-profile-link"
-            >
-              Hồ sơ đặt phòng →
-            </DeskLink>
+            >{tr("reception:receptionBillingPages.reservationRecord")}</DeskLink>
           </div>
         </div>
       </header>
 
       {overdue && <section className="billing-pending-card" role="alert">
-        <h2>Khách đang ở quá hạn trả phòng</h2>
-        {i ? <p>Hóa đơn đã phát hành trước khi hoàn tất kỳ lưu trú. Chưa thể tự sửa hóa đơn đã chốt; cần đối soát phần tiền quá hạn trước khi trả phòng.</p> : <>
-          <p className="billing-help">Cần xác nhận tiền các đêm phát sinh đến hôm nay trước khi chốt hóa đơn. Giá phát sinh: 1.000đ/đêm.</p>
-          <Button onClick={() => setSettlingOverdue(true)}>Tính tiền đến hôm nay</Button>
+        <h2>{tr("reception:receptionBillingPages.theGuestSCheckOutIsOverdue")}</h2>
+        {i ? <p>{tr("reception:receptionBillingPages.theInvoiceWasIssuedBeforeTheStayEndedAFinalizedInvoiceCannot")}</p> : <>
+          <p className="billing-help">{tr("reception:receptionBillingPages.confirmAdditionalNightChargesThroughTodayBeforeFinalizingTheInvoiceAdditionalRate")}</p>
+          <Button onClick={() => setSettlingOverdue(true)}>{tr("reception:receptionBillingPages.calculateChargesThroughToday")}</Button>
         </>}
       </section>}
       {settlingOverdue && <ExtendStayDialog booking={b} checkoutToday onClose={() => setSettlingOverdue(false)} />}
@@ -147,15 +148,12 @@ export function ReceptionBillingPage() {
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-100">
               <h2 className="flex items-center gap-2 text-sm font-bold text-zinc-900">
                 <Receipt className="size-4 text-emerald-700" />
-                Chi tiết chi phí lưu trú
-              </h2>
-              <span className="text-xs text-zinc-400 font-medium">
-                Phòng {b.roomNumber}
-              </span>
+                {tr("reception:receptionBillingPages.stayChargeDetails")}</h2>
+              <span className="text-xs text-zinc-400 font-medium">{tr("reception:cashier.roomValue", { value0: (b.roomNumber) })}</span>
             </div>
 
             <div className="billing-receipt-lines">
-              <h3 className="px-2.5 text-xs font-bold text-zinc-700">Hóa đơn phòng</h3>
+              <h3 className="px-2.5 text-xs font-bold text-zinc-700">{tr("reception:receptionBillingPages.roomInvoice")}</h3>
               {roomCharges.map(charge => (
                 <div key={charge.label} className="billing-receipt-row">
                   <span className="billing-receipt-label font-semibold text-zinc-800">{charge.label}</span>
@@ -166,7 +164,7 @@ export function ReceptionBillingPage() {
 
               <div className="billing-receipt-row">
                 <div className="billing-receipt-label">
-                  <span className="font-semibold text-zinc-800">Dịch vụ ghi phòng</span>
+                  <span className="font-semibold text-zinc-800">{tr("reception:receptionBillingPages.servicesChargedToRoom")}</span>
                 </div>
                 <div className="billing-receipt-leader" />
                 <strong className="billing-receipt-value font-semibold text-zinc-900">{money(i?.serviceAmount ?? p.serviceAmount)}</strong>
@@ -174,13 +172,13 @@ export function ReceptionBillingPage() {
 
               {Number(separatePaid) > 0 && (
                 <div className="billing-receipt-row rounded-lg bg-zinc-50">
-                  <span className="billing-receipt-label font-semibold text-zinc-800">Dịch vụ đã trả riêng</span>
+                  <span className="billing-receipt-label font-semibold text-zinc-800">{tr("reception:receptionBillingPages.servicesPaidSeparately")}</span>
                   <strong className="billing-receipt-value font-semibold text-zinc-900">{money(separatePaid)}</strong>
                 </div>
               )}
 
               <div className="billing-receipt-row billing-receipt-total">
-                <strong className="billing-receipt-label text-base font-bold text-zinc-900">Tổng chi phí lưu trú</strong>
+                <strong className="billing-receipt-label text-base font-bold text-zinc-900">{tr("reception:receptionBillingPages.totalStayCharges")}</strong>
                 <div className="billing-receipt-leader billing-leader-thick" />
                 <strong className="billing-receipt-value text-base font-bold text-emerald-800">{money(overallTotal)}</strong>
               </div>
@@ -195,8 +193,8 @@ export function ReceptionBillingPage() {
                   <AlertCircle className="size-5" />
                 </div>
                 <div>
-                  <h2>Cần xử lý {p.pendingOrderCount} đơn dịch vụ</h2>
-                  <p className="billing-help">Các đơn dưới đây còn chờ ghi nhận hoặc thanh toán nên chưa thể trả phòng.</p>
+                  <h2>{tr("reception:receptionBillingPages.valueServiceOrdersNeedAttention", { value0: (p.pendingOrderCount) })}</h2>
+                  <p className="billing-help">{tr("reception:receptionBillingPages.theOrdersBelowAreAwaitingRecordingOrPaymentSoCheckOutIs")}</p>
                 </div>
               </div>
               <PendingServiceQueue bookingId={id} />
@@ -208,35 +206,32 @@ export function ReceptionBillingPage() {
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-100">
               <h2 className="flex items-center gap-2 text-sm font-bold text-zinc-900">
                 <ConciergeBell className="size-4 text-emerald-700" />
-                Dịch vụ đã sử dụng
-              </h2>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
-                {usedOrders.length} đơn
-              </span>
+                {tr("reception:receptionBillingPages.servicesUsed")}</h2>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">{tr("reception:receptionBillingPages.valueOrders", { value0: (usedOrders.length) })}</span>
             </div>
             {!usedOrders.length ? (
-              <p className="billing-help">Chưa có dịch vụ nào được ghi nhận.</p>
+              <p className="billing-help">{tr("reception:receptionBillingPages.noServicesRecordedYet")}</p>
             ) : (
               <div className="rounded-lg border border-zinc-200/80 overflow-hidden">
                 <table className="w-full text-xs">
                   <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-semibold">
                     <tr>
-                      <th className="py-2.5 px-3.5 text-left">DỊCH VỤ</th>
-                      <th className="py-2.5 px-2 text-center">HÌNH THỨC</th>
-                      <th className="py-2.5 px-3 text-center">SL</th>
-                      <th className="py-2.5 px-3.5 text-right">ĐƠN GIÁ</th>
-                      <th className="py-2.5 px-3.5 text-right">THÀNH TIỀN</th>
+                      <th className="py-2.5 px-3.5 text-left">{tr("reception:components.service")}</th>
+                      <th className="py-2.5 px-2 text-center">{tr("reception:receptionBillingPages.method")}</th>
+                      <th className="py-2.5 px-3 text-center">{tr("reception:receptionBillingPages.qty")}</th>
+                      <th className="py-2.5 px-3.5 text-right">{tr("reception:receptionBillingPages.unitPrice")}</th>
+                      <th className="py-2.5 px-3.5 text-right">{tr("reception:components.subtotal")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
-                    {usedOrders.flatMap(o => o.items.map(item => ({ ...item, paymentMethod: o.paymentMethod, key: `${o.id}-${item.id ?? item.serviceName}` }))).map(item => (
+                    {usedOrders.flatMap(o => o.items.map(item => ({ ...item, paymentMethod: o.paymentMethod, key: `${o.id}-${item.id ?? catalogName(item.serviceName)}` }))).map(item => (
                       <tr key={item.key} className={`transition-colors ${!item.paymentMethod && !isPaidInFull ? "bg-amber-50 hover:bg-amber-100/70" : "hover:bg-zinc-50/50"}`}>
                         <td className="py-2.5 px-3.5 font-medium text-zinc-900">
-                          {cleanServiceName(item.serviceName)}
+                          {catalogName(cleanServiceName(item.serviceName))}
                         </td>
                         <td className="py-2.5 px-2 text-center">
                           <span className={item.paymentMethod === 'CASH' ? 'billing-pill-cash' : item.paymentMethod === 'BANK_TRANSFER' ? 'billing-pill-transfer' : 'billing-pill-room'}>
-                            {item.paymentMethod === 'CASH' ? 'Tiền mặt' : item.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : isPaidInFull ? 'Ghi phòng' : 'Ghi phòng · Thu khi trả phòng'}
+                            {item.paymentMethod === 'CASH' ? tr("reception:cashier.cash") : item.paymentMethod === 'BANK_TRANSFER' ? tr("reception:cashier.bankTransfer") : isPaidInFull ? tr("reception:receptionBillingPages.chargeToRoom") : tr("reception:receptionBillingPages.chargeToRoomCollectAtCheckOut")}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center tabular-nums text-zinc-700 font-semibold">{item.quantity}</td>
@@ -258,22 +253,19 @@ export function ReceptionBillingPage() {
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-100">
               <h2 className="flex items-center gap-2 text-sm font-bold text-zinc-900">
                 <CreditCard className="size-4 text-emerald-700" />
-                Quyết toán & Trả phòng
-              </h2>
+                {tr("reception:receptionBillingPages.settlementCheckOut")}</h2>
               {i && (
-                <span className="text-xs text-zinc-500 font-mono font-medium">
-                  HĐ #{i.id.slice(0, 8)}
-                </span>
+                <span className="text-xs text-zinc-500 font-mono font-medium">{tr("reception:receptionBillingPages.invValue", { value0: (i.id.slice(0, 8)) })}</span>
               )}
             </div>
 
             <dl className="space-y-2.5 text-xs pb-3 border-b border-zinc-100">
               <div className="flex justify-between items-center text-zinc-600">
-                <dt>Tổng chi phí lưu trú</dt>
+                <dt>{tr("reception:receptionBillingPages.totalStayCharges")}</dt>
                 <dd className="font-bold text-zinc-900 text-sm tabular-nums">{money(overallTotal)}</dd>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-zinc-100">
-                <dt className="font-semibold text-zinc-800">Tổng đã thu</dt>
+                <dt className="font-semibold text-zinc-800">{tr("reception:receptionBillingPages.totalCollected")}</dt>
                 <dd className="text-emerald-700 font-bold text-sm tabular-nums">{money(overallPaid)}</dd>
               </div>
             </dl>
@@ -285,20 +277,18 @@ export function ReceptionBillingPage() {
                   {isPaidInFull ? (
                     <span className="flex items-center gap-1.5 text-emerald-800">
                       <CheckCircle2 className="size-4 text-emerald-600" />
-                      ĐÃ TẤT TOÁN
-                    </span>
+                      {tr("reception:receptionBillingPages.settled")}</span>
                   ) : (
                     <span className="flex items-center gap-1.5 text-amber-900">
                       <AlertCircle className="size-4 text-amber-600" />
-                      CÒN PHẢI THU
-                    </span>
+                      {tr("reception:cashier.balanceDue2")}</span>
                   )}
                 </span>
                 <span className="billing-status-amount">
                   {money(balance)}
                 </span>
               </div>
-              {isPaidInFull && <p className="billing-status-sub">Đã thanh toán đủ.</p>}
+              {isPaidInFull && <p className="billing-status-sub">{tr("reception:receptionBillingPages.fullyPaid")}</p>}
             </div>
 
             {!i ? (
@@ -307,8 +297,8 @@ export function ReceptionBillingPage() {
                   <DeskAction
                     path={`/bookings/${id}/invoice`}
                     action="invoice"
-                    label="Phát hành hóa đơn"
-                    description={`Chốt hóa đơn ${b.reference} với tổng tiền ${money(amount)}? Sau khi phát hành, không thể thêm hoặc sửa chi phí.`}
+                    label={tr("reception:receptionBillingPages.issueInvoice")}
+                    description={tr("reception:receptionBillingPages.finalizeInvoiceValueForValueChargesCannotBeAddedOrChangedAfter", { value0: (b.reference), value1: (money(amount)) })}
                     variant="primary"
                     className="billing-main-action"
                   />
@@ -316,10 +306,10 @@ export function ReceptionBillingPage() {
                   <div className="billing-blocked flex items-start gap-2.5">
                     <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-xs leading-relaxed text-amber-800 m-0">
-                      {overdue ? "Hãy xác nhận tiền quá hạn đến hôm nay trước."
+                      {overdue ? tr("reception:receptionBillingPages.confirmOverdueChargesThroughTodayFirst")
                         : p.pendingOrderCount > 0
-                        ? "Hãy xử lý các đơn dịch vụ đang chờ ở bên trái trước."
-                        : "Chỉ phát hành hóa đơn khi khách đang lưu trú."}
+                        ? tr("reception:receptionBillingPages.resolvePendingServiceOrdersOnTheLeftFirst")
+                        : tr("reception:receptionBillingPages.anInvoiceCanOnlyBeIssuedForAnInHouseGuest")}
                     </p>
                   </div>
                 )}
@@ -328,8 +318,7 @@ export function ReceptionBillingPage() {
               <div className="space-y-3 pt-1">
                 <DeskLink className="billing-invoice-btn" to={`${base}/invoices/${i.id}`}>
                   <Receipt className="size-4" />
-                  Xem & in hóa đơn
-                </DeskLink>
+                  {tr("reception:receptionBillingPages.viewPrintInvoice")}</DeskLink>
                 {i.status !== "PAID" && b.status !== "CANCELLED" && (
                   <PaymentForm key={i.id} invoice={i} />
                 )}
@@ -337,8 +326,8 @@ export function ReceptionBillingPage() {
                   <DeskAction
                     path={`/bookings/${id}/check-out`}
                     action="check-out"
-                    label="Xác nhận trả phòng"
-                    description={`Trả phòng ${b.roomNumber} cho ${b.customer?.fullName ?? "khách"}?`}
+                    label={tr("reception:receptionBillingPages.confirmCheckOut")}
+                    description={tr("reception:receptionBillingPages.checkOutRoomValueForValue", { value0: (b.roomNumber), value1: (b.customer?.fullName ?? tr("common:supplement.guest")) })}
                     variant="primary"
                     className="billing-main-action"
                     onDone={(result) => setCheckoutResult(result as Checkout)}
@@ -347,22 +336,19 @@ export function ReceptionBillingPage() {
                 {b.status === "CHECKED_OUT" && (
                   <p className="billing-success flex items-center gap-2">
                     <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                    Đã trả phòng. Phòng đã chuyển sang chờ dọn.
-                  </p>
+                    {tr("reception:receptionBillingPages.checkedOutTheRoomIsNowAwaitingCleaning")}</p>
                 )}
                 {i.status === "PAID" && b.status === "CHECKED_IN" && p.pendingOrderCount > 0 && (
                   <p className="billing-blocked flex items-start gap-2">
                     <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
-                    Cần xử lý dịch vụ đang chờ trước khi trả phòng.
-                  </p>
+                    {tr("reception:receptionBillingPages.resolvePendingServicesBeforeCheckOut")}</p>
                 )}
               </div>
             )}
             {checkoutResult && (
               <p role="status" className="billing-success flex items-center gap-2 mt-3">
                 <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                Trả phòng thành công · Phòng {b.roomNumber} cần dọn.
-              </p>
+                {tr("common:supplement.checkoutRoomNeedsCleaning", { value0: b.roomNumber })}</p>
             )}
           </section>
         </aside>
@@ -372,6 +358,7 @@ export function ReceptionBillingPage() {
 }
 
 export function ReceptionInvoicePage() {
+  useLocale();
   const [checkoutResult, setCheckoutResult] = useState<Checkout | null>(null);
   const { id = "" } = useParams();
   const base = useDeskBase();
@@ -390,7 +377,7 @@ export function ReceptionInvoicePage() {
   if (query.error) {
     return (
       <ErrorState
-        message={query.error.message}
+        message={safeError(query.error)}
         retry={() => void query.refetch()}
       />
     );
@@ -398,7 +385,7 @@ export function ReceptionInvoicePage() {
 
   const i = query.data!;
   const isPaid = i.status === "PAID" || Number(i.balance) <= 0;
-  const rawName = guest.data?.customer?.fullName || (i.booking as { customer?: { fullName?: string } }).customer?.fullName || "Khách tại quầy";
+  const rawName = guest.data?.customer?.fullName || (i.booking as { customer?: { fullName?: string } }).customer?.fullName || tr("reception:cashier.walkInGuest");
   const guestName = rawName
     .split(" ")
     .filter(Boolean)
@@ -406,32 +393,29 @@ export function ReceptionInvoicePage() {
     .join(" ");
 
   return (
-    <div className="desk-page space-y-5 max-w-5xl mx-auto pb-12">
+    <div className="print-document desk-page space-y-5 max-w-5xl mx-auto pb-12">
       {/* Top Breadcrumb */}
       <div>
         <DeskBackLink
           to={`${base}/bookings/${i.bookingId}/billing`}
-          className="billing-back"
+          className="billing-back print-hidden"
         >
-          <ArrowLeft className="size-3.5" /> Quay lại chi phí booking
-        </DeskBackLink>
+          <ArrowLeft className="size-3.5" /> {tr("reception:receptionBillingPages.backToReservationCharges")}</DeskBackLink>
       </div>
 
       {/* Header Card */}
       <header className="billing-header-card">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-4">
             <div className="billing-room-hero">
               <span className="billing-room-hero-num">{i.booking.roomNumber}</span>
-              <span className="billing-room-hero-label">Phòng</span>
+              <span className="billing-room-hero-label">{tr("reception:reservationPanels.room")}</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="billing-guest-name">
-                  Hóa đơn #{i.id.slice(0, 8)}
-                </h1>
+            <div className="min-w-0 max-w-full">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="billing-guest-name">{tr("reception:receptionBillingPages.invoiceValue", { value0: (i.id.slice(0, 8)) })}</h1>
                 <Badge tone={isPaid ? "green" : "amber"} className="text-xs px-2.5 py-0.5 font-semibold">
-                  {isPaid ? "Đã thanh toán" : "Chưa thanh toán"}
+                  {isPaid ? tr("reception:cashier.paid") : tr("reception:receptionBillingPages.unpaid")}
                 </Badge>
                 <Badge tone={i.booking.status === "CHECKED_OUT" ? "zinc" : i.booking.status === "CHECKED_IN" ? "green" : "sky"} className="text-xs px-2.5 py-0.5 font-semibold">
                   {statusLabels[i.booking.status]}
@@ -440,9 +424,9 @@ export function ReceptionInvoicePage() {
               <div className="flex flex-wrap items-center gap-2.5 text-xs text-zinc-500 mt-1">
                 <span className="font-semibold text-zinc-800">{guestName}</span>
                 <span className="text-zinc-300">•</span>
-                <span>Mã: <strong className="text-zinc-700 font-mono">{i.booking.reference}</strong></span>
+                <span><Trans ns="reception" i18nKey="reservationPanels.codeValue" values={{ value0: (i.booking.reference) }} components={{ part0: <strong className="text-zinc-700 font-mono" /> }} /></span>
                 <span className="text-zinc-300">•</span>
-                <span>{new Date(i.issuedAt).toLocaleString("vi-VN")}</span>
+                <span>{new Date(i.issuedAt).toLocaleString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh' })}</span>
               </div>
             </div>
           </div>
@@ -452,8 +436,7 @@ export function ReceptionInvoicePage() {
               onClick={() => window.print()}
               className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5"
             >
-              <Printer className="size-3.5" /> In hóa đơn
-            </Button>
+              <Printer className="size-3.5" /> {tr("reception:receptionBillingPages.printInvoice")}</Button>
           </div>
         </div>
       </header>
@@ -466,34 +449,31 @@ export function ReceptionInvoicePage() {
             <CardTitle className="text-sm font-bold text-zinc-900 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Receipt className="size-4 text-emerald-700" />
-                Bảng kê chi phí
-              </span>
-              <span className="text-xs text-zinc-400 font-normal">
-                Phòng {i.booking.roomNumber}
-              </span>
+                {tr("reception:receptionBillingPages.statementOfCharges")}</span>
+              <span className="text-xs text-zinc-400 font-normal">{tr("reception:cashier.roomValue", { value0: (i.booking.roomNumber) })}</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-3">
             <div className="space-y-2.5 text-xs">
               <div className="flex items-center justify-between py-1 border-b border-zinc-100">
-                <span className="text-zinc-600">Tiền phòng ({i.booking.nights} đêm)</span>
+                <span className="text-zinc-600">{tr("reception:receptionBillingPages.roomChargesValueNights", { value0: (i.booking.nights) })}</span>
                 <span className="font-semibold text-zinc-900 tabular-nums">{money(i.roomAmount)}</span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-zinc-100">
-                <span className="text-zinc-600">Dịch vụ phòng</span>
+                <span className="text-zinc-600">{tr("reception:receptionBillingPages.roomService")}</span>
                 <span className="font-semibold text-zinc-900 tabular-nums">{money(i.serviceAmount)}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-t border-zinc-200 text-sm font-bold">
-                <span className="text-zinc-900">Tổng hóa đơn</span>
+                <span className="text-zinc-900">{tr("reception:receptionBillingPages.invoiceTotal")}</span>
                 <span className="text-zinc-900 tabular-nums">{money(i.totalAmount)}</span>
               </div>
               <div className="flex items-center justify-between py-1.5 text-emerald-700 font-medium">
-                <span>Đã thanh toán</span>
+                <span>{tr("reception:cashier.paid")}</span>
                 <span className="tabular-nums font-semibold">- {money(i.paidAmount)}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-t border-zinc-200 text-sm font-bold">
                 <span className={Number(i.balance) > 0 ? "text-rose-700" : "text-emerald-800"}>
-                  {Number(i.balance) > 0 ? "Còn phải thu" : "Số dư còn lại"}
+                  {Number(i.balance) > 0 ? tr("reception:cashier.balanceDue") : tr("reception:receptionBillingPages.remainingBalance")}
                 </span>
                 <span className={`tabular-nums ${Number(i.balance) > 0 ? "text-rose-700" : "text-emerald-800 font-black text-base"}`}>
                   {money(i.balance)}
@@ -509,8 +489,7 @@ export function ReceptionInvoicePage() {
             <CardHeader className="pb-3 border-b border-zinc-100">
               <CardTitle className="text-sm font-bold text-zinc-900 flex items-center gap-2">
                 <CreditCard className="size-4 text-emerald-700" />
-                Thu ngân & Thanh toán
-              </CardTitle>
+                {tr("reception:receptionBillingPages.cashierPayments")}</CardTitle>
             </CardHeader>
             <CardContent className="pt-3">
               <PaymentForm key={id} invoice={i} />
@@ -522,18 +501,18 @@ export function ReceptionInvoicePage() {
               <CardTitle className="text-sm font-bold text-zinc-900 flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <CreditCard className="size-4 text-emerald-700" />
-                  Biên nhận thanh toán ({i.payments.length})
+                  {tr("common:supplement.paymentReceipts", { count: i.payments.length })}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-2">
               <Table
-                caption="Danh sách payment"
+                caption={tr("reception:receptionBillingPages.paymentList")}
                 rows={i.payments}
                 rowKey={(p) => p.id}
                 columns={[
                   {
-                    title: "MÃ BIÊN NHẬN",
+                    title: tr("reception:receptionBillingPages.receiptId"),
                     render: (p) => (
                       <span className="font-mono text-xs text-zinc-700 font-medium">
                         #{p.id.slice(0, 8)}
@@ -541,7 +520,7 @@ export function ReceptionInvoicePage() {
                     ),
                   },
                   {
-                    title: "SỐ TIỀN",
+                    title: tr("reception:receptionBillingPages.amount"),
                     render: (p) => (
                       <span className="font-bold text-xs text-zinc-900 tabular-nums">
                         {money(p.amount)}
@@ -549,18 +528,18 @@ export function ReceptionInvoicePage() {
                     ),
                   },
                   {
-                    title: "HÌNH THỨC",
+                    title: tr("reception:receptionBillingPages.method"),
                     render: (p) => (
                       <span className="text-xs text-zinc-700">
-                        {p.method === "CASH" ? "Tiền mặt" : "Chuyển khoản"}
+                        {p.method === "CASH" ? tr("reception:cashier.cash") : tr("reception:cashier.bankTransfer")}
                       </span>
                     ),
                   },
                   {
-                    title: "THỜI ĐIỂM",
+                    title: tr("reception:receptionBillingPages.time"),
                     render: (p) => (
                       <span className="text-xs text-zinc-500">
-                        {p.paidAt ? new Date(p.paidAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                        {p.paidAt ? new Date(p.paidAt).toLocaleTimeString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh', hour: "2-digit", minute: "2-digit" }) : "—"}
                       </span>
                     ),
                   },
@@ -575,31 +554,29 @@ export function ReceptionInvoicePage() {
       {!isPaid && i.payments.length > 0 && (
         <Card>
           <CardHeader className="pb-2 border-b border-zinc-100">
-            <CardTitle className="text-sm font-bold text-zinc-900">
-              Biên nhận đã thu ({i.payments.length})
-            </CardTitle>
+            <CardTitle className="text-sm font-bold text-zinc-900">{tr("reception:receptionBillingPages.collectedReceiptsValue", { value0: (i.payments.length) })}</CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
             <Table
-              caption="Danh sách payment"
+              caption={tr("reception:receptionBillingPages.paymentList")}
               rows={i.payments}
               rowKey={(p) => p.id}
               columns={[
                 {
-                  title: "MÃ",
+                  title: tr("reception:receptionBillingPages.code"),
                   render: (p) => <span className="font-mono text-xs">#{p.id.slice(0, 8)}</span>,
                 },
                 {
-                  title: "SỐ TIỀN",
+                  title: tr("reception:receptionBillingPages.amount"),
                   render: (p) => <strong className="text-xs tabular-nums">{money(p.amount)}</strong>,
                 },
                 {
-                  title: "HÌNH THỨC",
-                  render: (p) => <span className="text-xs">{p.method === "CASH" ? "Tiền mặt" : "Chuyển khoản"}</span>,
+                  title: tr("reception:receptionBillingPages.method"),
+                  render: (p) => <span className="text-xs">{p.method === "CASH" ? tr("reception:cashier.cash") : tr("reception:cashier.bankTransfer")}</span>,
                 },
                 {
-                  title: "THỜI ĐIỂM",
-                  render: (p) => <span className="text-xs text-zinc-500">{p.paidAt ? new Date(p.paidAt).toLocaleString("vi-VN") : "—"}</span>,
+                  title: tr("reception:receptionBillingPages.time"),
+                  render: (p) => <span className="text-xs text-zinc-500">{p.paidAt ? new Date(p.paidAt).toLocaleString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh' }) : "—"}</span>,
                 },
               ]}
             />
@@ -609,17 +586,15 @@ export function ReceptionInvoicePage() {
 
       {/* Check-Out Quick Action (if in-house & ready) */}
       {i.booking.status === "CHECKED_IN" && preview.data && canCheckout(i.booking, preview.data.pendingOrderCount, i) && (
-        <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-200 shadow-2xs">
+        <div className="print-hidden flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200 shadow-2xs">
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
-            <span className="text-sm font-bold text-emerald-950">
-              Hóa đơn đã tất toán · Sẵn sàng trả phòng
-            </span>
+            <span className="text-sm font-bold text-emerald-950">{tr("reception:receptionBillingPages.invoiceSettledReadyForCheckOut")}</span>
           </div>
           <DeskAction
             path={`/bookings/${i.bookingId}/check-out`}
             action="check-out"
-            label="Xác nhận trả phòng"
+            label={tr("reception:receptionBillingPages.confirmCheckOut")}
             description=""
             variant="primary"
             onDone={(data) => setCheckoutResult(data as Checkout)}
@@ -630,14 +605,14 @@ export function ReceptionInvoicePage() {
       {checkoutResult && (
         <p role="status" className="billing-success flex items-center gap-2">
           <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-          Đã hoàn tất trả phòng · Phòng {i.booking.roomNumber} đã chuyển sang chờ dọn.
-        </p>
+          {tr("common:supplement.checkoutRoomAwaitingCleaning", { value0: i.booking.roomNumber })}</p>
       )}
     </div>
   );
 }
 
 function PendingServiceQueue({ bookingId }: { bookingId: string }) {
+  useLocale();
   const [page, setPage] = useState(1);
   const query = useDeskGet<Page<Order>>(
     `/front-desk/orders?bookingId=${bookingId}&view=checkout&page=${page}&pageSize=5`,
@@ -647,7 +622,7 @@ function PendingServiceQueue({ bookingId }: { bookingId: string }) {
   if (query.error) {
     return (
       <ErrorState
-        message={query.error.message}
+        message={safeError(query.error)}
         retry={() => void query.refetch()}
       />
     );
@@ -657,7 +632,7 @@ function PendingServiceQueue({ bookingId }: { bookingId: string }) {
   if (orders.length === 0) return null;
 
   return (
-    <div className="space-y-3" aria-label="Dịch vụ cần xử lý trước trả phòng">
+    <div className="space-y-3" aria-label={tr("reception:receptionBillingPages.servicesToResolveBeforeCheckOut")}>
       {orders.map((o) => (
         <div
           key={o.id}
@@ -665,31 +640,27 @@ function PendingServiceQueue({ bookingId }: { bookingId: string }) {
         >
           <div className="flex items-center justify-between text-xs pb-2 border-b border-zinc-100">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-zinc-900 font-mono">
-                Đơn #{o.id.slice(0, 8)}
-              </span>
-              <Badge tone="amber">{o.requestedPaymentMethod && !o.paymentMethod ? 'Chờ thanh toán' : 'Chờ ghi nhận'}</Badge>
+              <span className="font-bold text-zinc-900 font-mono">{tr("reception:receptionBillingPages.orderValue", { value0: (o.id.slice(0, 8)) })}</span>
+              <Badge tone="amber">{o.requestedPaymentMethod && !o.paymentMethod ? tr("reception:contracts.awaitingPayment") : tr("reception:receptionBillingPages.awaitingRecording")}</Badge>
             </div>
-            <div className="text-xs font-semibold text-zinc-600">
-              Tổng đơn: <strong className="text-sm font-bold text-zinc-900 tabular-nums">{money(o.totalAmount)}</strong>
-            </div>
+            <div className="text-xs font-semibold text-zinc-600"><Trans ns="reception" i18nKey="receptionBillingPages.orderTotalValue" values={{ value0: (money(o.totalAmount)) }} components={{ part0: <strong className="text-sm font-bold text-zinc-900 tabular-nums" /> }} /></div>
           </div>
 
           <div className="rounded-lg border border-zinc-100 bg-zinc-50/60 overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-zinc-200/60 text-zinc-500 font-medium text-left">
-                  <th className="py-2 px-3">Dịch vụ</th>
-                  <th className="py-2 px-3 text-center">SL</th>
-                  <th className="py-2 px-3 text-right">Đơn giá</th>
-                  <th className="py-2 px-3 text-right">Thành tiền</th>
+                  <th className="py-2 px-3">{tr("reception:cashier.services")}</th>
+                  <th className="py-2 px-3 text-center">{tr("reception:receptionBillingPages.qty")}</th>
+                  <th className="py-2 px-3 text-right">{tr("reception:receptionBillingPages.unitPrice2")}</th>
+                  <th className="py-2 px-3 text-right">{tr("reception:reservationPanels.subtotal")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {o.items.map((item) => (
                   <tr key={item.id} className="text-zinc-800">
                     <td className="py-2 px-3 font-medium text-zinc-900">
-                      {cleanServiceName(item.serviceName)}
+                      {catalogName(cleanServiceName(item.serviceName))}
                     </td>
                     <td className="py-2 px-3 text-center tabular-nums text-zinc-600">
                       {item.quantity}

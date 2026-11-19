@@ -1,3 +1,7 @@
+import { catalogName } from "../../i18n/catalog";
+import { localized, resolveMessage, safeError, t as tr, useLocale } from "../../i18n";
+
+import { Trans } from "react-i18next";
 import { BankTransferQr } from './bank-transfer-qr';
 import './create-service-order.css';
 import { useMemo, useRef, useState } from 'react';
@@ -76,14 +80,14 @@ function getServiceIcon(name: string) {
   return <Package className="size-3.5 text-emerald-600" />;
 }
 
-const CATEGORIES = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'food', label: 'Đồ ăn', icon: '🍽️' },
-  { id: 'drink', label: 'Đồ uống', icon: '☕' },
-  { id: 'laundry', label: 'Giặt ủi', icon: '🧺' },
-  { id: 'transport', label: 'Vận chuyển', icon: '🚗' },
-  { id: 'other', label: 'Khác', icon: '✨' },
-];
+const CATEGORIES = localized(() => ([
+  { id: 'all', label: tr("reception:createServiceOrder.all") },
+  { id: 'food', label: tr("reception:createServiceOrder.food"), icon: '🍽️' },
+  { id: 'drink', label: tr("reception:createServiceOrder.drinks"), icon: '☕' },
+  { id: 'laundry', label: tr("reception:createServiceOrder.laundry"), icon: '🧺' },
+  { id: 'transport', label: tr("reception:createServiceOrder.transport"), icon: '🚗' },
+  { id: 'other', label: tr("reception:createServiceOrder.other"), icon: '✨' },
+]));
 
 function matchCategory(name: string, catId: string) {
   if (catId === 'all') return true;
@@ -137,6 +141,7 @@ export function CreateServiceOrder({
   onClose: () => void;
   onCreated: (order: Order) => void;
 }) {
+  const locale = useLocale();
   const [bookingPage, setBookingPage] = useState(1);
   const [servicePage, setServicePage] = useState(1);
   const [selectedBookingId, setBookingId] = useState('');
@@ -161,40 +166,52 @@ export function CreateServiceOrder({
   );
 
   const allServices = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return (services.data?.data ?? []).filter((s) => s.isActive);
-  }, [services.data]);
+  }, [services.data, locale]);
 
   const selected = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return Object.entries(items).filter(([, quantity]) => quantity > 0);
-  }, [items]);
+  }, [items, locale]);
 
   const totalParts = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return selected.reduce((sum, [, qty]) => sum + qty, 0);
-  }, [selected]);
+  }, [selected, locale]);
 
   const totalCents = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return selected.reduce((sum, [id, qty]) => {
       const svc = allServices.find((s) => s.id === id) ?? selectedServices[id];
       if (!svc) return sum;
       return sum + cents(svc.currentPrice) * BigInt(qty);
     }, 0n);
-  }, [selected, allServices, selectedServices]);
+  }, [selected, allServices, selectedServices, locale]);
 
   const totalDisplay = money(decimal(totalCents));
 
   const filteredServices = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return allServices.filter((s) => {
       const matchesCat = matchCategory(s.name, selectedCategory);
       const matchesQuery =
         !searchQuery.trim() ||
-        s.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
+        s.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) || catalogName(s.name).toLowerCase().includes(searchQuery.trim().toLowerCase());
       return matchesCat && matchesQuery;
     });
-  }, [allServices, selectedCategory, searchQuery]);
+  }, [allServices, selectedCategory, searchQuery, locale]);
 
   const selectedBooking = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return booking ?? bookings.data?.data.find((b) => b.id === bookingId);
-  }, [booking, bookings.data, bookingId]);
+  }, [booking, bookings.data, bookingId, locale]);
 
   const updateQuantity = (serviceId: string, delta: number) => {
     const service = allServices.find(s => s.id === serviceId);
@@ -226,7 +243,7 @@ export function CreateServiceOrder({
   };
 
   if (paymentOrder) return (
-    <Dialog open title="Thanh toán chuyển khoản" onClose={() => onCreated(paymentOrder)}>
+    <Dialog open title={tr("reception:createServiceOrder.bankTransferPayment")} onClose={() => onCreated(paymentOrder)}>
       <BankTransferQr orderId={paymentOrder.id} amount={paymentOrder.totalAmount}
         expiresAt={Date.parse(paymentOrder.orderedAt) + 15 * 60_000}
         allowChangeAfterClose
@@ -252,7 +269,7 @@ export function CreateServiceOrder({
   return (
     <Dialog
       open
-      title="Thêm đơn dịch vụ phòng"
+      title={tr("reception:createServiceOrder.addRoomServiceOrder")}
       closeOnBackdrop={false}
       onClose={() => {
         if (!submitting.current) onClose();
@@ -282,9 +299,7 @@ export function CreateServiceOrder({
             });
           } catch (caught) {
             setError(
-              deskError(
-                caught instanceof Error ? caught : new Error('Không thể tạo đơn.'),
-              ),
+              deskError(caught instanceof Error ? caught : new Error(tr("reception:createServiceOrder.unableToCreateOrder")), undefined, true),
             );
             submitting.current = false;
             setBusy(false);
@@ -305,7 +320,7 @@ export function CreateServiceOrder({
                 <Search className="size-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="search"
-                  placeholder="Tìm món: cà phê, bữa sáng, giặt là..."
+                  placeholder={tr("reception:createServiceOrder.findItemsCoffeeBreakfastLaundry")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
@@ -347,18 +362,14 @@ export function CreateServiceOrder({
             {/* Service Items Grid */}
             <div className="create-service-items-grid max-h-[480px] overflow-y-auto pr-1">
               {services.isPending ? (
-                <div className="py-14 text-center text-sm text-zinc-400">
-                  Đang tải danh mục dịch vụ…
-                </div>
+                <div className="py-14 text-center text-sm text-zinc-400">{tr("reception:createServiceOrder.loadingServiceCatalog")}</div>
               ) : services.error ? (
                 <ErrorState
-                  message={services.error.message}
+                  message={safeError(services.error)}
                   retry={() => void services.refetch()}
                 />
               ) : filteredServices.length === 0 ? (
-                <div className="py-14 text-center text-sm text-zinc-400">
-                  Không tìm thấy dịch vụ phù hợp.
-                </div>
+                <div className="py-14 text-center text-sm text-zinc-400">{tr("reception:createServiceOrder.noMatchingServicesFound")}</div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {filteredServices.map((service) => {
@@ -381,9 +392,9 @@ export function CreateServiceOrder({
                             <div className="min-w-0 flex-1">
                               <h4
                                 className="text-xs sm:text-[13px] font-semibold text-zinc-900 leading-snug line-clamp-2"
-                                title={service.name}
+                                title={catalogName(service.name)}
                               >
-                                {cleanServiceName(service.name)}
+                                {catalogName(cleanServiceName(service.name))}
                               </h4>
                               <div className="mt-1 text-xs sm:text-sm font-bold text-brand-800">
                                 {money(service.currentPrice)}
@@ -400,15 +411,14 @@ export function CreateServiceOrder({
                               onClick={() => updateQuantity(service.id, 1)}
                               className="w-full h-8 text-xs font-semibold rounded-lg bg-zinc-100/80 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 border border-transparent text-zinc-700 transition-colors cursor-pointer inline-flex items-center justify-center gap-1 whitespace-nowrap"
                             >
-                              <Plus className="size-3.5" /> Thêm vào đơn
-                            </button>
+                              <Plus className="size-3.5" /> {tr("reception:createServiceOrder.addToOrder")}</button>
                           ) : (
                             <div className="w-full flex items-center justify-between gap-1">
                               <button
                                 type="button"
                                 onClick={() => updateQuantity(service.id, -1)}
                                 className="size-7.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 flex items-center justify-center cursor-pointer transition-colors"
-                                title="Giảm 1"
+                                title={tr("reception:createServiceOrder.decreaseBy1")}
                               >
                                 <Minus className="size-3.5" />
                               </button>
@@ -429,7 +439,7 @@ export function CreateServiceOrder({
                                 type="button"
                                 onClick={() => updateQuantity(service.id, 1)}
                                 className="size-7.5 rounded-lg bg-brand-700 hover:bg-brand-800 text-white flex items-center justify-center cursor-pointer transition-colors"
-                                title="Tăng 1"
+                                title={tr("reception:createServiceOrder.increaseBy1")}
                               >
                                 <Plus className="size-3.5" />
                               </button>
@@ -460,17 +470,16 @@ export function CreateServiceOrder({
               <div>
                 <label className="block text-xs sm:text-sm font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                   <BedDouble className="size-4 text-brand-700" />
-                  1. Phòng nhận dịch vụ
-                </label>
+                  {tr("reception:createServiceOrder.1DeliveryRoom")}</label>
                 {!booking && bookings.error ? (
                   <ErrorState
-                    message={bookings.error.message}
+                    message={safeError(bookings.error)}
                     retry={() => void bookings.refetch()}
                   />
                 ) : (
                   <>
                     {!booking && <select
-                      aria-label="Phòng nhận dịch vụ"
+                      aria-label={tr("reception:createServiceOrder.deliveryRoom")}
                       className="w-full h-10 px-3 text-xs sm:text-sm border border-zinc-200 rounded-xl bg-white focus:border-brand-600 focus:outline-none transition-colors text-zinc-900 cursor-pointer"
                       value={bookingId}
                       onChange={(e) => setBookingId(e.target.value)}
@@ -479,12 +488,12 @@ export function CreateServiceOrder({
                     >
                       <option value="">
                         {bookings.isPending
-                          ? 'Đang tải danh sách phòng…'
-                          : '-- Chọn phòng & khách đang ở --'}
+                          ? tr("reception:createServiceOrder.loadingRoomList")
+                          : tr("reception:createServiceOrder.chooseARoomInHouseGuest")}
                       </option>
                       {bookings.data?.data.map((b) => (
                         <option key={b.id} value={b.id}>
-                          P.{b.roomNumber} · {b.customer?.fullName ?? b.reference} ({b.reference})
+                          {tr("reception:createServiceOrder.rm")}{b.roomNumber} · {b.customer?.fullName ?? b.reference} ({b.reference})
                         </option>
                       ))}
                     </select>}
@@ -492,11 +501,9 @@ export function CreateServiceOrder({
                     {selectedBooking && (
                       <div className="mt-2 p-2.5 rounded-xl bg-brand-50 border border-brand-200/80 text-xs sm:text-sm flex items-center justify-between">
                         <div>
-                          <span className="font-bold text-brand-900">
-                            Phòng {selectedBooking.roomNumber}
-                          </span>
+                          <span className="font-bold text-brand-900">{tr("reception:cashier.roomValue", { value0: (selectedBooking.roomNumber) })}</span>
                           <span className="text-zinc-600 ml-1.5">
-                            · {selectedBooking.customer?.fullName ?? 'Khách tại quầy'}
+                            · {selectedBooking.customer?.fullName ?? tr("reception:cashier.walkInGuest")}
                           </span>
                         </div>
                         <span className="font-mono text-xs font-medium text-brand-700">
@@ -506,9 +513,7 @@ export function CreateServiceOrder({
                     )}
 
                     {!booking && bookings.data?.meta.total === 0 && (
-                      <p className="text-xs text-amber-700 mt-1.5">
-                        Hiện chưa có phòng nào đang có khách lưu trú (CHECKED_IN).
-                      </p>
+                      <p className="text-xs text-amber-700 mt-1.5">{tr("reception:createServiceOrder.thereAreCurrentlyNoCheckedInRooms")}</p>
                     )}
                     {!booking && bookings.data && bookings.data.meta.totalPages > 1 && (
                       <div className="mt-1">
@@ -527,26 +532,20 @@ export function CreateServiceOrder({
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs sm:text-sm font-bold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
                     <ShoppingBag className="size-4 text-brand-700" />
-                    2. Món đã chọn ({selected.length} món)
-                  </span>
+                    {tr("common:supplement.selectedItemsTitle", { value0: selected.length })}</span>
                   {selected.length > 0 && (
                     <button
                       type="button"
                       onClick={() => setItems({})}
                       className="text-xs text-zinc-400 hover:text-rose-600 cursor-pointer transition-colors"
-                    >
-                      Xóa tất cả
-                    </button>
+                    >{tr("reception:createServiceOrder.clearAll")}</button>
                   )}
                 </div>
 
                 <div className="create-service-cart-list max-h-[230px] overflow-y-auto divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
                   {selected.length === 0 ? (
                     <div className="py-8 px-3 text-center text-xs sm:text-sm text-zinc-400">
-                      Chưa chọn món nào.
-                      <div className="text-xs text-zinc-400 mt-1">
-                        Bấm "+ Thêm vào đơn" ở menu bên trái.
-                      </div>
+                      {tr("reception:createServiceOrder.noItemsSelected")}<div className="text-xs text-zinc-400 mt-1">{tr("reception:createServiceOrder.selectAddToOrderInTheMenuOnTheLeft")}</div>
                     </div>
                   ) : (
                     selected.map(([serviceId, qty]) => {
@@ -560,14 +559,9 @@ export function CreateServiceOrder({
                         >
                           <div className="min-w-0 flex-1">
                             <div className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
-                              {cleanServiceName(svc.name)}
+                              {catalogName(cleanServiceName(svc.name))}
                             </div>
-                            <div className="text-xs text-zinc-500 mt-0.5">
-                              {money(svc.currentPrice)} × {qty} ={' '}
-                              <strong className="text-zinc-800 font-bold">
-                                {money(decimal(subtotal))}
-                              </strong>
-                            </div>
+                            <div className="text-xs text-zinc-500 mt-0.5"><Trans ns="reception" i18nKey="createServiceOrder.valueValueValue" values={{ value0: (money(svc.currentPrice)), value1: (qty), value2: (money(decimal(subtotal))) }} components={{ part0: <strong className="text-zinc-800 font-bold" /> }} /></div>
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -592,7 +586,7 @@ export function CreateServiceOrder({
                               type="button"
                               onClick={() => updateQuantity(serviceId, -qty)}
                               className="p-1 text-zinc-300 hover:text-rose-600 cursor-pointer ml-1"
-                              title="Xóa món này"
+                              title={tr("reception:createServiceOrder.removeThisItem")}
                             >
                               <Trash2 className="size-4" />
                             </button>
@@ -607,19 +601,18 @@ export function CreateServiceOrder({
 
             {/* Tóm tắt & Nút tạo đơn */}
             <div className="pt-3 border-t border-zinc-200/90 mt-3 space-y-2.5">
-              <label className="block text-xs sm:text-sm font-semibold space-y-1.5">Cách thanh toán
-                <select aria-label="Cách thanh toán" className="input w-full h-10 text-xs sm:text-sm px-3 rounded-xl border-zinc-200" value={settlement} disabled={busy} onChange={event => { setSettlement(event.target.value as typeof settlement); }}>
-                  <option value="ROOM">Ghi vào hóa đơn phòng</option>
-                  <option value="CASH">Thanh toán ngay · Tiền mặt</option>
-                  <option value="BANK_TRANSFER">Thanh toán ngay · Chuyển khoản</option>
+              <label className="block text-xs sm:text-sm font-semibold space-y-1.5">{tr("reception:createServiceOrder.paymentMethod")}<select aria-label={tr("reception:createServiceOrder.paymentMethod")} className="input w-full h-10 text-xs sm:text-sm px-3 rounded-xl border-zinc-200" value={settlement} disabled={busy} onChange={event => { setSettlement(event.target.value as typeof settlement); }}>
+                  <option value="ROOM">{tr("reception:createServiceOrder.chargeToRoomInvoice")}</option>
+                  <option value="CASH">{tr("reception:createServiceOrder.payNowCash")}</option>
+                  <option value="BANK_TRANSFER">{tr("reception:createServiceOrder.payNowBankTransfer")}</option>
                 </select>
               </label>
-              {settlement === 'ROOM' && <p className="text-xs text-zinc-500">Thanh toán cùng hóa đơn phòng.</p>}
+              {settlement === 'ROOM' && <p className="text-xs text-zinc-500">{tr("reception:createServiceOrder.payWithTheRoomInvoice")}</p>}
               <div className="flex items-baseline justify-between pt-1">
                 <div>
-                  <span className="text-xs sm:text-sm text-zinc-500 font-medium">Tổng tiền dự kiến:</span>
+                  <span className="text-xs sm:text-sm text-zinc-500 font-medium">{tr("reception:createServiceOrder.estimatedTotal")}</span>
                   <div className="text-xs text-zinc-400">
-                    {totalParts > 0 ? `${totalParts} phần (tối đa 50)` : 'Chưa có món'}
+                    {totalParts > 0 ? tr("reception:createServiceOrder.valuePortionsMaximum50", { value0: (totalParts) }) : tr("reception:createServiceOrder.noItems")}
                   </div>
                 </div>
                 <span className="text-xl sm:text-2xl font-black text-brand-900 tabular-nums">
@@ -632,7 +625,7 @@ export function CreateServiceOrder({
                   role="alert"
                   className="text-xs text-rose-600 bg-rose-50 border border-rose-200 p-2.5 rounded-lg"
                 >
-                  {error}
+                  {resolveMessage(error)}
                 </p>
               )}
 
@@ -643,9 +636,7 @@ export function CreateServiceOrder({
                   disabled={busy}
                   onClick={onClose}
                   className="flex-1 h-10 text-xs sm:text-sm font-medium"
-                >
-                  Hủy
-                </Button>
+                >{tr("reception:components.cancel")}</Button>
                 <button
                   type="submit"
                   disabled={
@@ -656,7 +647,7 @@ export function CreateServiceOrder({
                   }
                   className="flex-2 h-10 px-4 text-xs sm:text-sm font-semibold rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors cursor-pointer shadow-2xs inline-flex items-center justify-center gap-1.5"
                 >
-                  {busy ? 'Đang tạo đơn…' : `${settlement === 'BANK_TRANSFER' ? 'Thanh toán' : settlement === 'CASH' ? 'Đã thu tiền · Tạo đơn' : 'Tạo đơn'} · ${totalDisplay}`}
+                  {busy ? tr("reception:createServiceOrder.creatingOrder") : `${settlement === 'BANK_TRANSFER' ? tr("common:supplement.pay") : settlement === 'CASH' ? tr("common:supplement.paymentCollectedCreateOrder") : tr("common:supplement.createOrder")} · ${totalDisplay}`}
                 </button>
               </div>
             </div>

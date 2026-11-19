@@ -1,3 +1,5 @@
+import { LanguageSwitcher } from "../i18n/language-switcher";
+import { t as tr, useLocale } from "../i18n";
 import { ServicePaymentBadge, ServicePaymentNotice, usePendingServicePayments } from '../features/guest/service-payment-notice';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
@@ -18,6 +20,7 @@ import { Button, Dialog, LinkButton } from '../components/ui';
 import { useToast } from '../components/toast-context';
 
 export function GuestPortalLayout() {
+  useLocale();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
@@ -32,48 +35,46 @@ export function GuestPortalLayout() {
   const navLinks = [
     {
       to: `${home}/bookings`,
-      label: 'Kỳ nghỉ của tôi',
+      label: tr("common:guestPortalLayout.myStays"),
       icon: BedDouble,
       isActive: (path: string) => path.startsWith(`${home}/bookings`),
     },
     {
       to: `${home}/services`,
-      label: 'Dịch vụ phòng',
+      label: tr("common:navigation.roomService"),
       icon: ConciergeBell,
       isActive: (path: string) => path.startsWith(`${home}/services`) || path.startsWith(`${home}/service-orders`),
     },
     {
       to: `${home}/billing`,
-      label: 'Chi phí & Hóa đơn',
+      label: tr("common:guestPortalLayout.chargesInvoices"),
       icon: ReceiptText,
       isActive: (path: string) => path.startsWith(`${home}/billing`) || path.startsWith(`${home}/invoices`),
     },
     {
       to: `${home}/profile`,
-      label: 'Hồ sơ cá nhân',
+      label: tr("common:guestPortalLayout.myProfile"),
       icon: UserRound,
       isActive: (path: string) => path.startsWith(`${home}/profile`),
     },
   ];
 
-  const firstLetter = (user.fullName || 'Khách').trim().charAt(0).toUpperCase();
+  const firstLetter = (user.fullName || tr("common:guestPortalLayout.guest")).trim().charAt(0).toUpperCase();
 
   return (
     <div className="guest-portal-root">
-      <a className="skip-link" href="#guest-portal-content">
-        Đến nội dung chính
-      </a>
+      <a className="skip-link" href="#guest-portal-content">{tr("common:guestPortalLayout.skipToMainContent")}</a>
 
       {/* Guest Portal Top Header */}
       <header className="guest-portal-header">
         <div className="site-container guest-portal-header-inner">
           <div className="guest-portal-brand-wrap">
             <Brand />
-            <span className="guest-portal-badge">Không gian khách lưu trú</span>
+            <span className="guest-portal-badge">{tr("common:guestPortalLayout.guestPortal")}</span>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="guest-portal-nav" aria-label="Điều hướng tài khoản khách">
+          <nav className="guest-portal-nav" aria-label={tr("common:guestPortalLayout.guestAccountNavigation")}>
             {navLinks.map(({ to, label, icon: Icon, isActive }) => {
               const active = isActive(location.pathname);
               return (
@@ -84,17 +85,17 @@ export function GuestPortalLayout() {
                 >
                   <Icon size={16} strokeWidth={1.8} />
                   <span>{label}</span>
-                  {label === 'Dịch vụ phòng' && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
+                  {to.endsWith("/services") && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
                 </NavLink>
               );
             })}
           </nav>
 
           {/* Actions & Profile */}
-          <div className="guest-portal-actions">
+          <div className="guest-portal-actions"><LanguageSwitcher />
             <LinkButton to="/rooms" variant="secondary" className="guest-portal-explore-btn">
               <Plus size={15} />
-              <span>Đặt thêm phòng</span>
+              <span>{tr("common:guestPortalLayout.bookAnotherRoom")}</span>
             </LinkButton>
 
             <div className="guest-portal-user-chip">
@@ -102,14 +103,14 @@ export function GuestPortalLayout() {
                 {firstLetter}
               </div>
               <div className="guest-portal-user-meta">
-                <span className="guest-portal-greeting">Kính chào</span>
-                <strong className="guest-portal-user-name">{user.fullName || 'Quý khách'}</strong>
+                <span className="guest-portal-greeting">{tr("common:guestPortalLayout.welcome")}</span>
+                <strong className="guest-portal-user-name">{user.fullName || tr("common:guestPortalLayout.dearGuest")}</strong>
               </div>
               <button
                 type="button"
                 className="guest-portal-logout-icon-btn"
-                title="Đăng xuất"
-                aria-label="Đăng xuất"
+                title={tr("common:guestPortalLayout.signOut")}
+                aria-label={tr("common:guestPortalLayout.signOut")}
                 onClick={() => setLogoutOpen(true)}
               >
                 <LogOut size={16} />
@@ -119,7 +120,7 @@ export function GuestPortalLayout() {
             <button
               type="button"
               className="guest-portal-mobile-menu-btn icon-button"
-              aria-label="Mở menu"
+              aria-label={tr("common:guestPortalLayout.openMenu")}
               onClick={() => setMobileMenuOpen(true)}
             >
               <Menu size={22} />
@@ -132,13 +133,13 @@ export function GuestPortalLayout() {
       <Dialog
         open={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
-        title="Không gian của bạn"
+        title={tr("common:guestPortalLayout.yourWorkspace")}
         className="mobile-navigation"
       >
         <div className="guest-mobile-menu-user-card">
           <div className="guest-portal-avatar large">{firstLetter}</div>
           <div>
-            <strong>{user.fullName || 'Quý khách'}</strong>
+            <strong>{user.fullName || tr("common:guestPortalLayout.dearGuest")}</strong>
             <p>{user.email}</p>
           </div>
         </div>
@@ -147,12 +148,12 @@ export function GuestPortalLayout() {
             <Link key={to} to={to} className="guest-mobile-nav-item">
               <Icon size={18} />
               <span>{label}</span>
-                  {label === 'Dịch vụ phòng' && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
+                  {to.endsWith("/services") && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
             </Link>
           ))}
           <Link to="/rooms" className="guest-mobile-nav-item highlight">
             <Compass size={18} />
-            <span>Khám phá & đặt phòng</span>
+            <span>{tr("common:guestPortalLayout.exploreBook")}</span>
           </Link>
           <button
             type="button"
@@ -163,7 +164,7 @@ export function GuestPortalLayout() {
             }}
           >
             <LogOut size={18} />
-            <span>Đăng xuất</span>
+            <span>{tr("common:guestPortalLayout.signOut")}</span>
           </button>
         </nav>
       </Dialog>
@@ -177,7 +178,7 @@ export function GuestPortalLayout() {
       </main>
 
       {/* Mobile Bottom Navigation Bar for rapid thumb access */}
-      <nav className="guest-portal-bottom-bar" aria-label="Thanh điều hướng di động">
+      <nav className="guest-portal-bottom-bar" aria-label={tr("common:guestPortalLayout.mobileNavigation")}>
         {navLinks.map(({ to, label, icon: Icon, isActive }) => {
           const active = isActive(location.pathname);
           return (
@@ -188,7 +189,7 @@ export function GuestPortalLayout() {
             >
               <Icon size={19} strokeWidth={active ? 2.2 : 1.7} />
               <span>{label}</span>
-                  {label === 'Dịch vụ phòng' && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
+                  {to.endsWith("/services") && <ServicePaymentBadge count={unpaidServiceOrders.length} />}
             </NavLink>
           );
         })}
@@ -199,16 +200,14 @@ export function GuestPortalLayout() {
         <div className="site-container guest-portal-footer-inner">
           <div className="guest-portal-footer-brand">
             <Brand />
-            <p>Một khoảng lặng. Một kỳ nghỉ trọn vẹn.</p>
+            <p>{tr("common:guestPortalLayout.aMomentOfCalmACompleteGetaway")}</p>
           </div>
           <div className="guest-portal-footer-links">
-            <Link to="/">Trang chủ khách sạn</Link>
-            <Link to="/rooms">Danh mục phòng nghỉ</Link>
-            <a href="tel:19000000" title="Liên hệ Lễ tân 24/7">Hotline lễ tân 24/7</a>
+            <Link to="/">{tr("common:guestPortalLayout.hotelHomepage")}</Link>
+            <Link to="/rooms">{tr("common:guestPortalLayout.browseRooms")}</Link>
+            <a href="tel:19000000" title={tr("common:guestPortalLayout.contactReception247")}>{tr("common:guestPortalLayout.247ReceptionHotline")}</a>
           </div>
-          <span className="guest-portal-copyright">
-            © {new Date().getFullYear()} An Nhiên Hotel & Suites · Topic 14
-          </span>
+          <span className="guest-portal-copyright">{tr("common:guestPortalLayout.valueAnNhienHotelSuitesTopic14", { value0: (new Date().getFullYear()) })}</span>
         </div>
       </footer>
 
@@ -216,24 +215,18 @@ export function GuestPortalLayout() {
       <Dialog
         open={logoutOpen}
         onClose={() => setLogoutOpen(false)}
-        title="Đăng xuất tài khoản?"
+        title={tr("common:guestPortalLayout.signOutOfYourAccount")}
       >
-        <p>
-          Bạn sẽ đăng xuất khỏi tài khoản của mình trên thiết bị này. Lần tiếp theo bạn có thể đăng nhập lại bất cứ lúc nào.
-        </p>
+        <p>{tr("common:guestPortalLayout.youWillBeSignedOutOnThisDeviceYouCanSignIn")}</p>
         <div className="dialog-actions">
-          <Button variant="secondary" onClick={() => setLogoutOpen(false)}>
-            Ở lại
-          </Button>
+          <Button variant="secondary" onClick={() => setLogoutOpen(false)}>{tr("common:guestPortalLayout.staySignedIn")}</Button>
           <Button
             onClick={() => {
               logout();
-              toast('Đã đăng xuất tài khoản.');
+              toast(() => (tr("common:guestPortalLayout.youHaveSignedOut")));
               navigate('/login', { replace: true });
             }}
-          >
-            Xác nhận đăng xuất
-          </Button>
+          >{tr("common:guestPortalLayout.confirmSignOut")}</Button>
         </div>
       </Dialog>
     </div>

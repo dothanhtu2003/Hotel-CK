@@ -1,19 +1,23 @@
+import { t as tr, useLocale } from "../../i18n";
 import { useDeskOrigin } from './navigation-state';
 import { Link, useLocation, useNavigate, type LinkProps } from 'react-router';
 import { LinkButton } from '../../components/ui';
 import type { ComponentProps } from 'react';
 
 export function DeskLink(props: LinkProps) {
+  useLocale();
   const origin = useDeskOrigin();
   return <Link {...props} state={origin} />;
 }
 
 export function DeskLinkButton(props: ComponentProps<typeof LinkButton>) {
+  useLocale();
   const origin = useDeskOrigin();
   return <LinkButton {...props} state={origin} />;
 }
 
 export function DeskBackLink({ to, children, ...props }: Pick<LinkProps, 'className' | 'children'> & { to: string }) {
+  useLocale();
   const { state } = useLocation();
   const navigate = useNavigate();
   const origin = state?.deskOrigin;
@@ -27,7 +31,6 @@ export function DeskBackLink({ to, children, ...props }: Pick<LinkProps, 'classN
       event.preventDefault();
       void navigate(-1);
     }}>
-      <span aria-hidden="true">← </span>Quay lại
-    </Link>
+      <span aria-hidden="true">← </span>{tr("reception:components.back")}</Link>
   );
 }

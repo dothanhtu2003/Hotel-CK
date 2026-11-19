@@ -28,7 +28,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.client.user.findUnique({ where: { email: dto.email.trim().toLowerCase() }, select: { ...publicUserSelect, passwordHash: true } });
     const valid = await this.passwords.verify(user?.passwordHash, dto.password);
-    if (!user || !valid || user.status !== 'ACTIVE') throw new UnauthorizedException('Invalid email or password');
+    if (!user || !valid || user.status !== 'ACTIVE') throw new UnauthorizedException({ statusCode: 401, error: 'Unauthorized', message: 'Invalid email or password', code: 'INVALID_CREDENTIALS' });
     const expiresIn = this.config.getOrThrow<number>(user.role === 'GUEST' ? 'JWT_ACCESS_TTL_SECONDS' : 'JWT_STAFF_TTL_SECONDS');
     const accessToken = await this.jwt.signAsync({ sub: user.id, tokenType: 'access' }, { expiresIn });
     // Return a fresh allowlisted object; never spread a record containing passwordHash.

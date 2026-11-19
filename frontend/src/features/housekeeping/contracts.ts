@@ -1,3 +1,7 @@
+import { displayLocale, errorToken, localized, message, safeError, t as tr } from "../../i18n";
+
+
+
 import { z } from 'zod';
 import type { Role } from '../auth/contracts';
 import { ApiError } from '../../lib/api-client';
@@ -10,10 +14,10 @@ export type HousekeepingRoom = { id: string; roomNumber: string; floor: number; 
 export type TaskSummary = { id: string; roomId: string; assignedStaffId: string | null; status: TaskStatus; notes: string | null; createdAt: string; completedAt: string | null; assignedStaff: { id: string; fullName: string } | null };
 export type Task = TaskSummary & { room: HousekeepingRoom };
 export type BoardRoom = HousekeepingRoom & { openTask: TaskSummary | null };
-export const cleaningLabels: Record<CleaningStatus, string> = { CLEAN: 'Phòng sạch', DIRTY: 'Cần dọn', CLEANING: 'Đang dọn' };
-export const taskLabels: Record<TaskStatus, string> = { TODO: 'Cần thực hiện', IN_PROGRESS: 'Đang thực hiện', DONE: 'Đã hoàn thành' };
-export const createTaskSchema = z.object({ roomId: z.string().uuid('Mã phòng phải là UUID hợp lệ.'), notes: z.string().trim().max(2000, 'Ghi chú tối đa 2000 ký tự.').optional() });
-export const assignTaskSchema = z.object({ assignedStaffId: z.string().trim().uuid('Vui lòng chọn nhân viên buồng phòng.') });
+export const cleaningLabels: Record<CleaningStatus, string> = localized(() => ({ CLEAN: tr("housekeeping:contracts.cleanRoom"), DIRTY: tr("housekeeping:contracts.needsCleaning"), CLEANING: tr("housekeeping:contracts.cleaning") }));
+export const taskLabels: Record<TaskStatus, string> = localized(() => ({ TODO: tr("housekeeping:contracts.toDo"), IN_PROGRESS: tr("housekeeping:contracts.inProgress"), DONE: tr("housekeeping:contracts.completed") }));
+export const createTaskSchema = z.object({ roomId: z.string().uuid({ error: () => tr("housekeeping:contracts.theRoomIdMustBeAValidUuid") }), notes: z.string().trim().max(2000, { error: () => tr("housekeeping:contracts.notesMustBe2000CharactersOrFewer") }).optional() });
+export const assignTaskSchema = z.object({ assignedStaffId: z.string().trim().uuid({ error: () => tr("housekeeping:contracts.pleaseSelectAHousekeepingStaffMember") }) });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type AssignTaskInput = z.infer<typeof assignTaskSchema>;
 export function managesHousekeeping(role: Role) { return role === 'RECEPTIONIST' || role === 'ADMIN'; }
@@ -27,19 +31,22 @@ export function housekeepingParams(params: URLSearchParams, kind: 'board' | 'tas
   for (const key of kind === 'board' ? ['roomId', 'roomTypeId', 'assignedStaffId'] : ['roomId', 'assignedStaffId']) { const value = params.get(key); if (value && z.string().uuid().safeParse(value).success) query.set(key, value); }
   return query.toString();
 }
-export function housekeepingError(error: Error, action = '') {
-  if (error instanceof ApiError && error.status === 409) return action === 'create' ? 'Phòng đã có công việc đang mở hoặc trạng thái vừa thay đổi. Hãy tải lại board và kiểm tra lịch sử trước khi tạo lại.' : 'Công việc đã thay đổi hoặc không còn đủ điều kiện. Dữ liệu mới đang được tải lại; hãy kiểm tra trạng thái và người được giao.';
-  if (error instanceof ApiError && error.status === 400 && action === 'assign') return 'Không thể phân công. Nhân viên phải có vai trò HOUSEKEEPING và tài khoản ACTIVE.';
-  if (error instanceof ApiError && (error.status === 0 || error.status >= 500)) return 'Chưa rõ thao tác đã thành công hay chưa. Hãy làm mới board hoặc công việc trước khi gửi lại.';
-  return error.message;
+export function housekeepingError(error: Error, action = '', token = false) {
+  const translate = token ? message : tr;
+  if (error instanceof ApiError && error.status === 409) return action === 'create' ? translate("housekeeping:contracts.theRoomAlreadyHasAnOpenTaskOrItsStateHasChanged") : translate("housekeeping:contracts.theTaskChangedOrIsNoLongerEligibleUpdatedDataIsLoading");
+  if (error instanceof ApiError && error.status === 400 && action === 'assign') return translate("housekeeping:contracts.unableToAssignTheAssigneeMustBeActiveHousekeepingStaff");
+  if (error instanceof ApiError && (error.status === 0 || error.status >= 500)) return translate("housekeeping:contracts.theOutcomeIsUncertainRefreshTheBoardOrTaskBeforeSubmittingAgain");
+  return token ? errorToken(error) : safeError(error);
 }
-export function workTime(value: string) { return new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Bangkok' }); }
+export function workTime(value: string) { return new Date(value).toLocaleString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh' }); }
 export function cleanRoomTypeName(name: string) { return name.replace(/^TEST[\s\-_]*\d{8}[\s\-_]*/i, '').trim() || name; }
 export function formatTaskNotes(notes: string | null) {
   if (!notes) return null;
+  if (notes.trim() === 'Dọn phòng sau chuyển phòng gia hạn') return tr("common:supplement.transferCleaning");
+  if (notes.trim() === 'Vệ sinh phòng trước khi đón khách') return tr("common:supplement.arrivalCleaning");
   const trimmed = notes.trim();
-  if (/^check-out cleaning$/i.test(trimmed)) return 'Dọn phòng trả (Check-out)';
-  if (/^stayover cleaning$/i.test(trimmed)) return 'Dọn phòng đang ở (Stayover)';
-  if (/^deep cleaning$/i.test(trimmed)) return 'Tổng vệ sinh (Deep clean)';
+  if (/^check-out cleaning$/i.test(trimmed)) return tr("housekeeping:contracts.checkOutCleaning");
+  if (/^stayover cleaning$/i.test(trimmed)) return tr("housekeeping:contracts.stayoverCleaning");
+  if (/^deep cleaning$/i.test(trimmed)) return tr("housekeeping:contracts.deepCleaning");
   return trimmed;
 }

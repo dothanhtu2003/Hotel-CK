@@ -1,3 +1,5 @@
+import { formatDate as localizedDate } from "../../i18n/format";
+import { t as tr, localized } from "../../i18n";
 import type { DeskRoom } from "./contracts";
 
 export function calculateOccupancyPct(occupied: number, total: number): number {
@@ -34,19 +36,19 @@ export function roomState(room: DeskRoom, today = hotelToday()) {
     return "dirty";
   return "ready";
 }
-export const roomStateLabels = {
-  "out-of-service": "Ngưng phục vụ",
-  occupied: "Đang ở",
-  reserved: "Đã đặt",
-  cleaning: "Đang dọn",
-  dirty: "Chưa sẵn sàng",
-  ready: "Trống sạch",
-};
-export const cleaningLabels: Record<string, string> = {
-  CLEAN: "Sạch",
-  DIRTY: "Cần dọn",
-  CLEANING: "Đang dọn",
-};
+export const roomStateLabels = localized(() => ({
+  "out-of-service": tr("reception:roomState.outOfService"),
+  occupied: tr("reception:roomState.occupied"),
+  reserved: tr("reception:roomState.reserved"),
+  cleaning: tr("reception:roomState.cleaning"),
+  dirty: tr("reception:roomState.notReady"),
+  ready: tr("reception:roomConditionEditor.cleanVacant"),
+}));
+export const cleaningLabels: Record<string, string> = localized(() => ({
+  CLEAN: tr("reception:roomState.clean"),
+  DIRTY: tr("reception:roomState.needsCleaning"),
+  CLEANING: tr("reception:roomState.cleaning"),
+}));
 export function staySpan(
   checkIn: string,
   checkOut: string,
@@ -91,13 +93,10 @@ export function formatStayDateDisplay(
   if (!dateStr || typeof dateStr !== "string") return "";
   const parts = dateStr.trim().split("-");
   if (parts.length !== 3) return dateStr;
-  const [y, m, d] = parts;
+  const [y] = parts;
   const refYear = referenceDateStr
     ? referenceDateStr.split("-")[0]
     : String(new Date().getFullYear());
-  if (y === refYear) {
-    return `${d}/${m}`;
-  }
-  return `${d}/${m}/${y.slice(-2)}`;
+  try { return localizedDate(dateStr.trim(), { day: '2-digit', month: '2-digit', ...(y === refYear ? {} : { year: '2-digit' }) }); } catch { return dateStr; }
 }
 

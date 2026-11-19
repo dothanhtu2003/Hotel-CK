@@ -1,17 +1,18 @@
+import { t as tr, localized } from "../../i18n";
 import { ChartNoAxesCombined, CalendarDays, BedDouble, Brush, ConciergeBell, ReceiptText, type LucideIcon } from 'lucide-react';
 import type { Role } from '../auth/contracts';
 export interface WorkspaceFeature { slug: string; title: string; description: string; icon: LucideIcon }
-const booking = { slug: 'bookings', title: 'Đặt phòng', description: 'Tìm phòng và quản lý hành trình lưu trú.', icon: BedDouble };
-const service = { slug: 'services', title: 'Dịch vụ phòng', description: 'Những tiện ích cho một kỳ nghỉ trọn vẹn.', icon: ConciergeBell };
-const housekeeping = { slug: 'board', title: 'Buồng phòng', description: 'Theo dõi và hoàn thành công việc được phân công.', icon: Brush };
-const tasks = { ...housekeeping, slug: 'tasks', title: 'Công việc của tôi', description: 'Công việc được giao và lịch sử hoàn thành.' };
-const deskHousekeeping = { ...housekeeping, slug: 'housekeeping', description: 'Xem phòng, tạo và phân công công việc dọn phòng.' };
-const billing = { slug: 'billing', title: 'Hóa đơn & thanh toán', description: 'Tra cứu chi phí lưu trú và thông tin thanh toán.', icon: ReceiptText };
-const revenue = { slug: 'revenue', title: 'Doanh thu', description: 'Theo dõi thực thu và đối chiếu giao dịch.', icon: ChartNoAxesCombined };
-const deskBooking = { ...booking, title: 'Quản lý booking', description: 'Xác nhận, nhận phòng và theo dõi kỳ nghỉ.' };
-const deskService = { ...service, slug: 'service-orders', title: 'Đơn dịch vụ', description: 'Theo dõi và xử lý dịch vụ khách đã đặt.' };
-const deskRooms = { ...booking, slug: 'rooms', title: 'Bảng trạng thái phòng', description: 'Lịch phòng và tình trạng lưu trú.' };
-const tapeChart = { ...deskRooms, slug: 'tape-chart', title: 'Tape Chart', icon: CalendarDays };
+const booking = localized(() => ({ slug: 'bookings', title: tr("common:navigation.reservations"), description: tr("common:navigation.findARoomAndManageYourStay"), icon: BedDouble }));
+const service = localized(() => ({ slug: 'services', title: tr("common:navigation.roomService"), description: tr("common:navigation.amenitiesForACompleteGetaway"), icon: ConciergeBell }));
+const housekeeping = localized(() => ({ slug: 'board', title: tr("common:navigation.housekeeping"), description: tr("common:navigation.trackAndCompleteYourAssignedTasks"), icon: Brush }));
+const tasks = localized(() => ({ ...housekeeping, slug: 'tasks', title: tr("common:navigation.myTasks"), description: tr("common:navigation.assignedTasksAndCompletionHistory") }));
+const deskHousekeeping = localized(() => ({ ...housekeeping, slug: 'housekeeping', description: tr("common:navigation.viewRoomsCreateAndAssignHousekeepingTasks") }));
+const billing = localized(() => ({ slug: 'billing', title: tr("common:navigation.invoicesPayments"), description: tr("common:navigation.viewStayChargesAndPaymentDetails"), icon: ReceiptText }));
+const revenue = localized(() => ({ slug: 'revenue', title: tr("common:navigation.revenue"), description: tr("common:navigation.trackCollectedPaymentsAndReconcileTransactions"), icon: ChartNoAxesCombined }));
+const deskBooking = localized(() => ({ ...booking, title: tr("common:navigation.manageReservations"), description: tr("common:navigation.confirmReservationsCheckInGuestsAndManageStays") }));
+const deskService = localized(() => ({ ...service, slug: 'service-orders', title: tr("common:navigation.serviceOrders"), description: tr("common:navigation.trackAndProcessGuestServiceOrders") }));
+const deskRooms = localized(() => ({ ...booking, slug: 'rooms', title: tr("common:navigation.roomStatusBoard"), description: tr("common:navigation.roomAvailabilityAndOccupancy") }));
+const tapeChart = localized(() => ({ ...deskRooms, slug: 'tape-chart', title: tr("common:navigation.tapeChart"), icon: CalendarDays }));
 export const featuresForRole: Record<Role, WorkspaceFeature[]> = {
   GUEST: [booking, service, billing],
   RECEPTIONIST: [deskBooking, tapeChart, deskService, deskHousekeeping, revenue],

@@ -1,3 +1,5 @@
+import { displayLocale, t as tr, useLocale } from "../i18n";
+
 import { useEffect, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react";
 import { Link } from "react-router";
 import { ArrowDownRight, ArrowUpRight, X } from "lucide-react";
@@ -22,6 +24,7 @@ export function Sparkline({
   height?: number;
   fill?: boolean;
 }) {
+  useLocale();
   if (!data || data.length < 2) return null;
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -100,6 +103,7 @@ export function StatCard({
   to?: string;
   className?: string;
 }) {
+  useLocale();
   const down = delta?.dir === "down";
   const content = (
     <>
@@ -119,7 +123,7 @@ export function StatCard({
               accent ? "text-brand-700" : "text-zinc-900",
             )}
           >
-            <strong>{typeof value === "number" ? value.toLocaleString("vi-VN") : value}</strong>
+            <strong>{typeof value === "number" ? value.toLocaleString(displayLocale()) : value}</strong>
           </div>
         </div>
         {spark ? (
@@ -182,6 +186,7 @@ export function StatCard({
    Card & Structure Components
    ========================================================================= */
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  useLocale();
   return (
     <div
       className={cn(
@@ -197,6 +202,7 @@ export function CardHeader({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  useLocale();
   return (
     <div
       className={cn("flex items-center justify-between px-5 pt-4", className)}
@@ -209,6 +215,7 @@ export function CardTitle({
   className,
   ...props
 }: HTMLAttributes<HTMLHeadingElement>) {
+  useLocale();
   return (
     <h2
       className={cn(
@@ -224,6 +231,7 @@ export function CardContent({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  useLocale();
   return <div className={cn("px-5 py-4", className)} {...props} />;
 }
 
@@ -254,6 +262,7 @@ export function Badge({
   tone = "zinc",
   ...props
 }: HTMLAttributes<HTMLSpanElement> & { tone?: BadgeTone }) {
+  useLocale();
   return (
     <span
       className={cn(
@@ -299,6 +308,7 @@ export function Avatar({
   name: string;
   className?: string;
 }) {
+  useLocale();
   return (
     <span
       className={cn(
@@ -332,6 +342,7 @@ export function KamraButton({
   variant = "primary",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: KamraButtonVariant }) {
+  useLocale();
   return (
     <button
       className={cn(
@@ -358,6 +369,7 @@ export function Sheet(props: {
   children: ReactNode;
   wide?: boolean;
 }) {
+  useLocale();
   useEffect(() => {
     if (props.open === false) return;
     const onKey = (e: KeyboardEvent) => {
@@ -399,7 +411,7 @@ export function Sheet(props: {
             type="button"
             className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
             onClick={props.onClose}
-            aria-label="Đóng"
+            aria-label={tr("common:kamraUi.close")}
           >
             <X className="size-5" />
           </button>

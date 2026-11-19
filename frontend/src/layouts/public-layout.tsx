@@ -1,3 +1,6 @@
+import { LanguageSwitcher } from "../i18n/language-switcher";
+import { t as tr, useLocale } from "../i18n";
+import { Trans } from "react-i18next";
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { ArrowUpRight, Menu } from 'lucide-react';
@@ -6,15 +9,17 @@ import { homeForRole } from '../features/auth/contracts';
 import { Dialog, LinkButton } from '../components/ui';
 
 export function Brand({ light = false }: { light?: boolean }) {
+  useLocale();
   return (
-    <Link to="/" className={`brand ${light ? 'brand-light' : ''}`} aria-label="An Nhiên Hotel - Trang chủ">
+    <Link to="/" className={`brand ${light ? 'brand-light' : ''}`} aria-label={tr("common:supplement.anNhiNHotelHome")}>
       <span className="brand-symbol" aria-hidden="true">A<span>✦</span></span>
-      <span className="brand-wordmark">AN NHIÊN<small>HOTEL & SUITES</small></span>
+      <span className="brand-wordmark"><Trans ns="common" i18nKey="publicLayout.anNhienHotelSuites" components={{ part0: <small /> }} /></span>
     </Link>
   );
 }
 
 export function PublicHeader() {
+  useLocale();
   const { user } = useAuth();
   const [menu, setMenu] = useState(false);
   const location = useLocation();
@@ -42,12 +47,12 @@ export function PublicHeader() {
     <header className={headerClass}>
       <div className="site-container header-inner">
         <Brand light={isLight} />
-        <nav className="desktop-nav" aria-label="Điều hướng chính">
-          <NavLink to="/" end>Trang chủ</NavLink>
-          <NavLink to="/rooms">Phòng & đặt phòng</NavLink>
+        <nav className="desktop-nav" aria-label={tr("common:publicLayout.mainNavigation")}>
+          <NavLink to="/" end>{tr("common:publicLayout.home")}</NavLink>
+          <NavLink to="/rooms">{tr("common:publicLayout.roomsReservations")}</NavLink>
         </nav>
         <div className="header-actions">
-          <span className="language-label">VI <span>/ EN</span></span>
+          <LanguageSwitcher />
           <LinkButton
             to={user ? (user.role === 'GUEST' ? '/guest/bookings' : homeForRole[user.role]) : '/login'}
             variant={isLight && !scrolled ? 'light' : 'secondary'}
@@ -58,23 +63,23 @@ export function PublicHeader() {
                 <span className="header-avatar-circle" aria-hidden="true">
                   {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'A'}
                 </span>
-                <span className="header-user-name">{user.fullName || 'Không gian của bạn'}</span>
+                <span className="header-user-name">{user.fullName || tr("common:guestPortalLayout.yourWorkspace")}</span>
               </>
             ) : (
-              'Đăng nhập'
+              tr("common:publicLayout.signIn")
             )}
             <ArrowUpRight size={16} />
           </LinkButton>
-          <button className="mobile-menu icon-button" aria-label="Mở menu" onClick={() => setMenu(true)}>
+          <button className="mobile-menu icon-button" aria-label={tr("common:guestPortalLayout.openMenu")} onClick={() => setMenu(true)}>
             <Menu />
           </button>
         </div>
       </div>
-      <Dialog open={menu} onClose={() => setMenu(false)} title="Khám phá An Nhiên" className="mobile-navigation">
+      <Dialog open={menu} onClose={() => setMenu(false)} title={tr("common:publicLayout.exploreAnNhien")} className="mobile-navigation">
         <nav onClick={() => setMenu(false)}>
-          <Link to="/">Trang chủ</Link>
-          <NavLink to="/rooms">Phòng & đặt phòng</NavLink>
-          <Link to={user ? (user.role === 'GUEST' ? '/guest/bookings' : homeForRole[user.role]) : '/login'}>{user ? (user.fullName || 'Không gian của bạn') : 'Đăng nhập'}</Link>
+          <Link to="/">{tr("common:publicLayout.home")}</Link>
+          <NavLink to="/rooms">{tr("common:publicLayout.roomsReservations")}</NavLink>
+          <Link to={user ? (user.role === 'GUEST' ? '/guest/bookings' : homeForRole[user.role]) : '/login'}>{user ? (user.fullName || tr("common:guestPortalLayout.yourWorkspace")) : tr("common:publicLayout.signIn")}</Link>
         </nav>
       </Dialog>
     </header>
@@ -82,21 +87,23 @@ export function PublicHeader() {
 }
 
 export function PublicFooter() {
+  useLocale();
   return (
     <footer className="public-footer">
       <div className="site-container footer-inner">
         <Brand />
-        <p>Một khoảng lặng. Một kỳ nghỉ trọn vẹn.</p>
-        <span>© {new Date().getFullYear()} An Nhiên · Đồ án Topic 14</span>
+        <p>{tr("common:guestPortalLayout.aMomentOfCalmACompleteGetaway")}</p>
+        <span>{tr("common:publicLayout.valueAnNhienTopic14Project", { value0: (new Date().getFullYear()) })}</span>
       </div>
     </footer>
   );
 }
 
 export function PublicLayout() {
+  useLocale();
   return (
     <>
-      <a className="skip-link" href="#main-content">Đến nội dung chính</a>
+      <a className="skip-link" href="#main-content">{tr("common:guestPortalLayout.skipToMainContent")}</a>
       <PublicHeader />
       <main id="main-content"><Outlet /></main>
       <PublicFooter />

@@ -7643,3 +7643,96 @@
  .header-actions { gap: 4px; min-width: 0; }
  .header-actions > .button { padding-inline: 8px; font-size: 11px; white-space: normal; }
 }
+
+/* Compact language controls fit the existing header/menu slots, including mobile. */
+.language-switcher { display:inline-flex; flex-shrink:0; align-items:center; gap:3px; font-size:11px; white-space:nowrap; }
+.language-switcher button { font:inherit; cursor:pointer; background:transparent; color:inherit; border:1px solid transparent; border-radius:4px; padding:7px 5px; min-height:32px; }
+.language-switcher button[aria-pressed="true"] { font-weight:700; text-decoration:underline; text-underline-offset:4px; }
+.language-switcher button:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+.public-header.public-header-hero .language-switcher { color:#fdfbf7; }
+.auth-main { position:relative; } .auth-language { position:absolute; top:16px; right:20px; }
+.sidebar-language-switcher { padding:6px 10px; }
+@media(max-width:480px) {
+ .public-header .header-inner { gap:8px; }
+ .public-header .header-actions { min-width:0; flex-wrap:wrap; justify-content:flex-end; gap:2px 4px; }
+ .public-header .brand-wordmark { font-size:20px; }
+ .public-header .header-login { max-width:100%; }
+ .guest-portal-header .brand-wordmark { font-size:20px; }
+ .guest-portal-actions { min-width:0; flex-shrink:1; flex-wrap:wrap; justify-content:flex-end; gap:2px 4px; }
+ .guest-portal-header-inner { min-height:84px; height:auto; padding-block:8px; }
+}
+@media(max-width:999px) { .sidebar-language-switcher { display:none; } }
+
+@media print { .language-switcher { display:none; } }
+
+/* Keep Housekeeping actions and history links inside narrow room cards. */
+@media (max-width: 480px) {
+ .hk-card-footer { flex-wrap:wrap; gap:8px; }
+ .hk-history-link { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+}
+
+/* Keep the mobile dialog independent of the horizontal desktop navigation. */
+.workspace-mobile-dialog .workspace-nav {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+.workspace-mobile-dialog .workspace-nav > a,
+.workspace-mobile-dialog .workspace-nav > a:hover,
+.workspace-mobile-dialog .workspace-nav > a.active {
+  color: var(--pine) !important;
+  white-space: normal !important;
+}
+.workspace-mobile-dialog .workspace-nav > a:hover,
+.workspace-mobile-dialog .workspace-nav > a.active { background: #eaf0df !important; }
+.workspace-mobile-dialog .workspace-nav > a > svg { color: currentColor; }
+.workspace a.text-white,
+.workspace a.button-primary,
+.workspace a.button-primary:hover,
+.workspace a.button-primary:focus-visible { color: #fff; }
+.hk-task-status { flex-wrap: wrap; min-width: 0; }
+.hk-task-status > span:first-child { flex-shrink: 0; white-space: nowrap; }
+.guest-facts dd { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+.showcase-price-box { flex-shrink: 0; white-space: nowrap; }
+@media (max-width: 600px) {
+  .guest-cart-summary-card { flex-direction: column; align-items: stretch; padding: 14px !important; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .cart-summary-details { flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+  .cart-summary-stat, .cart-summary-total { flex-shrink: 0; }
+  .guest-cart-summary-card .cart-summary-action > .button { width: 100%; min-width: 0; white-space: normal; }
+  .guest-facts > div { flex-wrap: wrap; gap: 8px; }
+  .guest-facts dd { margin-left: auto; }
+  .showcase-header { flex-wrap: wrap; }
+  .showcase-price-box { margin-left: auto; max-width: 100%; }
+  .drawer-room-hero { flex-wrap: wrap; gap: 12px; }
+  .drawer-room-hero > div { min-width: 0; max-width: 100%; }
+  .drawer-room-number { overflow-wrap: anywhere; }
+  .drawer-room-hero > .text-right { margin-left: auto; white-space: nowrap; }
+}
+@media print {
+  body:has(.print-document) .workspace-sidebar,
+  body:has(.print-document) .workspace-topbar,
+  body:has(.print-document) .workspace-footer,
+  body:has(.print-document) .guest-portal-header,
+  body:has(.print-document) .guest-portal-bottom-bar,
+  body:has(.print-document) .guest-portal-footer,
+  body:has(.print-document) .toast-stack,
+  body:has(.print-document) .skip-link,
+  body:has(.print-document) dialog,
+  .print-document button,
+  .print-document .button,
+  .print-document .folio-footer-actions,
+  .print-document .service-order-no-print { display: none !important; }
+  body:has(.print-document) .workspace-main { margin: 0 !important; }
+  body:has(.print-document) .workspace-content,
+  body:has(.print-document) .guest-portal-main { padding: 0 !important; max-width: none !important; }
+  body:has(.print-document) .guest-portal-main > :not(.print-document):not(:has(.print-document)) { display: none !important; }
+  .print-document { width: 100%; max-width: none !important; padding-bottom: 0 !important; box-shadow: none !important; }
+  .print-document .table-scroll, .print-document .folio-table-wrap { overflow: visible !important; }
+  .print-document table { min-width: 0; }
+}
+
+@media print {
+  body:has(.print-document) #root :not(.print-document):not(.print-document *):not(:has(.print-document)),
+  .print-document .print-hidden { display: none !important; }
+}

@@ -1,3 +1,5 @@
+import { catalogName } from "../../i18n/catalog";
+import { t as tr, useLocale } from "../../i18n";
 import { DeskLink } from '../reception/navigation';
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -37,6 +39,7 @@ import { useHousekeepingBase, useHousekeepingGet, useWorkMutation } from './quer
 import './housekeeping.css';
 
 export function CleaningBadge({ status }: { status: CleaningStatus }) {
+  useLocale();
   const tone =
     status === 'CLEAN' ? 'success' : status === 'CLEANING' ? 'gold' : 'muted';
   const Icon =
@@ -55,6 +58,7 @@ export function CleaningBadge({ status }: { status: CleaningStatus }) {
 }
 
 export function TaskBadge({ status, assigned = false }: { status: TaskStatus; assigned?: boolean }) {
+  useLocale();
   const awaitingStart = status === 'TODO' && assigned;
   const tone =
     awaitingStart ? 'violet' : status === 'DONE' ? 'success' : status === 'IN_PROGRESS' ? 'gold' : 'muted';
@@ -68,7 +72,7 @@ export function TaskBadge({ status, assigned = false }: { status: TaskStatus; as
   return (
     <StatusBadge tone={tone}>
       <Icon size={12} className="status-badge-icon" aria-hidden="true" />
-      {awaitingStart ? "Đã phân công · Chờ nhận việc" : taskLabels[status]}
+      {awaitingStart ? tr("housekeeping:components.assignedAwaitingStart") : taskLabels[status]}
     </StatusBadge>
   );
 }
@@ -88,14 +92,15 @@ export function WorkAction({
   variant?: 'primary' | 'secondary' | 'light' | 'ghost';
   icon?: React.ReactNode;
 }) {
+  useLocale();
   const { user } = useAuth(),
     [open, setOpen] = useState(false),
-    label = customLabel || (action === 'start' ? 'Bắt đầu dọn phòng' : 'Hoàn thành dọn phòng');
+    label = customLabel || (action === 'start' ? tr("housekeeping:components.startCleaning") : tr("housekeeping:components.completeCleaning"));
   const mutation = useWorkMutation(
     action,
-    action === 'start'
-      ? 'Đã bắt đầu công việc. Trạng thái phòng được cập nhật từ hệ thống.'
-      : 'Đã hoàn thành công việc. Phòng sạch được xác nhận từ hệ thống.',
+    () => (action === 'start'
+      ? tr("housekeeping:components.taskStartedRoomStatusHasBeenUpdatedByTheSystem")
+      : tr("housekeeping:components.taskCompletedTheSystemHasConfirmedTheRoomIsClean")),
     () =>
       api.request<Task>(`/housekeeping/tasks/${task.id}/${action}`, {
         method: 'PATCH',
@@ -122,21 +127,17 @@ export function WorkAction({
         onClose={() => {
           if (!mutation.locked()) setOpen(false);
         }}
-        title={(customLabel || (action === 'start' ? 'Bắt đầu dọn phòng' : 'Hoàn thành dọn phòng')) + '?'}
+        title={(customLabel || (action === 'start' ? tr("housekeeping:components.startCleaning") : tr("housekeeping:components.completeCleaning"))) + '?'}
       >
         <div className="space-y-3">
           <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-3 flex items-center justify-between">
-            <span className="font-bold text-zinc-900 text-sm">
-              Phòng {task.room.roomNumber}
-            </span>
-            <span className="text-xs text-zinc-500">
-              {cleanRoomTypeName(task.room.roomType.name)} · Tầng {task.room.floor}
-            </span>
+            <span className="font-bold text-zinc-900 text-sm">{tr("housekeeping:components.roomValue", { value0: (task.room.roomNumber) })}</span>
+            <span className="text-xs text-zinc-500">{tr("housekeeping:components.valueFloorValue", { value0: (catalogName(cleanRoomTypeName(task.room.roomType.name))), value1: (task.room.floor) })}</span>
           </div>
           <p className="text-xs text-zinc-600 leading-relaxed">
             {action === 'start'
-              ? 'Xác nhận bạn bắt đầu ca vệ sinh căn phòng này. Hệ thống sẽ cập nhật trạng thái phòng sang "Đang dọn" để Lễ tân nắm thông tin.'
-              : 'Xác nhận bạn đã vệ sinh sạch sẽ, thay đồ dùng và kiểm tra đầy đủ. Hệ thống sẽ cập nhật phòng sang "Phòng sạch" sẵn sàng đón khách.'}
+              ? tr("housekeeping:components.confirmYouAreStartingToCleanThisRoomTheSystemWillMark")
+              : tr("housekeeping:components.confirmTheRoomIsCleanSuppliesAreReplacedAndAllChecksAre")}
           </p>
         </div>
         {mutation.error && (
@@ -149,16 +150,12 @@ export function WorkAction({
             variant="secondary"
             disabled={mutation.isPending}
             onClick={() => setOpen(false)}
-          >
-            Quay lại
-          </Button>
+          >{tr("housekeeping:components.back")}</Button>
           <Button
             busy={mutation.isPending}
             disabled={!!mutation.error}
             onClick={() => mutation.run(undefined)}
-          >
-            Xác nhận {action === 'start' ? 'bắt đầu dọn' : 'hoàn thành dọn'}
-          </Button>
+          >{tr(action === 'start' ? "common:supplement.confirmStart" : "common:supplement.confirmComplete")}</Button>
         </div>
       </Dialog>
     </>
@@ -172,6 +169,7 @@ export function RoomBoard({
   rooms: BoardRoom[];
   onCreate?: (room: BoardRoom) => void;
 }) {
+  useLocale();
   const base = useHousekeepingBase();
   return rooms.length ? (
     <div className="hk-room-grid">
@@ -186,24 +184,23 @@ export function RoomBoard({
             <div className="hk-card-header">
               <div className="hk-card-room-info">
                 <div className="hk-card-room-number">
-                  <h2>Phòng {r.roomNumber}</h2>
+                  <h2>{tr("housekeeping:components.roomValue", { value0: (r.roomNumber) })}</h2>
                 </div>
                 <div className="hk-card-tags">
                   <span className="hk-tag hk-tag-floor">
                     <Layers className="size-3 text-zinc-400" />
-                    Tầng {r.floor}
+                    {tr("housekeeping:components.floor")}{r.floor}
                   </span>
                   <span className="hk-tag hk-tag-type">
                     <BedDouble className="size-3 text-zinc-400" />
-                    {cleanRoomTypeName(r.roomType.name)}
+                    {catalogName(cleanRoomTypeName(r.roomType.name))}
                   </span>
                   {r.operationalStatus === 'OUT_OF_SERVICE' ? (
                     <span className="hk-tag hk-tag-oos">
                       <AlertTriangle className="size-3 text-rose-500" />
-                      Tạm ngừng
-                    </span>
+                      {tr("housekeeping:components.outOfService")}</span>
                   ) : (
-                    <span className="sr-only">Hoạt động: Đang hoạt động</span>
+                    <span className="sr-only">{tr("housekeeping:components.operationActive")}</span>
                   )}
                 </div>
               </div>
@@ -226,20 +223,20 @@ export function RoomBoard({
                   </div>
                   <div className="hk-task-staff-row">
                     <User className="size-3.5 text-zinc-400 shrink-0" />
-                    <span className="hk-staff-label">Phân công:</span>
+                    <span className="hk-staff-label">{tr("housekeeping:components.assigned")}</span>
                     {r.openTask.assignedStaff ? (
                       <span className="hk-staff-name">
                         {r.openTask.assignedStaff.fullName}
                       </span>
                     ) : (
-                      <span className="hk-staff-unassigned">Chưa phân công</span>
+                      <span className="hk-staff-unassigned">{tr("housekeeping:components.unassigned")}</span>
                     )}
                   </div>
                 </div>
               ) : (
                 <div className="hk-ready-box">
                   <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                  <span>Chưa có công việc đang mở.</span>
+                  <span>{tr("housekeeping:components.noOpenTasks")}</span>
                 </div>
               )}
             </div>
@@ -252,7 +249,7 @@ export function RoomBoard({
                     <WorkAction
                       task={fullTask}
                       action="start"
-                      customLabel="Bắt đầu dọn phòng"
+                      customLabel={tr("housekeeping:components.startCleaning")}
                       className="hk-btn-work-start"
                       icon={<Play className="size-3.5 fill-current" />}
                     />
@@ -261,7 +258,7 @@ export function RoomBoard({
                     <WorkAction
                       task={fullTask}
                       action="complete"
-                      customLabel="Hoàn tất dọn phòng"
+                      customLabel={tr("housekeeping:components.finishCleaning")}
                       className="hk-btn-work-complete"
                       icon={<CheckCircle2 className="size-3.5" />}
                     />
@@ -271,8 +268,7 @@ export function RoomBoard({
                     to={`${base}/tasks/${r.openTask!.id}`}
                   >
                     <ClipboardList className="size-3.5" />
-                    Chi tiết công việc
-                  </DeskLink>
+                    {tr("housekeeping:components.taskDetails")}</DeskLink>
                 </div>
               ) : onCreate ? (
                 <Button
@@ -281,8 +277,7 @@ export function RoomBoard({
                   onClick={() => onCreate(r)}
                 >
                   <Plus className="size-3.5" />
-                  Tạo công việc
-                </Button>
+                  {tr("housekeeping:components.createTask")}</Button>
               ) : (
                 <span className="hk-btn-placeholder" />
               )}
@@ -290,9 +285,7 @@ export function RoomBoard({
               <Link
                 className="hk-history-link text-link hk-history"
                 to={`${base}/tasks?roomId=${r.id}`}
-              >
-                Lịch sử công việc →
-              </Link>
+              >{tr("housekeeping:components.taskHistory")}</Link>
             </div>
           </article>
         );
@@ -300,59 +293,58 @@ export function RoomBoard({
     </div>
   ) : (
     <EmptyState
-      title="Chưa có phòng phù hợp"
-      description="Không có phòng trong phạm vi và bộ lọc hiện tại. Hãy thử trạng thái khác hoặc làm mới dữ liệu."
+      title={tr("housekeeping:components.noMatchingRooms")}
+      description={tr("housekeeping:components.noRoomsMatchTheCurrentScopeAndFiltersTryAnotherStatusOr")}
     />
   );
 }
 
 export function TaskTable({ tasks }: { tasks: Task[] }) {
+  useLocale();
   const base = useHousekeepingBase();
   return (
     <Table
-      caption="Danh sách công việc buồng phòng"
+      caption={tr("housekeeping:components.housekeepingTaskList")}
       rows={tasks}
       rowKey={(t) => t.id}
       empty={
         <EmptyState
-          title="Chưa có công việc phù hợp"
-          description="Công việc được phân công sẽ xuất hiện tại đây. Hãy thử bộ lọc khác hoặc làm mới dữ liệu."
+          title={tr("housekeeping:components.noMatchingTasks")}
+          description={tr("housekeeping:components.assignedTasksWillAppearHereTryDifferentFiltersOrRefreshTheData")}
         />
       }
       columns={[
         {
-          title: 'PHÒNG',
+          title: tr("housekeeping:components.room"),
           render: (t) => (
             <DeskLink className="text-link font-bold text-zinc-900" to={`${base}/tasks/${t.id}`}>
-              Phòng {t.room.roomNumber}
-              <span className="block text-[11px] font-normal text-zinc-500">
-                Tầng {t.room.floor} · {cleanRoomTypeName(t.room.roomType.name)}
-              </span>
+              {tr("housekeeping:components.room2")}{t.room.roomNumber}
+              <span className="block text-[11px] font-normal text-zinc-500">{tr("housekeeping:components.floorValueValue", { value0: (t.room.floor), value1: (catalogName(cleanRoomTypeName(t.room.roomType.name))) })}</span>
             </DeskLink>
           ),
         },
         {
-          title: 'LOẠI CÔNG VIỆC / GHI CHÚ',
+          title: tr("housekeeping:components.taskTypeNotes"),
           render: (t) => (
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700">
-              {formatTaskNotes(t.notes) || 'Dọn phòng định kỳ'}
+              {formatTaskNotes(t.notes) || tr("housekeeping:components.routineRoomCleaning")}
             </span>
           ),
         },
         {
-          title: 'PHÂN CÔNG',
-          render: (t) => t.assignedStaff?.fullName ?? 'Chưa phân công',
+          title: tr("housekeeping:components.assignment"),
+          render: (t) => t.assignedStaff?.fullName ?? tr("housekeeping:components.unassigned"),
         },
         {
-          title: 'TRẠNG THÁI',
+          title: tr("housekeeping:components.status"),
           render: (t) => <TaskBadge status={t.status} />,
         },
         {
-          title: 'TẠO LÚC',
+          title: tr("housekeeping:components.created"),
           render: (t) => workTime(t.createdAt),
         },
         {
-          title: 'HOÀN THÀNH LÚC',
+          title: tr("housekeeping:components.completed"),
           render: (t) =>
             t.completedAt ? (
               <span className="text-emerald-700 font-medium inline-flex items-center gap-1">
@@ -360,18 +352,18 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
                 {workTime(t.completedAt)}
               </span>
             ) : (
-              <span className="text-zinc-400 italic">Chưa hoàn thành</span>
+              <span className="text-zinc-400 italic">{tr("housekeeping:components.notCompleted")}</span>
             ),
         },
         {
-          title: 'THAO TÁC',
+          title: tr("housekeeping:components.actions"),
           render: (t) => (
             <div className="flex items-center gap-2">
               {t.status === 'TODO' && (
                 <WorkAction
                   task={t}
                   action="start"
-                  customLabel="Bắt đầu"
+                  customLabel={tr("housekeeping:components.start")}
                   className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-amber-50 hover:!bg-amber-100 !text-amber-800 !border !border-amber-200 !rounded-md"
                 />
               )}
@@ -379,16 +371,14 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
                 <WorkAction
                   task={t}
                   action="complete"
-                  customLabel="Hoàn tất"
+                  customLabel={tr("housekeeping:components.complete")}
                   className="!min-h-[32px] !py-1 !px-2.5 !text-xs !bg-emerald-50 hover:!bg-emerald-100 !text-emerald-800 !border !border-emerald-200 !rounded-md"
                 />
               )}
               <DeskLink
                 className="text-xs text-brand-700 hover:underline font-medium px-1.5 py-1"
                 to={`${base}/tasks/${t.id}`}
-              >
-                Chi tiết →
-              </DeskLink>
+              >{tr("housekeeping:components.details")}</DeskLink>
             </div>
           ),
         },
@@ -399,6 +389,7 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
 
 
 export function HousekeepingShiftProgress() {
+  useLocale();
   const client = useQueryClient();
   const todoQuery = useHousekeepingGet<Page<Task>>('/housekeeping/tasks?status=TODO&page=1&pageSize=50');
   const progressQuery = useHousekeepingGet<Page<Task>>('/housekeeping/tasks?status=IN_PROGRESS&page=1&pageSize=50');
@@ -419,8 +410,8 @@ export function HousekeepingShiftProgress() {
 
   return (
     <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-50 border border-zinc-200/80 text-xs">
-      <span className="size-2 rounded-full bg-emerald-400 shrink-0" title="Đang trong ca trực" />
-      <span className="text-zinc-500 font-medium">Tiến độ ca:</span>
+      <span className="size-2 rounded-full bg-emerald-400 shrink-0" title={tr("housekeeping:components.onDuty")} />
+      <span className="text-zinc-500 font-medium">{tr("housekeeping:components.shiftProgress")}</span>
       <strong className="text-zinc-900 font-bold">{doneCount}/{totalShift}</strong>
       <span className="text-zinc-400 font-mono text-[11px]">({percentComplete}%)</span>
       <div className="w-16 lg:w-20 h-1.5 bg-zinc-200 rounded-full overflow-hidden shrink-0">
@@ -433,7 +424,7 @@ export function HousekeepingShiftProgress() {
         type="button"
         disabled={isFetching}
         onClick={refreshAll}
-        title="Làm mới tiến độ ca"
+        title={tr("housekeeping:components.refreshShiftProgress")}
         className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer disabled:opacity-50 ml-0.5"
       >
         <RefreshCw className={`size-3 ${isFetching ? 'animate-spin' : ''}`} />

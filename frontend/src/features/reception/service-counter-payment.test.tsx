@@ -63,7 +63,7 @@ it.each(['CASH', 'BANK_TRANSFER'])('records %s with the current total and retrie
   fireEvent.click(screen.getByTitle('Tăng 1'));
   expect(screen.queryByRole('checkbox')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: settlement === 'CASH' ? /Tạo đơn ·/ : /^Thanh toán ·/ }));
-  await screen.findByText('Mất kết nối');
+  await screen.findByText('Chưa thể kết nối dịch vụ. Vui lòng thử lại sau.');
   fireEvent.click(screen.getByRole('button', { name: settlement === 'CASH' ? /Tạo đơn ·/ : /^Thanh toán ·/ }));
   await waitFor(() => expect(created).toHaveBeenCalledTimes(1));
   const calls = request.mock.calls.filter(([path]) => path === '/service-orders');

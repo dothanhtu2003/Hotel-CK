@@ -55,7 +55,7 @@ test('disabled account cannot log in', async ({ page }) => {
 
 for (const path of ['/guest/profile', '/reception', '/housekeeping', '/admin']) test(`unauthenticated guard: ${path}`, async ({ page }) => { await page.goto(path); await expect(page).toHaveURL(/\/login$/); });
 
-for (const [name, destination, label] of [['guest', '/', 'Khách lưu trú'], ['reception', '/reception', 'Lễ tân'], ['housekeeping', '/housekeeping', 'Nhân viên buồng phòng'], ['admin', '/admin', 'Quản trị viên']]) test(`real backend role navigation and 403 UX: ${name}`, async ({ page }) => {
+for (const [name, destination] of [['guest', '/', 'Khách lưu trú'], ['reception', '/reception', 'Lễ tân'], ['housekeeping', '/housekeeping', 'Nhân viên buồng phòng'], ['admin', '/admin', 'Quản trị viên']]) test(`real backend role navigation and 403 UX: ${name}`, async ({ page }) => {
   await login(page, name); await expect(page.locator('body')).toContainText(fixtures().users[name].fullName);
   const forbidden = destination === '/admin' ? '/guest/bookings' : '/admin';
   await page.evaluate(path => { history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); }, forbidden);

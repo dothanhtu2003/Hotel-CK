@@ -1,3 +1,8 @@
+import { formatDate as localizedDate } from "../i18n/format";
+import { localized, safeError, t as tr, useLocale } from "../i18n";
+import { catalogName, catalogDescription } from "../i18n/catalog";
+
+import { Trans } from "react-i18next";
 import { BankTransferQr } from '../features/reception/bank-transfer-qr';
 import { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -38,6 +43,7 @@ import { useToast } from '../components/toast-context';
    SERVICES ORDERING PAGE (ROOM SERVICE)
    ======================================================== */
 export function ServicesPage() {
+  useLocale();
   const [params] = useSearchParams();
   const [selected, setSelected] = useState(params.get('bookingId') ?? '');
   const stays = useStays();
@@ -104,7 +110,7 @@ export function ServicesPage() {
       requestId.current = null;
       setConfirm(false);
       setQuantities({});
-      toast('Đã gửi đơn dịch vụ thành công.');
+      toast(() => (tr("guest:servicePages.yourServiceOrderHasBeenSent")));
       void qc.invalidateQueries({ queryKey: ['guest'] });
     },
     onError: () => {
@@ -115,11 +121,9 @@ export function ServicesPage() {
   return (
     <div className="guest-services-space">
       <PageHeading
-        title="Dịch vụ phòng"
+        title={tr("guest:bookingPages.roomService")}
         action={
-          <LinkButton to="/guest/service-orders" variant="secondary">
-            Đơn dịch vụ của tôi
-          </LinkButton>
+          <LinkButton to="/guest/service-orders" variant="secondary">{tr("guest:servicePages.myServiceOrders")}</LinkButton>
         }
       />
 
@@ -127,7 +131,7 @@ export function ServicesPage() {
         <Skeleton />
       ) : stays.error || catalog.error ? (
         <ErrorState
-          message={(stays.error ?? catalog.error)!.message}
+          message={safeError((stays.error ?? catalog.error)!)}
           retry={() => {
             void stays.refetch();
             void catalog.refetch();
@@ -135,7 +139,7 @@ export function ServicesPage() {
         />
       ) : (
         <>
-          {!hasStays && <p className="notice">Bạn chỉ có thể đặt dịch vụ sau khi nhận phòng.</p>}
+          {!hasStays && <p className="notice">{tr("guest:servicePages.youCanOrderServicesAfterCheckingIn")}</p>}
 
           {/* Service Menu Grid */}
           {catalog.data?.length ? (
@@ -151,29 +155,25 @@ export function ServicesPage() {
                           <UtensilsCrossed size={20} strokeWidth={1.5} />
                         </div>
                         <div className="service-item-titles">
-                          <h2>{s.name}</h2>
+                          <h2>{catalogName(s.name)}</h2>
                           <strong className="service-item-price">
                             {money(s.currentPrice)}
                           </strong>
                         </div>
                       </div>
 
-                      <p className="service-item-desc">{s.description}</p>
+                      <p className="service-item-desc">{catalogDescription(s.description, s.name)}</p>
 
                       {/* Stepper Quantity Control */}
                       <div className="service-quantity-control-wrap">
-                        <label htmlFor={s.id} className="service-qty-label sr-only">
-                          Số lượng {s.name}
-                        </label>
-                        <span className="service-qty-caption" aria-hidden="true">
-                          Số lượng
-                        </span>
+                        <label htmlFor={s.id} className="service-qty-label sr-only">{tr("guest:servicePages.quantityForValue", { value0: (catalogName(s.name)) })}</label>
+                        <span className="service-qty-caption" aria-hidden="true">{tr("guest:servicePages.quantity")}</span>
 
                         <div className="service-qty-stepper">
                           <button
                             type="button"
                             className="qty-btn"
-                            aria-label={`Giảm số lượng ${s.name}`}
+                            aria-label={tr("guest:servicePages.decreaseQuantityForValue", { value0: (catalogName(s.name)) })}
                             disabled={!hasStays || create.isPending || qty <= 0}
                             onClick={() => updateQuantity(s.id, -1)}
                           >
@@ -200,7 +200,7 @@ export function ServicesPage() {
                           <button
                             type="button"
                             className="qty-btn"
-                            aria-label={`Tăng số lượng ${s.name}`}
+                            aria-label={tr("guest:servicePages.increaseQuantityForValue", { value0: (catalogName(s.name)) })}
                             disabled={!hasStays || create.isPending}
                             onClick={() => updateQuantity(s.id, 1)}
                           >
@@ -214,8 +214,8 @@ export function ServicesPage() {
             </div>
           ) : (
             <EmptyState
-              title="Chưa có dịch vụ"
-              description="Danh mục dịch vụ hiện chưa có lựa chọn đang hoạt động."
+              title={tr("guest:servicePages.noServicesYet")}
+              description={tr("guest:servicePages.thereAreCurrentlyNoActiveServicesInTheCatalog")}
             />
           )}
 
@@ -224,12 +224,10 @@ export function ServicesPage() {
             <div className="cart-summary-details">
               <div className="cart-summary-stat">
                 <ShoppingBag size={20} />
-                <span>
-                  Đã chọn: <strong>{totalSelectedCount}</strong> món
-                </span>
+                <span><Trans ns="guest" i18nKey="servicePages.selectedValueItems" values={{ value0: (totalSelectedCount) }} components={{ part0: <strong /> }} /></span>
               </div>
               <div className="cart-summary-total">
-                <span>Tổng dự kiến:</span>
+                <span>{tr("guest:servicePages.estimatedTotal")}</span>
                 <strong>{money(decimal(total))}</strong>
               </div>
             </div>
@@ -245,9 +243,7 @@ export function ServicesPage() {
                   setConfirm(true);
                 }}
                 className="cart-checkout-btn"
-              >
-                Xem lại đơn dịch vụ
-              </Button>
+              >{tr("guest:servicePages.reviewServiceOrder")}</Button>
             </div>
           </section>
 
@@ -259,23 +255,21 @@ export function ServicesPage() {
             >
               <div className="order-created-head">
                 <CheckCircle2 size={24} className="text-emerald-700" />
-                <h2>Đơn dịch vụ đã được tạo</h2>
+                <h2>{tr("guest:servicePages.serviceOrderCreated")}</h2>
               </div>
               <OrderContents key={create.data.id} order={create.data} showPayment={false} />
               <div className="order-created-actions">
-                {create.data.requestedPaymentMethod === 'BANK_TRANSFER' && !create.data.paymentMethod && <Button onClick={() => setPaymentOrder(create.data)}>Mở QR thanh toán</Button>}
-                <LinkButton to="/guest/service-orders">
-                  Xem đơn dịch vụ
-                </LinkButton>
+                {create.data.requestedPaymentMethod === 'BANK_TRANSFER' && !create.data.paymentMethod && <Button onClick={() => setPaymentOrder(create.data)}>{tr("guest:servicePages.openPaymentQr")}</Button>}
+                <LinkButton to="/guest/service-orders">{tr("guest:servicePages.viewServiceOrder")}</LinkButton>
               </div>
             </section>
           )}
         </>
       )}
 
-      {paymentOrder && <Dialog open title="Thanh toán dịch vụ qua payOS" onClose={() => setPaymentOrder(null)}>
+      {paymentOrder && <Dialog open title={tr("guest:servicePages.payForServicesWithPayos")} onClose={() => setPaymentOrder(null)}>
         <OrderContents key={paymentOrder.id} order={paymentOrder} />
-        <div className="dialog-actions"><Button variant="secondary" onClick={() => setPaymentOrder(null)}>Đóng</Button></div>
+        <div className="dialog-actions"><Button variant="secondary" onClick={() => setPaymentOrder(null)}>{tr("guest:roomCompare.close")}</Button></div>
       </Dialog>}
       {/* Confirmation Dialog */}
       <Dialog
@@ -283,17 +277,16 @@ export function ServicesPage() {
         onClose={() => {
           if (!create.isPending) setConfirm(false);
         }}
-        title="Xác nhận đơn dịch vụ"
+        title={tr("guest:servicePages.confirmServiceOrder")}
       >
         <div className="guest-dialog-order-review">
           <div className="order-review-delivery-room">
-            {activeStays.length > 1 ? <label className="filter-label">Giao đến phòng
-              <select aria-label="Giao đến phòng" className="input" value={bookingId} disabled={create.isPending || !!create.error} onChange={event => { setSelected(event.target.value); requestId.current = null; }}>
-                <option value="">Chọn phòng nhận dịch vụ</option>
-                {activeStays.map(b => <option key={b.id} value={b.id}>Phòng {b.roomNumber} · {b.reference}</option>)}
+            {activeStays.length > 1 ? <label className="filter-label">{tr("guest:servicePages.deliverToRoom")}<select aria-label={tr("guest:servicePages.deliverToRoom")} className="input" value={bookingId} disabled={create.isPending || !!create.error} onChange={event => { setSelected(event.target.value); requestId.current = null; }}>
+                <option value="">{tr("guest:servicePages.chooseDeliveryRoom")}</option>
+                {activeStays.map(b => <option key={b.id} value={b.id}>{tr("guest:servicePages.roomValueValue", { value0: (b.roomNumber), value1: (b.reference) })}</option>)}
               </select>
-            </label> : <p>Giao đến <strong className="order-review-room-number">{deliveryRoom ? `Phòng ${deliveryRoom.roomNumber}` : 'phòng chưa được chọn'}</strong></p>}
-            {deliveryRoom && <small>{deliveryRoom.reference} · Đang lưu trú</small>}
+            </label> : <p><Trans ns="guest" i18nKey="servicePages.deliverToValue" values={{ value0: (deliveryRoom ? tr("common:supplement.deliveryRoom", { value0: deliveryRoom.roomNumber }) : tr("common:supplement.roomNotSelected")) }} components={{ part0: <strong className="order-review-room-number" /> }} /></p>}
+            {deliveryRoom && <small>{tr("guest:servicePages.valueInHouse", { value0: (deliveryRoom.reference) })}</small>}
           </div>
 
           <div className="order-review-items-list">
@@ -301,11 +294,9 @@ export function ServicesPage() {
               const svc = catalog.data?.find((s) => s.id === i.serviceId);
               return (
                 <div key={i.serviceId} className="order-review-item-line">
-                  <span>
-                    {svc?.name} × {i.quantity}
-                  </span>
+                  <span>{tr("guest:billingPages.valueValue", { value0: (catalogName(svc?.name)), value1: (i.quantity) })}</span>
                   <strong>
-                    {svc ? money(decimal(cents(svc.currentPrice) * BigInt(i.quantity))) : ''}
+                    {svc && Number.isInteger(i.quantity) ? money(decimal(cents(svc.currentPrice) * BigInt(i.quantity))) : ''}
                   </strong>
                 </div>
               );
@@ -313,12 +304,11 @@ export function ServicesPage() {
           </div>
 
           <div className="order-review-total-box">
-            <span>Tổng dự kiến:</span>
+            <span>{tr("guest:servicePages.estimatedTotal")}</span>
             <strong>{money(decimal(total))}</strong>
           </div>
-          <label className="filter-label">Cách thanh toán
-            <select aria-label="Cách thanh toán" className="input" value={paymentMethod} disabled={create.isPending} onChange={event => setPaymentMethod(event.target.value as 'CASH' | 'BANK_TRANSFER')}>
-              <option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản qua QR payOS</option>
+          <label className="filter-label">{tr("guest:servicePages.paymentMethod")}<select aria-label={tr("guest:servicePages.paymentMethod")} className="input" value={paymentMethod} disabled={create.isPending} onChange={event => setPaymentMethod(event.target.value as 'CASH' | 'BANK_TRANSFER')}>
+              <option value="CASH">{tr("guest:billingPages.cash")}</option><option value="BANK_TRANSFER">{tr("guest:servicePages.transferUsingPayosQr")}</option>
             </select>
           </label>
 
@@ -329,9 +319,7 @@ export function ServicesPage() {
             <p className="form-error" role="alert">
               {guestError(create.error, 'create')}
             </p>
-            <LinkButton to="/guest/service-orders" variant="secondary">
-              Kiểm tra đơn đã gửi
-            </LinkButton>
+            <LinkButton to="/guest/service-orders" variant="secondary">{tr("guest:servicePages.checkSubmittedOrders")}</LinkButton>
           </div>
         )}
 
@@ -340,15 +328,13 @@ export function ServicesPage() {
             variant="secondary"
             disabled={create.isPending}
             onClick={() => setConfirm(false)}
-          >
-            Quay lại
-          </Button>
+          >{tr("guest:bookingPages.back")}</Button>
           <Button
             busy={create.isPending}
             disabled={!!create.error || !eligible || !valid}
             onClick={() => create.mutate()}
           >
-            {deliveryRoom ? `Đặt dịch vụ · Phòng ${deliveryRoom.roomNumber}` : 'Chọn phòng để đặt dịch vụ'}
+            {deliveryRoom ? tr("guest:servicePages.orderServicesRoomValue", { value0: (deliveryRoom.roomNumber) }) : tr("guest:servicePages.chooseARoomToOrderServices")}
           </Button>
         </div>
       </Dialog>
@@ -360,28 +346,24 @@ function formatOrderDate(isoDate: string) {
   try {
     const d = new Date(isoDate);
     if (isNaN(d.getTime())) return isoDate;
-    const hours = String(d.getHours()).padStart(2, '0');
-    const mins = String(d.getMinutes()).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${hours}:${mins} · ${day}/${month}/${year}`;
+    return localizedDate(isoDate, { hour: '2-digit', minute: '2-digit' }) + ' · ' + localizedDate(isoDate);
   } catch {
     return isoDate;
   }
 }
 
-const ORDER_STATUS_TABS: { id: string; label: string }[] = [
-  { id: '', label: 'Tất cả' },
-  { id: 'PENDING', label: 'Chờ xử lý' },
-  { id: 'COMPLETED', label: 'Hoàn thành' },
-  { id: 'CANCELLED', label: 'Đã hủy' },
-];
+const ORDER_STATUS_TABS: { id: string; label: string }[] = localized(() => ([
+  { id: '', label: tr("guest:bookingPages.all") },
+  { id: 'PENDING', label: tr("guest:contracts.pending") },
+  { id: 'COMPLETED', label: tr("guest:contracts.completed") },
+  { id: 'CANCELLED', label: tr("guest:bookingStatus.cancelled") },
+]));
 
 /* ========================================================
    ORDER CONTENTS COMPONENT
    ======================================================== */
 function OrderContents({ order: o, showPayment = true, showStatusBadge = false }: { order: Order; showPayment?: boolean; showStatusBadge?: boolean }) {
+  useLocale();
   const [paid, setPaid] = useState(false);
   const isPaid = o.paymentMethod || paid;
 
@@ -397,10 +379,10 @@ function OrderContents({ order: o, showPayment = true, showStatusBadge = false }
         <div className="order-payment-status-tag">
           <span className={`order-payment-pill ${isPaid ? 'is-paid' : 'is-pending'}`}>
             {isPaid
-              ? 'Đã thanh toán'
+              ? tr("guest:contracts.paid")
               : o.requestedPaymentMethod === 'CASH'
-              ? 'Chờ thu tiền mặt'
-              : 'Chờ thanh toán chuyển khoản'}
+              ? tr("guest:servicePages.awaitingCashCollection")
+              : tr("guest:servicePages.awaitingBankTransfer")}
           </span>
         </div>
       )}
@@ -419,16 +401,14 @@ function OrderContents({ order: o, showPayment = true, showStatusBadge = false }
       <div className="order-items-breakdown">
         {o.items.map((i) => (
           <div key={i.id} className="order-item-detail-line">
-            <span className="order-item-title">
-              {i.serviceName} × {i.quantity}
-            </span>
+            <span className="order-item-title">{tr("guest:billingPages.valueValue", { value0: (catalogName(i.serviceName)), value1: (i.quantity) })}</span>
             <strong className="order-item-amount">{money(i.subtotal)}</strong>
           </div>
         ))}
       </div>
 
       <div className="order-locked-total-row">
-        <span>Tổng tiền:</span>
+        <span>{tr("guest:servicePages.total")}</span>
         <strong>{money(o.totalAmount)}</strong>
       </div>
     </div>
@@ -439,6 +419,7 @@ function OrderContents({ order: o, showPayment = true, showStatusBadge = false }
    ORDER CARD COMPONENT
    ======================================================== */
 function OrderCard({ order: o }: { order: Order }) {
+  useLocale();
   const booking = useGet<Booking>('/bookings/' + o.bookingId);
   const invoice = useInvoice(o.bookingId);
   const [confirm, setConfirm] = useState(false);
@@ -450,7 +431,7 @@ function OrderCard({ order: o }: { order: Order }) {
     mutationFn: () => api.request(`/service-orders/${o.id}/cancel`, { method: 'PATCH' }),
     onSuccess: () => {
       setConfirm(false);
-      toast('Đã hủy đơn dịch vụ.');
+      toast(() => (tr("guest:servicePages.serviceOrderCancelled")));
       void qc.invalidateQueries({ queryKey: ['guest'] });
     },
     onError: () => {
@@ -464,15 +445,15 @@ function OrderCard({ order: o }: { order: Order }) {
         <div className="order-card-title-block">
           <div className="order-room-line">
             <span className="order-room-title">
-              {booking.data?.roomNumber ? `Phòng ${booking.data.roomNumber}` : 'Dịch vụ phòng'}
+              {booking.data?.roomNumber ? tr("guest:roomCompare.roomValue", { value0: (booking.data.roomNumber) }) : tr("guest:bookingPages.roomService")}
             </span>
             <GuestBadge status={o.status} />
           </div>
           <div className="order-meta-subline">
-            <h2 className="order-code-badge">Đơn {o.id.slice(0, 8)}</h2>
+            <h2 className="order-code-badge">{tr("guest:servicePages.orderValue", { value0: (o.id.slice(0, 8)) })}</h2>
             <span className="order-dot" aria-hidden="true">·</span>
             <Link className="order-booking-link" to={'/guest/bookings/' + o.bookingId}>
-              Booking {booking.data?.reference ? formatBookingReference(booking.data.reference) : o.bookingId}
+              {tr("common:supplement.reservationReference", { reference: booking.data?.reference ? formatBookingReference(booking.data.reference) : o.bookingId })}
             </Link>
           </div>
         </div>
@@ -485,13 +466,13 @@ function OrderCard({ order: o }: { order: Order }) {
 
       {booking.error && (
         <ErrorState
-          message={booking.error.message}
+          message={safeError(booking.error)}
           retry={() => void booking.refetch()}
         />
       )}
       {invoice.error && (
         <ErrorState
-          message={invoice.error.message}
+          message={safeError(invoice.error)}
           retry={() => void invoice.refetch()}
         />
       )}
@@ -508,9 +489,7 @@ function OrderCard({ order: o }: { order: Order }) {
                 setConfirm(true);
               }}
               className="guest-cancel-order-btn"
-            >
-              Hủy đơn dịch vụ
-            </Button>
+            >{tr("guest:servicePages.cancelServiceOrder")}</Button>
           </div>
         )}
 
@@ -520,9 +499,9 @@ function OrderCard({ order: o }: { order: Order }) {
         onClose={() => {
           if (!cancel.isPending) setConfirm(false);
         }}
-        title="Hủy đơn dịch vụ?"
+        title={tr("guest:servicePages.cancelServiceOrder2")}
       >
-        <p>Hủy toàn bộ dịch vụ trong đơn {o.id.slice(0, 8)}?</p>
+        <p>{tr("guest:servicePages.cancelAllServicesInOrderValue", { value0: (o.id.slice(0, 8)) })}</p>
 
         {cancel.error && (
           <p className="form-error" role="alert">
@@ -535,17 +514,13 @@ function OrderCard({ order: o }: { order: Order }) {
             disabled={cancel.isPending}
             variant="secondary"
             onClick={() => setConfirm(false)}
-          >
-            Giữ đơn
-          </Button>
+          >{tr("guest:servicePages.keepOrder")}</Button>
           <Button
             busy={cancel.isPending}
             disabled={!!cancel.error}
             onClick={() => cancel.mutate()}
             className="confirm-cancel-danger-btn"
-          >
-            Xác nhận hủy đơn
-          </Button>
+          >{tr("guest:servicePages.confirmOrderCancellation")}</Button>
         </div>
       </Dialog>
     </article>
@@ -556,6 +531,7 @@ function OrderCard({ order: o }: { order: Order }) {
    MY SERVICE ORDERS PAGE
    ======================================================== */
 export function MyServiceOrdersPage() {
+  useLocale();
   const [params, setParams] = useSearchParams();
   const page = Math.max(1, Number(params.get('page')) || 1);
   const status = params.get('status') ?? '';
@@ -568,13 +544,13 @@ export function MyServiceOrdersPage() {
   return (
     <div className="guest-my-orders-space">
       <PageHeading
-        title="Đơn dịch vụ của tôi"
-        action={<LinkButton to="/guest/services">+ Đặt dịch vụ</LinkButton>}
+        title={tr("guest:servicePages.myServiceOrders")}
+        action={<LinkButton to="/guest/services">{tr("guest:servicePages.orderServices")}</LinkButton>}
       />
 
       {/* Status Filter Tabs */}
       <div className="guest-filter-bar">
-        <div className="guest-filter-tabs" role="tablist" aria-label="Lọc theo trạng thái đơn">
+        <div className="guest-filter-tabs" role="tablist" aria-label={tr("guest:servicePages.filterByOrderStatus")}>
           {ORDER_STATUS_TABS.map((tab) => {
             const isActive = status === tab.id;
             return (
@@ -593,23 +569,20 @@ export function MyServiceOrdersPage() {
         </div>
 
         {query.data && (
-          <span className="guest-booking-count-chip">
-            {query.data.meta.total} đơn
-          </span>
+          <span className="guest-booking-count-chip">{tr("guest:servicePages.valueOrders", { value0: (query.data.meta.total) })}</span>
         )}
 
         <label className="sr-only">
-          Trạng thái đơn
-          <select
+          {tr("guest:servicePages.orderStatus")}<select
             value={status}
             onChange={(e) =>
               setParams(e.target.value ? { status: e.target.value } : {})
             }
           >
-            <option value="">Tất cả trạng thái</option>
-            <option value="PENDING">Chờ xử lý</option>
-            <option value="COMPLETED">Hoàn thành</option>
-            <option value="CANCELLED">Đã hủy</option>
+            <option value="">{tr("guest:bookingPages.allStatuses")}</option>
+            <option value="PENDING">{tr("guest:contracts.pending")}</option>
+            <option value="COMPLETED">{tr("guest:contracts.completed")}</option>
+            <option value="CANCELLED">{tr("guest:bookingStatus.cancelled")}</option>
           </select>
         </label>
       </div>
@@ -618,7 +591,7 @@ export function MyServiceOrdersPage() {
         <Skeleton />
       ) : query.error ? (
         <ErrorState
-          message={query.error.message}
+          message={safeError(query.error)}
           retry={() => void query.refetch()}
         />
       ) : (
@@ -632,8 +605,8 @@ export function MyServiceOrdersPage() {
               </div>
             ) : (
               <EmptyState
-                title="Chưa có đơn dịch vụ"
-                description="Các đơn dịch vụ của bạn sẽ xuất hiện tại đây."
+                title={tr("guest:servicePages.noServiceOrdersYet")}
+                description={tr("guest:servicePages.yourServiceOrdersWillAppearHere")}
               />
             )}
 

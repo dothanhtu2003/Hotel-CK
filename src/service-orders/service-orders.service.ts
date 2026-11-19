@@ -105,7 +105,7 @@ export class ServiceOrdersService {
         await this.lockStay(tx, target.bookingId, actor, !!target.requestedPaymentMethod);
         const order = await tx.serviceOrder.findUniqueOrThrow({ where: { id }, select: orderSelect });
         if (order.requestedPaymentMethod && dto.settlement === 'ROOM') throw new ConflictException('Đơn dịch vụ này cần thanh toán riêng');
-        if (order.payosStatus === 'PENDING') throw new ConflictException('Đang chờ payOS xác nhận. Kiểm tra hoặc hủy liên kết payOS trước khi thu tiền khác');
+        if (order.payosStatus === 'PENDING') throw new ConflictException({ statusCode: 409, error: 'Conflict', message: 'Đang chờ payOS xác nhận. Kiểm tra hoặc hủy liên kết payOS trước khi thu tiền khác', code: 'PAYMENT_VERIFICATION_REQUIRED' });
         if (order.status === 'CANCELLED') throw new ConflictException('Cancelled order cannot be settled');
         if (order.paymentMethod) {
           if (order.paymentMethod !== dto.settlement) throw new ConflictException('Counter receipt is already recorded');

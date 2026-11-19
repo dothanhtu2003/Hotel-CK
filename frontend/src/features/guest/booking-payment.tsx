@@ -1,3 +1,5 @@
+import { t as tr, useLocale } from "../../i18n";
+import { Trans } from "react-i18next";
 import { BookingQr } from './booking-qr';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +11,7 @@ import { money, type Booking } from './contracts';
 export type BookingPaymentState = { expiredAt?:string|null; serverNow?:string; holdState?:string|null; paymentReview?:boolean; receivedAmount?:string; required: boolean; paid: boolean; pending: boolean; totalAmount: string; paidAmount: string; bookingStatus: string };
 
 export function BookingPayment({ booking }: { booking: Booking }) {
+  useLocale();
   const cache = useQueryClient();
   const [qrOpen, setQrOpen] = useState(false);
   const [params] = useSearchParams();
@@ -32,23 +35,23 @@ export function BookingPayment({ booking }: { booking: Booking }) {
     refetchInterval: !state.data?.paid && state.data?.pending ? 5000 : false, retry: false,
   });
   useEffect(() => { if (sync.dataUpdatedAt) void cache.invalidateQueries({ queryKey: ['guest'] }); }, [sync.dataUpdatedAt, cache]);
-  if (booking.status === 'CANCELLED' || state.data?.bookingStatus === 'CANCELLED') return <section className="panel guest-box" aria-label="Thông tin thanh toán booking đã hủy">
-    <h2>{expired ? 'Booking đã hủy do hết hạn thanh toán' : 'Booking đã hủy'}</h2>
-    {state.isPending ? <p>Đang kiểm tra lịch sử thanh toán…</p> : state.error ? <p role="alert">Chưa tải được lịch sử thanh toán. Vui lòng thử lại hoặc liên hệ lễ tân.</p> : state.data?.paymentReview ? <p role="alert">Đã nhận {money(state.data.receivedAmount ?? '0')}. Khoản tiền đang được lễ tân đối soát để xử lý hoàn tiền. Vui lòng không thanh toán thêm.</p> : <p role="status">{expired ? 'Booking đã tự động hủy và phòng đã được giải phóng. Vui lòng đặt lại nếu bạn vẫn muốn lưu trú.' : 'Booking đã kết thúc. Không cần thanh toán tiền phòng cho booking này. Nếu bạn đã chuyển tiền nhưng chưa được ghi nhận, vui lòng liên hệ lễ tân.'}</p>}
+  if (booking.status === 'CANCELLED' || state.data?.bookingStatus === 'CANCELLED') return <section className="panel guest-box" aria-label={tr("guest:bookingPayment.paymentInformationForACancelledReservation")}>
+    <h2>{expired ? tr("guest:bookingPayment.reservationCancelledBecausePaymentExpired") : tr("guest:bookingPayment.reservationCancelled")}</h2>
+    {state.isPending ? <p>{tr("guest:bookingPayment.checkingPaymentHistory")}</p> : state.error ? <p role="alert">{tr("guest:bookingPayment.unableToLoadPaymentHistoryPleaseTryAgainOrContactReception")}</p> : state.data?.paymentReview ? <p role="alert">{tr("guest:bookingPayment.receivedValueReceptionIsReviewingThisPaymentToArrangeARefundPlease", { value0: (money(state.data.receivedAmount ?? '0')) })}</p> : <p role="status">{expired ? tr("guest:bookingPayment.theReservationWasAutomaticallyCancelledAndTheRoomReleasedPleaseBookAgain") : tr("guest:bookingPayment.thisReservationHasEndedNoRoomPaymentIsNeededIfYouTransferred")}</p>}
   </section>;
-  return <section className="panel guest-box booking-online-payment" aria-label="Thanh toán tiền phòng">
-    <h2>Thanh toán toàn bộ tiền phòng</h2>
-    {state.data?.paymentReview && <p role="alert">Đã nhận {money(state.data.receivedAmount ?? '0')} nhưng cần đối soát/hoàn tiền. Lễ tân đã có thông tin để xử lý. Vui lòng không thanh toán thêm.</p>}
-    {expired ? <p role="status">Đã hết hạn thanh toán, phòng đã được giải phóng. Vui lòng đặt lại nếu bạn vẫn muốn lưu trú.</p> : !state.data?.paid && booking.status === 'PENDING' && <p role="status">{checking ? 'Đã hết hạn thanh toán. Hệ thống đang xác minh giao dịch để tự động hủy booking chưa thanh toán.' : remaining !== null ? `Thời gian giữ phòng còn lại: ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}` : 'Đang tải hạn giữ phòng…'}</p>}
-    {state.data?.paid ? <p role="status">Đã thanh toán tiền phòng: {money(state.data.paidAmount)}.</p> : !checking && !expired && <>
-      <p>Thanh toán <strong>{money(booking.totalRoomAmount)}</strong> để xác nhận đặt phòng.</p>
+  return <section className="panel guest-box booking-online-payment" aria-label={tr("guest:bookingPayment.roomPayment")}>
+    <h2>{tr("guest:bookingPayment.payTheFullRoomCharge")}</h2>
+    {state.data?.paymentReview && <p role="alert">{tr("guest:bookingPayment.receivedValueButPaymentVerificationOrARefundReviewIsRequiredReception", { value0: (money(state.data.receivedAmount ?? '0')) })}</p>}
+    {expired ? <p role="status">{tr("guest:bookingPayment.thePaymentPeriodHasExpiredAndTheRoomHasBeenReleasedPlease")}</p> : !state.data?.paid && booking.status === 'PENDING' && <p role="status">{checking ? tr("guest:bookingPayment.thePaymentPeriodHasExpiredTheSystemIsVerifyingTransactionsBeforeCancelling") : remaining !== null ? tr("guest:bookingPayment.roomHoldRemainingValueValue", { value0: (Math.floor(remaining/60)), value1: (String(remaining%60).padStart(2,'0')) }) : tr("guest:bookingPayment.loadingRoomHoldDeadline")}</p>}
+    {state.data?.paid ? <p role="status">{tr("guest:bookingPayment.roomPaymentReceivedValue", { value0: (money(state.data.paidAmount)) })}</p> : !checking && !expired && <>
+      <p><Trans ns="guest" i18nKey="bookingPayment.payValueToConfirmYourReservation" values={{ value0: (money(booking.totalRoomAmount)) }} components={{ part0: <strong /> }} /></p>
       {booking.status === 'PENDING' && !expired && <div className="guest-actions">
-        <Button disabled={sync.isFetching || checking || !!state.data?.paymentReview || state.isPending} onClick={() => setQrOpen(true)}>Thanh toán ngay qua payOS</Button>
-        <Button variant="secondary" busy={sync.isFetching} disabled={qrOpen} onClick={() => void sync.refetch()}>Kiểm tra thanh toán</Button>
+        <Button disabled={sync.isFetching || checking || !!state.data?.paymentReview || state.isPending} onClick={() => setQrOpen(true)}>{tr("guest:bookingPayment.payNowWithPayos")}</Button>
+        <Button variant="secondary" busy={sync.isFetching} disabled={qrOpen} onClick={() => void sync.refetch()}>{tr("guest:bookingPayment.checkPayment")}</Button>
       </div>}
     </>}
-    {(sync.error || state.error) && <p role="alert">Chưa thể kết nối thanh toán. Vui lòng thử lại hoặc liên hệ lễ tân. Booking chưa được xác nhận nếu chưa thanh toán đủ.</p>}
-    {qrOpen && <Dialog open onClose={() => setQrOpen(false)} title="Thanh toán tiền phòng" className="desk-room-action-modal"><div className="drawer-body p-4 sm:p-6"><BookingQr bookingId={booking.id} /></div></Dialog>}
-    {state.data?.paid && ['CONFIRMED', 'PENDING'].includes(booking.status) && <p>Cần hủy hoặc đổi lịch? Vui lòng liên hệ lễ tân để được hỗ trợ và kiểm tra khoản hoàn tiền.</p>}
+    {(sync.error || state.error) && <p role="alert">{tr("guest:bookingPayment.unableToConnectToPaymentsTryAgainOrContactReceptionTheReservation")}</p>}
+    {qrOpen && <Dialog open onClose={() => setQrOpen(false)} title={tr("guest:bookingPayment.roomPayment")} className="desk-room-action-modal"><div className="drawer-body p-4 sm:p-6"><BookingQr bookingId={booking.id} /></div></Dialog>}
+    {state.data?.paid && ['CONFIRMED', 'PENDING'].includes(booking.status) && <p>{tr("guest:bookingPayment.needToCancelOrChangeDatesContactReceptionForHelpAndA")}</p>}
   </section>;
 }

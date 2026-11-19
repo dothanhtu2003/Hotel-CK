@@ -1,4 +1,8 @@
+import { errorToken, message as uiMessage, resolveMessage, t as tr, useLocale } from "../i18n";
+
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import {
   AlertCircle,
@@ -29,6 +33,7 @@ function CommandPaletteModal({
   onClose: () => void;
   home: string;
 }) {
+  const locale = useLocale();
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +57,8 @@ function CommandPaletteModal({
 
   // Flattened actionable items for keyboard navigation
   const flatItems: ActionItem[] = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     if (isQueryMode) {
       const items: ActionItem[] = [];
       bookings.forEach((b) => {
@@ -75,7 +82,7 @@ function CommandPaletteModal({
       { id: "bookings", type: "shortcut", onSelect: () => go(`${home}/bookings`) },
       { id: "tape-chart", type: "shortcut", onSelect: () => go(`${home}/tape-chart`) },
     ];
-  }, [isQueryMode, bookings, rooms, home, go]);
+  }, [isQueryMode, bookings, rooms, home, go, locale]);
 
   const selectedIndex =
     flatItems.length === 0
@@ -152,12 +159,12 @@ function CommandPaletteModal({
         if (!controller.signal.aborted) {
           const isAbort =
             err instanceof Error &&
-            (err.name === "AbortError" || err.message.includes("abort"));
+            (err.name === "AbortError" || errorToken(err).includes("abort"));
           if (!isAbort) {
             setError(
               err instanceof Error
-                ? err.message
-                : "Không thể kết nối đến máy chủ tìm kiếm.",
+                ? errorToken(err)
+                : uiMessage("common:commandPalette.unableToConnectToTheSearchServer"),
             );
           }
         }
@@ -180,12 +187,12 @@ function CommandPaletteModal({
 
   let currentItemOffset = 0;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Tìm kiếm nhanh toàn hệ thống"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4 bg-black/40 animate-fade-in"
+      aria-label={tr("common:commandPalette.searchTheEntireSystem")}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4 bg-black/40"
       onClick={onClose}
     >
       <div
@@ -206,7 +213,7 @@ function CommandPaletteModal({
               setQ(e.target.value);
               setRawSelectedIndex(0);
             }}
-            placeholder="Tìm khách, mã booking, số phòng, số điện thoại…"
+            placeholder={tr("common:commandPalette.searchGuestsReservationsRoomsOrPhoneNumbers")}
             className="w-full border-0 bg-transparent text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none"
           />
           {loading && (
@@ -215,7 +222,7 @@ function CommandPaletteModal({
           {q && (
             <button
               type="button"
-              aria-label="Xóa từ khóa tìm kiếm"
+              aria-label={tr("common:commandPalette.clearSearch")}
               onClick={() => {
                 setQ("");
                 setRawSelectedIndex(0);
@@ -243,7 +250,7 @@ function CommandPaletteModal({
               className="m-2 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700"
             >
               <AlertCircle className="size-4 shrink-0 text-rose-600" />
-              <span>{error}</span>
+              <span>{resolveMessage(error)}</span>
             </div>
           )}
 
@@ -251,9 +258,7 @@ function CommandPaletteModal({
             <>
               {displayedBookings.length > 0 && (
                 <div className="mb-3">
-                  <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                    Booking tìm thấy ({displayedBookings.length})
-                  </div>
+                  <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">{tr("common:commandPalette.reservationsFoundValue", { value0: (displayedBookings.length) })}</div>
                   <div className="space-y-0.5">
                     {displayedBookings.map((b) => {
                       const itemIdx = currentItemOffset++;
@@ -286,12 +291,10 @@ function CommandPaletteModal({
                                     : "zinc"
                                 }
                               >
-                                {statusLabels[b.status] ?? b.status}
+                                {statusLabels[b.status] ?? tr("common:status.unknown")}
                               </Badge>
                             </div>
-                            <div className="text-xs text-zinc-400">
-                              {b.reference} · Phòng {b.roomNumber} · {b.checkIn} → {b.checkOut}
-                            </div>
+                            <div className="text-xs text-zinc-400">{tr("common:commandPalette.valueRoomValueValueValue", { value0: (b.reference), value1: (b.roomNumber), value2: (b.checkIn), value3: (b.checkOut) })}</div>
                           </div>
                           <span className="text-xs font-semibold tabular-nums text-zinc-700 shrink-0">
                             {money(b.totalRoomAmount)}
@@ -305,9 +308,7 @@ function CommandPaletteModal({
 
               {displayedRooms.length > 0 && (
                 <div className="mb-3">
-                  <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                    Phòng ({displayedRooms.length})
-                  </div>
+                  <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">{tr("common:commandPalette.roomsValue", { value0: (displayedRooms.length) })}</div>
                   <div className="space-y-0.5">
                     {displayedRooms.map((r) => {
                       const itemIdx = currentItemOffset++;
@@ -326,9 +327,7 @@ function CommandPaletteModal({
                         >
                           <div className="flex items-center gap-2">
                             <BedDouble className="size-4 text-zinc-400" />
-                            <span className="font-medium text-zinc-800">
-                              Phòng {r.roomNumber} ({r.roomType.name})
-                            </span>
+                            <span className="font-medium text-zinc-800">{tr("common:commandPalette.roomValueValue", { value0: (r.roomNumber), value1: (r.roomType.name) })}</span>
                           </div>
                           <Badge
                             tone={
@@ -352,34 +351,30 @@ function CommandPaletteModal({
                 displayedRooms.length === 0 &&
                 !loading &&
                 !error && (
-                  <div className="py-8 text-center text-sm text-zinc-400">
-                    Không tìm thấy kết quả nào cho "{q}".
-                  </div>
+                  <div className="py-8 text-center text-sm text-zinc-400">{tr("common:commandPalette.noResultsFoundForValue", { value0: (q) })}</div>
                 )}
             </>
           ) : (
             <div>
-              <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                Lối tắt thao tác
-              </div>
+              <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">{tr("common:commandPalette.quickActions")}</div>
               <div className="space-y-0.5">
                 {[
                   {
                     id: "new-booking",
                     icon: <Plus className="size-4 text-brand-600" />,
-                    title: "Đặt phòng mới",
+                    title: tr("common:commandPalette.newReservation"),
                     to: `${home}?mode=booking`,
                   },
                   {
                     id: "bookings",
                     icon: <User className="size-4 text-zinc-500" />,
-                    title: "Khách đến / Đang lưu trú / Cần trả phòng",
+                    title: tr("common:commandPalette.arrivalsInHouseDepartures"),
                     to: `${home}/bookings`,
                   },
                   {
                     id: "tape-chart",
                     icon: <CalendarDays className="size-4 text-zinc-500" />,
-                    title: "Sơ đồ timeline Tape Chart",
+                    title: tr("common:commandPalette.reservationTimeline"),
                     to: `${home}/tape-chart`,
                   },
                 ].map((item, idx) => {
@@ -408,7 +403,8 @@ function CommandPaletteModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -421,6 +417,7 @@ export function CommandPalette({
   onClose: () => void;
   home: string;
 }) {
+  useLocale();
   if (!open) return null;
   return <CommandPaletteModal onClose={onClose} home={home} />;
 }

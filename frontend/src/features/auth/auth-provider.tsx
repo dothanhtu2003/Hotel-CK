@@ -1,3 +1,5 @@
+import { LocalizedError, message as uiMessage, t as tr, useLocale } from "../../i18n";
+
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -9,6 +11,7 @@ const sessionKey = 'an-nhien.auth-session';
 function clearSavedSession() { try { localStorage.removeItem(sessionKey); } catch { /* Storage may be disabled. */ } }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  useLocale();
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -26,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void queryClient.cancelQueries(); queryClient.clear();
   }, [queryClient]);
   useEffect(() => {
-    api.onUnauthorized(() => endSession('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'));
+    api.onUnauthorized(() => endSession(uiMessage("common:authProvider.yourSessionHasExpiredPleaseSignInAgain")));
     return () => api.onUnauthorized(undefined);
   }, [endSession]);
   useEffect(() => {
@@ -54,25 +57,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [endSession]);
   useEffect(() => {
     if (!expiresAt) return;
-    const timer = window.setTimeout(() => endSession('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'), Math.max(0, expiresAt - Date.now()));
+    const timer = window.setTimeout(() => endSession(uiMessage("common:authProvider.yourSessionHasExpiredPleaseSignInAgain")), Math.max(0, expiresAt - Date.now()));
     return () => window.clearTimeout(timer);
   }, [expiresAt, endSession]);
 
   async function login(input: LoginInput) {
     const current = ++generation.current;
     const response = loginResponseSchema.parse(await api.request('/auth/login', { method: 'POST', body: { email: input.email, password: input.password }, authenticated: false }));
-    if (current !== generation.current) throw new Error('Yêu cầu đăng nhập đã bị hủy.');
+    if (current !== generation.current) throw new LocalizedError("common:authProvider.theSignInRequestWasCancelled");
     await queryClient.cancelQueries(); queryClient.clear(); api.setToken(response.accessToken);
     try {
       // Role/profile from a fresh backend request, never decoded from the JWT.
       const profile = userSchema.parse(await api.request('/auth/me'));
-      if (current !== generation.current) throw new Error('Yêu cầu đăng nhập đã bị hủy.');
+      if (current !== generation.current) throw new LocalizedError("common:authProvider.theSignInRequestWasCancelled");
       const expiration = Date.now() + response.expiresIn * 1000;
       try { localStorage.setItem(sessionKey, JSON.stringify({ accessToken: response.accessToken, expiresAt: expiration })); } catch { /* Keep this tab signed in if storage is unavailable. */ }
       currentUserId.current = profile.id; setUser(profile); setNotice(null); setExpiresAt(expiration);
       return profile;
     } catch (error) { if (current === generation.current) endSession(null); throw error; }
   }
-  if (restoring) return <LoadingState text="Đang khôi phục phiên đăng nhập…" />;
+  if (restoring) return <LoadingState text={tr("common:authProvider.restoringYourSession")} />;
   return <AuthContext.Provider value={{ user, notice, login, logout: () => endSession(null), updateUser }}>{children}</AuthContext.Provider>;
 }

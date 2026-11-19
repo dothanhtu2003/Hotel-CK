@@ -1,3 +1,8 @@
+import { catalogName } from "../i18n/catalog";
+import { displayLocale, safeError, t as tr, useLocale } from "../i18n";
+
+
+import { Trans } from "react-i18next";
 import { DeskLink, DeskLinkButton, DeskBackLink } from "../features/reception/navigation";
 import { useDeskNavigate } from "../features/reception/navigation-state";
 import { serviceOrderLabel } from '../features/reception/service-order-label';
@@ -24,13 +29,8 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { Button } from "../components/ui";
-import {
-  EmptyState,
-  ErrorState,
-  Pagination,
-  Table,
-} from "../components/ui";
+import { Button, EmptyState, ErrorState, Pagination, Table } from "../components/ui";
+
 import { Skeleton } from "../features/guest/components";
 import {
   money,
@@ -60,6 +60,7 @@ type DeskOrder = Order & {
 };
 
 export function ReceptionOrdersPage() {
+  useLocale();
   const [createOpen, setCreateOpen] = useState(false);
   const navigate = useDeskNavigate();
   const [params, setParams] = useSearchParams();
@@ -92,13 +93,10 @@ export function ReceptionOrdersPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900">
-              Quản lý đơn dịch vụ
-            </h1>
+            <h1 className="text-xl font-bold tracking-tight text-zinc-900">{tr("reception:receptionServicePages.manageServiceOrders")}</h1>
             <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">
               <Utensils className="size-3" />
-              Room Service
-            </span>
+              {tr("reception:receptionServicePages.roomService")}</span>
           </div>
           
         </div>
@@ -109,8 +107,7 @@ export function ReceptionOrdersPage() {
             onClick={() => setCreateOpen(true)}
             className="h-8.5 px-3.5 text-xs font-semibold rounded-lg bg-brand-700 hover:bg-brand-800 text-white transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
           >
-            <Plus className="size-3.5" /> Thêm đơn dịch vụ
-          </button>
+            <Plus className="size-3.5" /> {tr("reception:receptionServicePages.addServiceOrder")}</button>
         </div>
       </div>
       {/* Unified Compact Toolbar: Status Filter Tabs + Search & Date Filter */}
@@ -125,9 +122,7 @@ export function ReceptionOrdersPage() {
                 : "text-zinc-600 hover:bg-zinc-100"
             }`}
             onClick={() => update("status", "")}
-          >
-            Tất cả đơn
-          </button>
+          >{tr("reception:receptionServicePages.allOrders")}</button>
           <button
             type="button"
             className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
@@ -136,9 +131,7 @@ export function ReceptionOrdersPage() {
                 : "text-zinc-600 hover:bg-zinc-100"
             }`}
             onClick={() => update("status", "PENDING")}
-          >
-            Cần xử lý ({query.data?.counts.PENDING ?? "…"})
-          </button>
+          >{tr("reception:receptionServicePages.needsAttentionValue", { value0: (query.data?.counts.PENDING ?? "…") })}</button>
           <button
             type="button"
             className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
@@ -147,9 +140,7 @@ export function ReceptionOrdersPage() {
                 : "text-zinc-600 hover:bg-zinc-100"
             }`}
             onClick={() => update("status", "COMPLETED")}
-          >
-            Đã ghi nhận ({query.data?.counts.COMPLETED ?? "…"})
-          </button>
+          >{tr("reception:receptionServicePages.recordedValue", { value0: (query.data?.counts.COMPLETED ?? "…") })}</button>
           <button
             type="button"
             className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
@@ -158,18 +149,16 @@ export function ReceptionOrdersPage() {
                 : "text-zinc-600 hover:bg-zinc-100"
             }`}
             onClick={() => update("status", "CANCELLED")}
-          >
-            Đã hủy ({query.data?.counts.CANCELLED ?? "…"})
-          </button>
+          >{tr("reception:receptionServicePages.cancelledValue", { value0: (query.data?.counts.CANCELLED ?? "…") })}</button>
 
           {params.get("bookingId") && (
             <div className="flex items-center gap-1.5 text-xs text-brand-700 bg-brand-50 border border-brand-200/60 px-2.5 py-1 rounded-md ml-1">
-              <span>Lọc booking: {params.get("bookingId")?.slice(0, 8)}</span>
+              <span>{tr("reception:receptionServicePages.reservationFilterValue", { value0: (params.get("bookingId")?.slice(0, 8)) })}</span>
               <button
                 type="button"
                 className="text-zinc-400 hover:text-zinc-700 p-0.5 rounded cursor-pointer inline-flex items-center"
                 onClick={() => update("bookingId", "")}
-                title="Bỏ lọc theo booking"
+                title={tr("reception:receptionServicePages.clearReservationFilter")}
               >
                 <X className="size-3" />
               </button>
@@ -189,8 +178,8 @@ export function ReceptionOrdersPage() {
             <Search className="size-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="search"
-              aria-label="Tìm phòng hoặc khách"
-              placeholder="Số phòng, tên khách, mã booking…"
+              aria-label={tr("reception:receptionServicePages.searchRoomOrGuest")}
+              placeholder={tr("reception:receptionServicePages.roomNumberGuestNameReservationCode")}
               maxLength={120}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -200,8 +189,8 @@ export function ReceptionOrdersPage() {
 
           <input
             type="date"
-            aria-label="Ngày đặt đơn"
-            title="Lọc theo ngày đặt đơn"
+            aria-label={tr("reception:receptionServicePages.orderDate")}
+            title={tr("reception:receptionServicePages.filterByOrderDate")}
             value={params.get("date") ?? ""}
             onChange={(e) => update("date", e.target.value)}
             className="h-8.5 px-2 text-xs border border-zinc-200 rounded-lg bg-zinc-50/50 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors text-zinc-700"
@@ -210,9 +199,7 @@ export function ReceptionOrdersPage() {
           <button
             type="submit"
             className="h-8.5 px-3 text-xs font-medium rounded-lg bg-brand-700 hover:bg-brand-800 text-white transition-colors cursor-pointer shrink-0"
-          >
-            Tìm kiếm
-          </button>
+          >{tr("reception:cashier.search")}</button>
 
           {(params.get("q") || params.get("date")) && (
             <button
@@ -225,8 +212,7 @@ export function ReceptionOrdersPage() {
                 setParams(next);
               }}
             >
-              <X className="size-3" /> Xóa bộ lọc
-            </button>
+              <X className="size-3" /> {tr("reception:frontDeskPages.clearFilters")}</button>
           )}
         </form>
       </div>
@@ -235,11 +221,9 @@ export function ReceptionOrdersPage() {
       <Card>
         <CardHeader className="pb-2 border-b border-zinc-100">
           <CardTitle className="service-orders-heading text-sm font-semibold text-zinc-900 flex items-center justify-between">
-            <span>Danh sách yêu cầu dịch vụ</span>
+            <span>{tr("reception:receptionServicePages.serviceRequestList")}</span>
             {query.data?.meta && (
-              <span className="text-xs text-zinc-500 font-normal">
-                Tổng cộng: {query.data.meta.total} đơn
-              </span>
+              <span className="text-xs text-zinc-500 font-normal">{tr("reception:receptionServicePages.totalValueOrders", { value0: (query.data.meta.total) })}</span>
             )}
           </CardTitle>
         </CardHeader>
@@ -248,24 +232,24 @@ export function ReceptionOrdersPage() {
             <Skeleton />
           ) : query.error ? (
             <ErrorState
-              message={query.error.message}
+              message={safeError(query.error)}
               retry={() => void query.refetch()}
             />
           ) : (
             <>
               <Table
-                caption="Danh sách đơn dịch vụ"
+                caption={tr("reception:receptionServicePages.serviceOrderList")}
                 rows={query.data!.data}
                 rowKey={(o) => o.id}
                 empty={
                   <EmptyState
-                    title="Không có đơn dịch vụ phù hợp"
-                    description="Thử chọn trạng thái khác hoặc quay lại khi khách tạo yêu cầu mới."
+                    title={tr("reception:receptionServicePages.noMatchingServiceOrders")}
+                    description={tr("reception:receptionServicePages.tryAnotherStatusOrReturnWhenAGuestCreatesANewRequest")}
                   />
                 }
                 columns={[
                   {
-                    title: "MÃ ĐƠN",
+                    title: tr("reception:receptionServicePages.orderId"),
                     render: (o) => (
                       <div className="space-y-0.5">
                         <DeskLink
@@ -276,7 +260,7 @@ export function ReceptionOrdersPage() {
                         </DeskLink>
                         <span className="text-[11px] text-zinc-400 flex items-center gap-1">
                           <Clock className="size-3" />
-                          {new Date(o.orderedAt).toLocaleString("vi-VN", {
+                          {new Date(o.orderedAt).toLocaleString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh',
                             hour: "2-digit",
                             minute: "2-digit",
                             day: "2-digit",
@@ -287,12 +271,12 @@ export function ReceptionOrdersPage() {
                     ),
                   },
                   {
-                    title: "PHÒNG & KHÁCH",
+                    title: tr("reception:receptionServicePages.roomGuest"),
                     render: (o) => (
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
                           <span className="inline-flex items-center rounded bg-brand-50 px-1.5 py-0.5 text-xs font-bold text-brand-800">
-                            P.{o.roomNumber}
+                            {tr("reception:createServiceOrder.rm")}{o.roomNumber}
                           </span>
                           <DeskLink
                             to={`${base}/bookings/${o.bookingId}`}
@@ -308,20 +292,17 @@ export function ReceptionOrdersPage() {
                     ),
                   },
                   {
-                    title: "CHI TIẾT MÓN",
+                    title: tr("reception:receptionServicePages.itemDetails"),
                     render: (o) => (
                       <div className="max-w-xs text-xs text-zinc-700 leading-snug">
                         {o.items.map((i) => (
-                          <span key={i.id} className="service-order-item">
-                            {i.serviceName.replace(/^TEST-\d{8}\s+/, "")}{" "}
-                            <strong className="text-zinc-900">×{i.quantity}</strong>
-                          </span>
+                          <span key={i.id} className="service-order-item"><Trans ns="reception" i18nKey="receptionServicePages.valueValue" values={{ value0: (catalogName(i.serviceName).replace(/^TEST-\d{8}\s+/, "")), value1: (i.quantity) }} components={{ part0: <strong className="text-zinc-900" /> }} /></span>
                         ))}
                       </div>
                     ),
                   },
                   {
-                    title: "TỔNG TIỀN",
+                    title: tr("reception:cashier.total"),
                     render: (o) => (
                       <span className="font-semibold text-xs text-zinc-900 tabular-nums">
                         {money(o.totalAmount)}
@@ -329,7 +310,7 @@ export function ReceptionOrdersPage() {
                     ),
                   },
                   {
-                    title: "TRẠNG THÁI",
+                    title: tr("reception:cashier.status"),
                     render: (o) => (
                       <Badge
                         tone={
@@ -345,15 +326,13 @@ export function ReceptionOrdersPage() {
                     ),
                   },
                   {
-                    title: "THAO TÁC",
+                    title: tr("reception:cashier.actions"),
                     render: (o) => (
                       <div className="service-order-actions">
                         <DeskLinkButton
                           variant="secondary"
                           to={`${base}/service-orders/${o.id}`}
-                        >
-                          Chi tiết
-                        </DeskLinkButton>
+                        >{tr("reception:cashier.details")}</DeskLinkButton>
                         {o.canProcess && <ServiceOrderActions order={o} />}
                       </div>
                     ),
@@ -395,6 +374,7 @@ function getServiceIcon(name: string) {
 }
 
 export function ReceptionOrderDetailPage() {
+  useLocale();
   const { id = "" } = useParams();
   const base = useDeskBase();
   const [copied, setCopied] = useState(false);
@@ -418,7 +398,7 @@ export function ReceptionOrderDetailPage() {
   if (query.error) {
     return (
       <ErrorState
-        message={query.error.message}
+        message={safeError(query.error)}
         retry={() => void query.refetch()}
       />
     );
@@ -435,7 +415,7 @@ export function ReceptionOrderDetailPage() {
   const customer = booking.data?.customer;
 
   return (
-    <div className="desk-page space-y-4 max-w-5xl mx-auto pb-12">
+    <div className="print-document desk-page space-y-4 max-w-5xl mx-auto pb-12">
       {/* 1. Top Navigation & Order ID */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs service-order-no-print">
         <DeskBackLink
@@ -443,23 +423,23 @@ export function ReceptionOrderDetailPage() {
           className="inline-flex items-center gap-1.5 font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
         >
           <ArrowLeft className="size-4" />
-          <span>Quay lại danh sách đơn dịch vụ</span>
+          <span>{tr("reception:receptionServicePages.backToServiceOrders")}</span>
         </DeskBackLink>
         <button
           type="button"
           onClick={handleCopyId}
-          title="Sao chép toàn bộ mã UUID"
+          title={tr("reception:receptionServicePages.copyFullUuid")}
           className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-800 font-mono text-xs bg-white hover:bg-zinc-50 border border-zinc-200/90 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs"
         >
           {copied ? (
             <>
               <Check className="size-3 text-emerald-600" />
-              <span className="text-emerald-700 font-sans font-medium">Đã sao chép</span>
+              <span className="text-emerald-700 font-sans font-medium">{tr("reception:receptionServicePages.copied")}</span>
             </>
           ) : (
             <>
               <Copy className="size-3 text-zinc-400" />
-              <span>Mã đơn: {o.id.slice(0, 8)}…{o.id.slice(-6)}</span>
+              <span>{tr("reception:receptionServicePages.orderIdValueValue", { value0: (o.id.slice(0, 8)), value1: (o.id.slice(-6)) })}</span>
             </>
           )}
         </button>
@@ -469,9 +449,7 @@ export function ReceptionOrderDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-xl border border-zinc-200/90 shadow-2xs">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900">
-              Đơn dịch vụ #{o.id.slice(0, 8)}
-            </h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900">{tr("reception:receptionServicePages.serviceOrderValue", { value0: (o.id.slice(0, 8)) })}</h1>
             <Badge
               className="px-2.5 py-1 text-xs font-semibold"
               tone={
@@ -493,10 +471,10 @@ export function ReceptionOrderDetailPage() {
           </div>
           <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
             <Clock className="size-3.5 text-zinc-400" />
-            Thời gian đặt:{" "}
+            {tr("reception:receptionServicePages.orderedAt")}{" "}
             <span className="text-zinc-700 font-medium">
-              {new Date(o.orderedAt).toLocaleString("vi-VN", {
-                timeZone: "Asia/Bangkok",
+              {new Date(o.orderedAt).toLocaleString(displayLocale(), {
+                timeZone: "Asia/Ho_Chi_Minh",
                 hour: "2-digit",
                 minute: "2-digit",
                 day: "2-digit",
@@ -508,7 +486,7 @@ export function ReceptionOrderDetailPage() {
         </div>
 
         <div className="text-right">
-          <div className="text-xs text-zinc-400">Tổng thanh toán</div>
+          <div className="text-xs text-zinc-400">{tr("reception:receptionServicePages.totalPayment")}</div>
           <div className="text-xl sm:text-2xl font-black text-brand-900 tabular-nums">
             {money(o.totalAmount)}
           </div>
@@ -525,10 +503,10 @@ export function ReceptionOrderDetailPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-50 border border-brand-200/80 text-brand-900 font-bold text-sm">
                   <BedDouble className="size-4 text-brand-700" />
-                  Phòng {booking.data.roomNumber}
+                  {tr("reception:components.room2")}{booking.data.roomNumber}
                 </span>
                 <span className="font-semibold text-zinc-900 text-sm">
-                  {customer?.fullName || "Khách lẻ tại quầy"}
+                  {customer?.fullName || tr("reception:today.walkInGuest")}
                 </span>
                 {customer?.phone && (
                   <span className="text-xs text-zinc-500 flex items-center gap-1">
@@ -545,7 +523,7 @@ export function ReceptionOrderDetailPage() {
                 to={`${base}/bookings/${o.bookingId}`}
                 className="text-xs font-medium text-brand-700 hover:underline inline-flex items-center gap-1 shrink-0"
               >
-                <span>Booking #{booking.data.reference}</span>
+                <span>{tr("reception:receptionServicePages.reservation")}{booking.data.reference}</span>
                 <ExternalLink className="size-3" />
               </DeskLink>
             </div>
@@ -554,27 +532,23 @@ export function ReceptionOrderDetailPage() {
           {/* Service Items Table */}
           <div className="rounded-xl border border-zinc-200/90 bg-white overflow-hidden shadow-2xs">
             <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-600">
-                Chi tiết dịch vụ ({o.items.length} món)
-              </span>
-              <span className="text-xs text-zinc-400">
-                Đơn giá
-              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-600">{tr("reception:receptionServicePages.serviceDetailsValueItems", { value0: (o.items.length) })}</span>
+              <span className="text-xs text-zinc-400">{tr("reception:receptionBillingPages.unitPrice2")}</span>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
                   <tr className="border-b border-zinc-100 text-[11px] font-bold uppercase tracking-wider text-zinc-500 bg-white">
-                    <th className="py-2.5 px-4">Dịch vụ</th>
-                    <th className="py-2.5 px-3 text-center">Số lượng</th>
-                    <th className="py-2.5 px-3 text-right">Đơn giá</th>
-                    <th className="py-2.5 px-4 text-right">Thành tiền</th>
+                    <th className="py-2.5 px-4">{tr("reception:cashier.services")}</th>
+                    <th className="py-2.5 px-3 text-center">{tr("reception:receptionServicePages.quantity")}</th>
+                    <th className="py-2.5 px-3 text-right">{tr("reception:receptionBillingPages.unitPrice2")}</th>
+                    <th className="py-2.5 px-4 text-right">{tr("reception:reservationPanels.subtotal")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {o.items.map((item, idx) => {
-                    const cleanName = cleanServiceName(item.serviceName);
+                    const cleanName = catalogName(cleanServiceName(item.serviceName));
                     const icon = getServiceIcon(item.serviceName);
                     return (
                       <tr
@@ -591,9 +565,7 @@ export function ReceptionOrderDetailPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="py-3 px-3 text-center font-medium tabular-nums">
-                          ×{item.quantity}
-                        </td>
+                        <td className="py-3 px-3 text-center font-medium tabular-nums">{tr("reception:receptionServicePages.value", { value0: (item.quantity) })}</td>
                         <td className="py-3 px-3 text-right text-zinc-600 tabular-nums">
                           {money(item.unitPrice)}
                         </td>
@@ -606,9 +578,7 @@ export function ReceptionOrderDetailPage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-zinc-200 bg-zinc-50/60">
-                    <td colSpan={3} className="py-3 px-4 font-bold text-zinc-700 text-right">
-                      Tổng cộng:
-                    </td>
+                    <td colSpan={3} className="py-3 px-4 font-bold text-zinc-700 text-right">{tr("reception:receptionServicePages.total")}</td>
                     <td className="py-3 px-4 text-right text-base sm:text-lg font-extrabold text-brand-900 tabular-nums">
                       {money(o.totalAmount)}
                     </td>
@@ -623,33 +593,27 @@ export function ReceptionOrderDetailPage() {
         <div className="lg:col-span-5 space-y-4">
           <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs space-y-4">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 block mb-1">
-                Phương thức & Trạng thái
-              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 block mb-1">{tr("reception:receptionServicePages.methodStatus")}</span>
               <p className="text-xs text-zinc-600 leading-relaxed">
                 {o.status === 'CANCELLED'
-                  ? (o.refundedAt ? 'Đã hủy và hoàn tiền.' : 'Đơn đã hủy, không tính phí.')
+                  ? (o.refundedAt ? tr("reception:receptionServicePages.cancelledAndRefunded") : tr("reception:receptionServicePages.orderCancelledNoCharge"))
                   : o.requestedPaymentMethod && o.paymentMethod
-                  ? (o.deliveredAt ? 'Đã thanh toán và đã giao dịch vụ cho khách.' : `Đã thanh toán. Cần mang dịch vụ lên phòng ${roomNum}.`)
+                  ? (o.deliveredAt ? tr("reception:receptionServicePages.paidAndDeliveredToTheGuest") : tr("reception:receptionServicePages.paidDeliverTheServicesToRoomValue", { value0: (roomNum) }))
                   : o.requestedPaymentMethod === 'CASH'
-                  ? 'Thanh toán tiền mặt khi giao hàng.'
+                  ? tr("reception:receptionServicePages.cashPaymentOnDelivery")
                   : o.requestedPaymentMethod === 'BANK_TRANSFER'
-                  ? 'Chờ thanh toán chuyển khoản.'
+                  ? tr("reception:receptionServicePages.awaitingBankTransfer")
                   : o.paymentMethod
-                  ? 'Đã thanh toán riêng.'
+                  ? tr("reception:receptionServicePages.paidSeparately")
                   : o.status === 'PENDING'
-                  ? 'Yêu cầu mới từ khách.'
-                  : `Đã ghi vào hóa đơn phòng ${roomNum}, thanh toán khi trả phòng.`}
+                  ? tr("reception:receptionServicePages.newGuestRequest")
+                  : tr("reception:receptionServicePages.chargedToRoomInvoiceValuePayableAtCheckOut", { value0: (roomNum) })}
               </p>
               {o.paidAt && (
-                <div className="mt-1 text-[11px] text-zinc-500 font-medium">
-                  Đã thu lúc {new Date(o.paidAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ({o.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'})
-                </div>
+                <div className="mt-1 text-[11px] text-zinc-500 font-medium">{tr("reception:receptionServicePages.collectedAtValueValue", { value0: (new Date(o.paidAt).toLocaleTimeString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh', hour: "2-digit", minute: "2-digit" })), value1: (o.paymentMethod === 'CASH' ? tr("common:supplement.cash") : tr("common:supplement.bankTransfer")) })}</div>
               )}
               {o.refundedAt && (
-                <div className="mt-1 text-[11px] text-zinc-500 font-medium">
-                  Đã hoàn lúc {new Date(o.refundedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                </div>
+                <div className="mt-1 text-[11px] text-zinc-500 font-medium">{tr("reception:receptionServicePages.refundedAtValue", { value0: (new Date(o.refundedAt).toLocaleTimeString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh', hour: "2-digit", minute: "2-digit" })) })}</div>
               )}
             </div>
 
@@ -658,7 +622,7 @@ export function ReceptionOrderDetailPage() {
               <Skeleton />
             ) : booking.error || invoice.error ? (
               <ErrorState
-                message={(booking.error ?? invoice.error)!.message}
+                message={safeError((booking.error ?? invoice.error)!)}
                 retry={() => {
                   void booking.refetch();
                   void invoice.refetch();
@@ -672,13 +636,11 @@ export function ReceptionOrderDetailPage() {
               <div className="pt-2 border-t border-zinc-100 text-xs text-zinc-500">
                 {o.status === "COMPLETED" && (
                   <span className="inline-flex items-center gap-1.5 text-emerald-700 font-medium">
-                    <CheckCircle2 className="size-3.5" /> Đơn đã ghi nhận hoàn tất
-                  </span>
+                    <CheckCircle2 className="size-3.5" /> {tr("reception:receptionServicePages.orderRecordedAsComplete")}</span>
                 )}
                 {o.status === "CANCELLED" && (
                   <span className="inline-flex items-center gap-1.5 text-rose-600 font-medium">
-                    <XCircle className="size-3.5" /> Đơn dịch vụ đã hủy
-                  </span>
+                    <XCircle className="size-3.5" /> {tr("reception:receptionServicePages.serviceOrderCancelled")}</span>
                 )}
               </div>
             )}
@@ -692,8 +654,7 @@ export function ReceptionOrderDetailPage() {
                 className="w-full justify-center py-2 text-xs font-medium text-zinc-700 rounded-lg gap-2 cursor-pointer shadow-2xs"
               >
                 <Printer className="size-3.5 text-zinc-500" />
-                In phiếu dịch vụ phòng (Ticket)
-              </Button>
+                {tr("reception:receptionServicePages.printRoomServiceTicket")}</Button>
               )}
 
               {booking.data && (
@@ -703,7 +664,7 @@ export function ReceptionOrderDetailPage() {
                   className="w-full justify-center py-2 text-xs font-medium text-zinc-700 rounded-lg gap-2 shadow-2xs"
                 >
                   <ExternalLink className="size-3.5 text-zinc-500" />
-                  Xem chi tiết booking #{booking.data.reference}
+                  {tr("reception:receptionServicePages.viewReservationDetails")}{booking.data.reference}
                 </DeskLinkButton>
               )}
             </div>

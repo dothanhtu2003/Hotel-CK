@@ -42,7 +42,7 @@ describe('Phase 9 timestamp, security and transition regressions — local hotel
     const http = request(context.app.getHttpServer());
     const email = `${randomUUID()}@release-test.invalid`;
     const guest = await http.post('/api/auth/register').send({ fullName: 'Race guest', email, password }).expect(201);
-    const login = await http.post('/api/auth/login').send({ email, password }).expect(200);
+    await http.post('/api/auth/login').send({ email, password }).expect(200);
     const type = await db.roomType.create({ data: { name: `Release ${tag}`, nightlyPrice: '100.25', maxGuests: 2 } });
     const room = await db.room.create({ data: { roomNumber: `R9${tag}`, floor: 1, roomTypeId: type.id } });
     const staff = await db.user.create({ data: { email: `${randomUUID()}@release-test.invalid`, fullName: 'Race staff', role: 'RECEPTIONIST', passwordHash: (await db.user.findUniqueOrThrow({ where: { id: guest.body.id } })).passwordHash } });

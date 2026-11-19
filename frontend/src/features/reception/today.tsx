@@ -1,3 +1,8 @@
+import { catalogName } from "../../i18n/catalog";
+import { displayLocale, safeError, t as tr, useLocale } from "../../i18n";
+
+
+import { Trans } from "react-i18next";
 import { DeskLink, DeskLinkButton } from "./navigation";
 import { StayHistory } from './stay-history';
 import { ExtendStayDialog } from './extend-stay-dialog';
@@ -49,6 +54,7 @@ import type { BoardRoom } from '../housekeeping/contracts';
 import { useHousekeepingGet } from '../housekeeping/queries';
 
 export function ReceptionDashboard() {
+  useLocale();
   const base = useDeskBase(),
     refresh = useRefreshDesk();
   const [params, setParams] = useSearchParams();
@@ -190,9 +196,7 @@ export function ReceptionDashboard() {
       {/* Top Greeting Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
-            Tổng quan lễ tân
-          </h1>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">{tr("reception:today.receptionOverview")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -204,7 +208,7 @@ export function ReceptionDashboard() {
             <RefreshCw
               className={`size-3.5 text-zinc-500 ${query.isFetching ? "animate-spin" : ""}`}
             />
-            <span>Làm mới</span>
+            <span>{tr("reception:today.refresh")}</span>
           </button>
         </div>
       </div>
@@ -213,7 +217,7 @@ export function ReceptionDashboard() {
         <Skeleton />
       ) : query.error ? (
         <ErrorState
-          message={query.error.message}
+          message={safeError(query.error)}
           retry={() => void query.refetch()}
         />
       ) : (
@@ -222,18 +226,16 @@ export function ReceptionDashboard() {
             {/* Quick Alert Bar for pending operations */}
             {((overdue.data?.meta.total ?? 0) > 0 || d.counts.pending > 0 || d.counts.orders > 0) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
-                <span className="font-semibold uppercase tracking-wider">Cần lưu ý:</span>
+                <span className="font-semibold uppercase tracking-wider">{tr("reception:today.attentionNeeded")}</span>
                 {(overdue.data?.meta.total ?? 0) > 0 && (
-                  <DeskLink to={`${base}/bookings?view=overdue`} className="font-medium hover:underline text-amber-800">
-                    {overdue.data!.meta.total} booking quá ngày nhận chưa xử lý →
-                  </DeskLink>
+                  <DeskLink to={`${base}/bookings?view=overdue`} className="font-medium hover:underline text-amber-800">{tr("reception:today.valueOverdueArrivalsAwaitingAction", { value0: (overdue.data!.meta.total) })}</DeskLink>
                 )}
                 {d.counts.pending > 0 && (
                   <DeskLink
                     to={`${base}/bookings?status=PENDING`}
                     className="inline-flex items-center gap-1 font-medium hover:underline text-amber-800"
                   >
-                    <span>{d.counts.pending} booking chờ thanh toán / xác nhận</span>
+                    <span>{tr("reception:today.valueReservationsAwaitingPaymentConfirmation", { value0: (d.counts.pending) })}</span>
                     <ChevronRight className="size-3" />
                   </DeskLink>
                 )}
@@ -242,7 +244,7 @@ export function ReceptionDashboard() {
                     to={`${base}/service-orders?status=PENDING`}
                     className="inline-flex items-center gap-1 font-medium hover:underline text-amber-800"
                   >
-                    <span>{d.counts.orders} đơn dịch vụ phòng chờ xử lý</span>
+                    <span>{tr("reception:today.valueRoomServiceOrdersPending", { value0: (d.counts.orders) })}</span>
                     <ChevronRight className="size-3" />
                   </DeskLink>
                 )}
@@ -253,7 +255,7 @@ export function ReceptionDashboard() {
             <Card className="w-full">
                   <CardHeader>
                     <div>
-                      <CardTitle>Bảng trạng thái phòng</CardTitle>
+                      <CardTitle>{tr("reception:today.roomStatusBoard")}</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -262,9 +264,7 @@ export function ReceptionDashboard() {
                       <div className="mb-3 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50/80 px-3 py-2 text-xs text-brand-900">
                         <div className="flex items-center gap-2">
                           <Plus className="size-4 text-brand-600 shrink-0" />
-                          <span>
-                            <strong>Chế độ đặt phòng mới:</strong> Chọn phòng phù hợp trên sơ đồ bên dưới để tạo booking.
-                          </span>
+                          <span><Trans ns="reception" i18nKey="today.newReservationModeChooseASuitableRoomOnTheBoardBelowTo" components={{ part0: <strong /> }} /></span>
                         </div>
                         <button
                           type="button"
@@ -274,9 +274,7 @@ export function ReceptionDashboard() {
                             setParams(next);
                           }}
                           className="text-xs font-semibold text-brand-700 hover:underline cursor-pointer"
-                        >
-                          Thoát chế độ
-                        </button>
+                        >{tr("reception:today.exitMode")}</button>
                       </div>
                     )}
 
@@ -291,9 +289,7 @@ export function ReceptionDashboard() {
                               ? "bg-brand-50 text-brand-700 font-semibold"
                               : "text-zinc-500 hover:text-zinc-800"
                           }`}
-                        >
-                          Tất cả các tầng
-                        </button>
+                        >{tr("reception:today.allFloors")}</button>
                         {floorList.map((fl) => (
                           <button
                             key={fl}
@@ -304,13 +300,11 @@ export function ReceptionDashboard() {
                                 ? "bg-brand-50 text-brand-700 font-semibold"
                                 : "text-zinc-500 hover:text-zinc-800"
                             }`}
-                          >
-                            Tầng {fl}
-                          </button>
+                          >{tr("reception:today.floorValue", { value0: (fl) })}</button>
                         ))}
                       </div>
 
-                      <div role="group" aria-label="Lọc số giường" className="flex items-center gap-1 border-l border-zinc-200 pl-3">
+                      <div role="group" aria-label={tr("reception:today.filterByBedCount")} className="flex items-center gap-1 border-l border-zinc-200 pl-3">
                         {[1, 2].map((beds) => (
                           <button key={beds} type="button" aria-pressed={bedsParam === String(beds)}
                             onClick={() => {
@@ -320,28 +314,22 @@ export function ReceptionDashboard() {
                               setParams(next);
                             }}
                             className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${bedsParam === String(beds) ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-zinc-500 hover:text-zinc-800'}`}>
-                            <BedDouble className="size-3.5" />{beds} giường
-                          </button>
+                            <BedDouble className="size-3.5" />{tr("common:supplement.bedCount", { value0: beds })}</button>
                         ))}
                       </div>
                       <div className="flex items-center gap-3">
-                      {requestsOnly && <DeskLink to={`${base}/service-orders`} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</DeskLink>}
+                      {requestsOnly && <DeskLink to={`${base}/service-orders`} className="text-xs text-emerald-800 underline underline-offset-2">{tr("reception:roomRequests.allServiceOrders")}</DeskLink>}
                       <button type="button" aria-pressed={requestsOnly} disabled={!requests.data} onClick={() => setRequestsOnly(!requestsOnly)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ${requestsOnly ? "border-amber-400 bg-amber-100 text-amber-900" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                        <BellRing className="size-3.5" /> Có yêu cầu ({requests.data ? requestRooms.size : '…'})
+                        <BellRing className="size-3.5" /> {tr("common:supplement.requestsTitle", { value0: requests.data ? requestRooms.size : '…' })}
                       </button>
                       </div>
                       {stateParam && (
                         <div className="flex items-center gap-1.5 text-xs text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md">
-                          <span>
-                            Lọc:{" "}
-                            <strong>
-                              {stateParam === "ready"
-                                ? "Trống sạch"
+                          <span><Trans ns="reception" i18nKey="today.filterValue" values={{ value0: (stateParam === "ready"
+                                ? tr("common:supplement.cleanVacant")
                                 : stateParam === "occupied"
-                                ? "Đang ở"
-                                : "Cần dọn"}
-                            </strong>
-                          </span>
+                                ? tr("common:supplement.occupied")
+                                : tr("common:supplement.needsCleaning")) }} components={{ part0: <strong /> }} /></span>
                           <button
                             type="button"
                             onClick={() => {
@@ -350,15 +338,13 @@ export function ReceptionDashboard() {
                               setParams(next);
                             }}
                             className="font-bold text-zinc-400 hover:text-zinc-800 ml-1 cursor-pointer"
-                            title="Xóa bộ lọc"
-                          >
-                            ×
-                          </button>
+                            title={tr("reception:today.clearFilters")}
+                          >{tr("reception:today.label")}</button>
                         </div>
                       )}
                     </div>
 
-                    {requests.error && <div role="alert" className="mb-3 text-xs text-rose-700">Chưa tải được thông báo yêu cầu. <button type="button" className="underline" onClick={() => void requests.refetch()}>Thử lại</button></div>}
+                    {requests.error && <div role="alert" className="mb-3 text-xs text-rose-700">{tr("reception:today.unableToLoadRequestNotifications")}<button type="button" className="underline" onClick={() => void requests.refetch()}>{tr("reception:today.tryAgain")}</button></div>}
                     {/* Room Grid by Floor */}
                     {roomsQuery.isPending ? (
                       <div className="py-8">
@@ -367,13 +353,13 @@ export function ReceptionDashboard() {
                     ) : roomsQuery.error ? (
                       <div className="py-6">
                         <ErrorState
-                          message={roomsQuery.error.message}
+                          message={safeError(roomsQuery.error)}
                           retry={() => void roomsQuery.refetch()}
                         />
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {shownRooms.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">Không có phòng phù hợp với bộ lọc.</p>}
+                        {shownRooms.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">{tr("reception:today.noRoomsMatchTheFilters")}</p>}
                         {shownFloors.map((fl) => {
                         const roomsOnFloor = shownRooms.filter(
                           (r) => Number(r.floor || 1) === fl,
@@ -381,9 +367,7 @@ export function ReceptionDashboard() {
                         if (!roomsOnFloor.length) return null;
                         return (
                           <div key={fl} className="flex items-start gap-2.5 sm:gap-3">
-                            <div className="w-11 sm:w-13 shrink-0 pt-2 text-xs font-semibold text-zinc-400">
-                              Tầng {fl}
-                            </div>
+                            <div className="w-11 sm:w-13 shrink-0 pt-2 text-xs font-semibold text-zinc-400">{tr("reception:today.floorValue", { value0: (fl) })}</div>
                             <div className="grid flex-1 grid-cols-[repeat(auto-fill,minmax(110px,165px))] gap-2 sm:gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(130px,175px))]">
                               {roomsOnFloor.map((room) => {
                                 const roomOrders = pendingOrders.filter(order => order.roomNumber === room.roomNumber);
@@ -436,10 +420,10 @@ export function ReceptionDashboard() {
                                 const staySubInfo = occupiedBooking
                                   ? [
                                       occupiedBooking.nights && occupiedBooking.nights > 0
-                                        ? `${occupiedBooking.nights} đêm`
+                                        ? tr("reception:today.valueNights", { value0: (occupiedBooking.nights) })
                                         : null,
                                       occupiedBooking.guestCount && occupiedBooking.guestCount > 0
-                                        ? `${occupiedBooking.guestCount} khách`
+                                        ? tr("reception:today.valueGuests", { value0: (occupiedBooking.guestCount) })
                                         : null,
                                     ]
                                       .filter(Boolean)
@@ -467,26 +451,22 @@ export function ReceptionDashboard() {
                                           {isDepartingToday && (
                                             <span
                                               className="rounded bg-amber-400 text-amber-950 px-1.5 py-0.5 text-[9px] font-bold leading-none shrink-0"
-                                              title="Khách dự kiến trả phòng hôm nay"
-                                            >
-                                              Trả hôm nay
-                                            </span>
+                                              title={tr("reception:today.theGuestIsDueToCheckOutToday")}
+                                            >{tr("reception:cashier.dueToday")}</span>
                                           )}
                                           {isOverdue && (
                                             <span
                                               className="rounded bg-rose-500 text-white px-1.5 py-0.5 text-[9px] font-bold leading-none shrink-0"
-                                              title={hasNextBooking ? "Quá hạn và có booking kế tiếp. Cần xử lý gia hạn hoặc chuyển phòng." : "Quá hạn ngày trả phòng"}
+                                              title={hasNextBooking ? tr("reception:today.theStayIsOverdueAndAnotherReservationFollowsArrangeAnExtensionOr") : tr("reception:today.checkOutDateOverdue")}
                                             >
-                                              {hasNextBooking ? 'Quá hạn ⚠' : 'Quá hạn'}
+                                              {hasNextBooking ? tr("reception:today.overdue") : tr("reception:today.overdue2")}
                                             </span>
                                           )}
                                           {!occupied && arrivingBooking && (
                                             <span
                                               className="rounded bg-sky-200 text-sky-950 px-1 py-0.5 text-[9px] font-bold leading-none shrink-0"
-                                              title="Có booking sắp nhận phòng hôm nay"
-                                            >
-                                              Sắp đến
-                                            </span>
+                                              title={tr("reception:today.aGuestIsDueToCheckInToday")}
+                                            >{tr("reception:today.arrivingSoon")}</span>
                                           )}
                                         </div>
                                         {roomOrders.length > 0 ? (
@@ -515,16 +495,16 @@ export function ReceptionDashboard() {
                                         }`}
                                       >
                                         {occupied
-                                          ? "ĐANG Ở"
+                                          ? tr("reception:today.occupied")
                                           : isOoo
-                                          ? "BẢO TRÌ"
+                                          ? tr("reception:today.maintenance")
                                           : reservedBooking
-                                          ? deskBookingStatusLabel(reservedBooking).toLocaleUpperCase("vi-VN")
+                                          ? deskBookingStatusLabel(reservedBooking).toLocaleUpperCase(displayLocale())
                                           : isDirty
-                                          ? "CẦN DỌN"
+                                          ? tr("reception:today.needsCleaning")
                                           : isCleaning
-                                          ? "ĐANG DỌN"
-                                          : "TRỐNG SẠCH"}
+                                          ? tr("reception:today.cleaning")
+                                          : tr("reception:today.cleanVacant")}
                                       </div>
                                     </div>
 
@@ -532,9 +512,7 @@ export function ReceptionDashboard() {
                                     {occupied && occupiedBooking ? (
                                       <div className="border-t border-emerald-600/40 pt-1.5 my-1.5 space-y-0.5">
                                         <div className="flex items-center gap-1.5">
-                                          <span className="text-[9.5px] font-semibold text-emerald-200/80 w-5.5 shrink-0">
-                                            IN
-                                          </span>
+                                          <span className="text-[9.5px] font-semibold text-emerald-200/80 w-5.5 shrink-0">{tr("reception:today.in")}</span>
                                           <span className="text-[12.5px] sm:text-[13px] font-bold text-white tabular-nums leading-none">
                                             {formatStayDateDisplay(
                                               occupiedBooking.currentRoomSince ?? occupiedBooking.checkIn,
@@ -543,9 +521,7 @@ export function ReceptionDashboard() {
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
-                                          <span className="text-[9.5px] font-semibold text-emerald-200/80 w-5.5 shrink-0">
-                                            OUT
-                                          </span>
+                                          <span className="text-[9.5px] font-semibold text-emerald-200/80 w-5.5 shrink-0">{tr("reception:today.out")}</span>
                                           <span className="text-[12.5px] sm:text-[13px] font-bold text-white tabular-nums leading-none">
                                             {formatStayDateDisplay(
                                               occupiedBooking.checkOut,
@@ -561,7 +537,7 @@ export function ReceptionDashboard() {
                                       </div>
                                     ) : reservedBooking ? (
                                       <div className="my-1.5 space-y-0.5">
-                                        <div className="text-xs font-semibold">{reservedBooking.customer?.fullName ?? 'Khách đặt phòng'}</div>
+                                        <div className="text-xs font-semibold">{reservedBooking.customer?.fullName ?? tr("reception:today.reservationGuest")}</div>
                                         <div className="text-xs">{formatStayDateDisplay(reservedBooking.checkIn, todayStr)} → {formatStayDateDisplay(reservedBooking.checkOut, todayStr)}</div>
                                         {reservedBooking.roomPaidAmount !== undefined ? (
                                           <div className={`inline-flex rounded-md border px-1.5 py-1 text-[11px] font-semibold ${
@@ -570,47 +546,39 @@ export function ReceptionDashboard() {
                                               : "border-amber-300 bg-amber-50 text-amber-900"
                                           }`}>
                                             {Number(reservedBooking.roomPaidAmount) >= Number(reservedBooking.totalRoomAmount)
-                                              ? "✓ Đã thanh toán tiền phòng"
+                                              ? tr("reception:today.roomChargePaid")
                                               : Number(reservedBooking.roomPaidAmount) > 0
-                                              ? "Đã thanh toán một phần"
-                                              : "Chưa thanh toán tiền phòng"}
+                                              ? tr("reception:today.partiallyPaid")
+                                              : tr("reception:today.roomChargeUnpaid")}
                                           </div>
                                         ) : awaitingOnlinePayment(reservedBooking) ? (
-                                          <div className="text-xs">Chưa thanh toán tiền phòng</div>
+                                          <div className="text-xs">{tr("reception:today.roomChargeUnpaid")}</div>
                                         ) : null}
                                       </div>
                                     ) : isClean ? (
                                       <div className="my-1.5 space-y-0.5">
-                                        <div className="text-[11px] font-semibold text-emerald-900/80 tabular-nums">
-                                          {money(room.roomType.nightlyPrice)}/đêm
-                                        </div>
-                                        <div className="text-[10px] text-emerald-700/75">
-                                          Tối đa {room.roomType.maxGuests} khách
-                                        </div>
+                                        <div className="text-[11px] font-semibold text-emerald-900/80 tabular-nums">{tr("reception:extendStayDialog.valueNight", { value0: (money(room.roomType.nightlyPrice)) })}</div>
+                                        <div className="text-[10px] text-emerald-700/75">{tr("reception:today.upToValueGuests", { value0: (room.roomType.maxGuests) })}</div>
                                       </div>
                                     ) : isDirty || isCleaning ? (
                                       <div className="my-1.5 space-y-0.5">
                                         <div className="text-[10px] font-medium">
                                           {room.openTaskCount > 0
-                                            ? `${room.openTaskCount} việc buồng phòng`
+                                            ? tr("reception:today.valueHousekeepingTasks", { value0: (room.openTaskCount) })
                                             : isCleaning
-                                            ? "Đang dọn dẹp"
-                                            : "Chờ dọn dẹp"}
+                                            ? tr("reception:today.cleaningInProgress")
+                                            : tr("reception:today.awaitingCleaning")}
                                         </div>
                                         <div className="text-[10px] opacity-75">
-                                          {isCleaning ? "Đang dọn" : awaitingStart ? "Đã phân công · Chờ nhận việc" : "Chưa phân công"}
+                                          {isCleaning ? tr("reception:roomState.cleaning") : awaitingStart ? tr("reception:today.assignedAwaitingStart") : tr("reception:today.unassigned")}
                                         </div>
                                       </div>
                                     ) : (
-                                      <div className="my-1.5 text-[10px] font-medium opacity-80">
-                                        Ngưng phục vụ
-                                      </div>
+                                      <div className="my-1.5 text-[10px] font-medium opacity-80">{tr("reception:roomState.outOfService")}</div>
                                     )}
 
                                     {assigneeNames && (
-                                      <div className="text-[10px] font-medium truncate" title={assigneeNames}>
-                                        Phân công: {assigneeNames}
-                                      </div>
+                                      <div className="text-[10px] font-medium truncate" title={assigneeNames}>{tr("reception:today.assignedValue", { value0: (assigneeNames) })}</div>
                                     )}
                                     {/* Bottom: Room Type Name */}
                                     <div
@@ -618,10 +586,10 @@ export function ReceptionDashboard() {
                                         occupied ? "text-emerald-200/70" : "opacity-75"
                                       }`}
                                     >
-                                      {room.roomType.name}
+                                      {catalogName(room.roomType.name)}
                                     </div>
                                   </button>
-                                  {roomOrders.length > 0 && <button type="button" onClick={() => setRequestRoom(room.roomNumber)} aria-label={`Phòng ${room.roomNumber}: ${roomOrders.length} yêu cầu chờ xử lý`} title="Xem yêu cầu của khách" className={`room-request-bell ${occupied ? "room-request-bell--occupied" : ""}`}>
+                                  {roomOrders.length > 0 && <button type="button" onClick={() => setRequestRoom(room.roomNumber)} aria-label={tr("reception:today.roomValueValuePendingRequests", { value0: (room.roomNumber), value1: (roomOrders.length) })} title={tr("reception:today.viewGuestRequests")} className={`room-request-bell ${occupied ? "room-request-bell--occupied" : ""}`}>
                                     <Bell size={16} strokeWidth={1.7} /><span className="room-request-bell__count">{roomOrders.length > 9 ? "9+" : roomOrders.length}</span>
                                   </button>}
                                   </div>
@@ -633,9 +601,7 @@ export function ReceptionDashboard() {
                       })}
 
                       {shownRooms.length === 0 && (
-                        <div className="py-8 text-center text-sm text-zinc-400">
-                          Không có phòng nào phù hợp với bộ lọc hiện tại.
-                        </div>
+                        <div className="py-8 text-center text-sm text-zinc-400">{tr("reception:today.noRoomsMatchTheCurrentFilters")}</div>
                       )}
                     </div>
                   )}
@@ -650,9 +616,7 @@ export function ReceptionDashboard() {
                               setParams(next);
                             }}
                             className="font-medium text-brand-700 hover:underline cursor-pointer"
-                          >
-                            Xem tất cả trạng thái
-                          </button>
+                          >{tr("reception:today.viewAllStatuses")}</button>
                       </div>
                     )}
 
@@ -660,24 +624,19 @@ export function ReceptionDashboard() {
                     <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
                       <span className="inline-flex items-center gap-1.5">
                         <span className="size-2.5 rounded-full bg-emerald-500" />
-                        Trống sạch
-                      </span>
+                        {tr("reception:roomConditionEditor.cleanVacant")}</span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="size-2.5 rounded-full bg-brand-600" />
-                        Đang ở
-                      </span>
+                        {tr("reception:roomState.occupied")}</span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="size-2.5 rounded-full bg-amber-500" />
-                        Cần dọn
-                      </span>
+                        {tr("reception:roomState.needsCleaning")}</span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="size-2.5 rounded-full bg-sky-500" />
-                        Đang dọn
-                      </span>
+                        {tr("reception:roomState.cleaning")}</span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="size-2.5 rounded-full bg-rose-500" />
-                        Bảo trì
-                      </span>
+                        {tr("reception:tapeChart.maintenance")}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -688,7 +647,7 @@ export function ReceptionDashboard() {
               <Dialog
                 open={Boolean(selectedRoom)}
                 onClose={() => setSelectedRoom(null)}
-                title={`Phòng ${selectedRoom.roomNumber} · Chi tiết & Thao tác`}
+                title={tr("reception:today.roomValueDetailsActions", { value0: (selectedRoom.roomNumber) })}
                 className="desk-room-action-modal"
               >
                 {(() => {
@@ -702,7 +661,7 @@ export function ReceptionDashboard() {
                   const reservedBooking = bookings.find(b => ['PENDING', 'CONFIRMED'].includes(b.status) && b.checkIn <= todayStr && b.checkOut > todayStr);
                   const isClean = !occupiedBooking && !reservedBooking && !isDirty && !isCleaning && !isOoo;
 
-                  const roomTypeName = selectedRoom.roomType?.name || "Standard";
+                  const roomTypeName = catalogName(selectedRoom.roomType?.name) || "Standard";
                   const nightlyPrice = selectedRoom.roomType?.nightlyPrice || "0";
                   const maxGuests = selectedRoom.roomType?.maxGuests || 2;
 
@@ -786,12 +745,8 @@ export function ReceptionDashboard() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <h3 className="text-base sm:text-lg font-bold text-zinc-900 tracking-tight">
-                                Phòng {selectedRoom.roomNumber}
-                              </h3>
-                              <span className="text-xs font-medium text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md">
-                                Tầng {selectedRoom.floor}
-                              </span>
+                              <h3 className="text-base sm:text-lg font-bold text-zinc-900 tracking-tight">{tr("reception:cashier.roomValue", { value0: (selectedRoom.roomNumber) })}</h3>
+                              <span className="text-xs font-medium text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md">{tr("reception:today.floorValue", { value0: (selectedRoom.floor) })}</span>
                             </div>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 mt-1">
                               <span className="font-semibold text-zinc-700 flex items-center gap-1">
@@ -799,14 +754,11 @@ export function ReceptionDashboard() {
                                 {roomTypeName}
                               </span>
                               <span className="text-zinc-300">•</span>
-                              <span className="font-bold text-emerald-800">
-                                Giá đặt mới: {money(nightlyPrice)}/đêm
-                              </span>
+                              <span className="font-bold text-emerald-800">{tr("reception:today.newReservationRateValueNight", { value0: (money(nightlyPrice)) })}</span>
                               <span className="text-zinc-300">•</span>
                               <span className="flex items-center gap-1 text-zinc-600">
                                 <Users className="size-3.5 text-zinc-400" />
-                                Tối đa {maxGuests} khách
-                              </span>
+                                {tr("common:supplement.maximumGuests", { value0: maxGuests })}</span>
                             </div>
                           </div>
                         </div>
@@ -815,13 +767,11 @@ export function ReceptionDashboard() {
                           {occupiedBooking ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-900 border border-emerald-200 shadow-2xs">
                               <span className="size-2 rounded-full bg-emerald-600 animate-pulse" />
-                              Đang ở
-                            </span>
+                              {tr("reception:roomState.occupied")}</span>
                           ) : isOoo ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs">
                               <Wrench className="size-3.5 text-rose-600" />
-                              Bảo trì
-                            </span>
+                              {tr("reception:tapeChart.maintenance")}</span>
                           ) : reservedBooking ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-2xs">
                               <LogIn className="size-3.5 text-indigo-600" />
@@ -830,18 +780,15 @@ export function ReceptionDashboard() {
                           ) : isDirty ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
                               <Broom className="size-3.5 text-amber-600" />
-                              Cần dọn
-                            </span>
+                              {tr("reception:roomState.needsCleaning")}</span>
                           ) : isCleaning ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-800 border border-sky-200 shadow-2xs">
                               <RefreshCw className="size-3.5 text-sky-600 animate-spin" />
-                              Đang dọn
-                            </span>
+                              {tr("reception:roomState.cleaning")}</span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shadow-2xs">
                               <ShieldCheck className="size-3.5 text-teal-600" />
-                              Trống sạch
-                            </span>
+                              {tr("reception:roomConditionEditor.cleanVacant")}</span>
                           )}
                         </div>
                       </div>
@@ -853,10 +800,8 @@ export function ReceptionDashboard() {
                             <Wrench className="size-4" />
                           </div>
                           <div>
-                            <h4 className="text-xs font-bold text-rose-900">Phòng đang tạm khóa bảo trì (Out of Order)</h4>
-                            <p className="text-xs text-rose-700 mt-0.5">
-                              Phòng đang trong diện kỹ thuật kiểm tra hoặc sửa chữa thiết bị, tạm ngừng đón khách.
-                            </p>
+                            <h4 className="text-xs font-bold text-rose-900">{tr("reception:today.roomTemporarilyBlockedForMaintenanceOutOfOrder")}</h4>
+                            <p className="text-xs text-rose-700 mt-0.5">{tr("reception:today.thisRoomIsUndergoingInspectionOrRepairsAndIsTemporarilyUnavailableTo")}</p>
                           </div>
                         </div>
                       ) : (isDirty || isCleaning) ? (
@@ -866,13 +811,11 @@ export function ReceptionDashboard() {
                               <Broom className="size-4" />
                             </div>
                             <div>
-                              <h4 className="text-xs font-bold text-amber-900">
-                                Buồng phòng: {isCleaning ? "Đang dọn dẹp" : "Cần dọn dẹp"}
-                              </h4>
+                              <h4 className="text-xs font-bold text-amber-900">{tr("reception:today.housekeepingValue", { value0: (isCleaning ? tr("common:supplement.cleaningInProgress") : tr("common:supplement.needsCleaning")) })}</h4>
                               <p className="text-xs text-amber-800/90 mt-0.5 leading-relaxed">
                                 {selectedRoom.openTaskCount > 0
-                                  ? `Có ${selectedRoom.openTaskCount} công việc dọn dẹp cần hoàn tất.`
-                                  : "Khách đã trả phòng hoặc cần vệ sinh định kỳ trước khi đón khách mới."}
+                                  ? tr("reception:today.valueHousekeepingTasksNeedCompletion", { value0: (selectedRoom.openTaskCount) })
+                                  : tr("reception:today.theGuestCheckedOutOrRoutineCleaningIsNeededBeforeTheNext")}
                               </p>
                             </div>
                           </div>
@@ -881,14 +824,12 @@ export function ReceptionDashboard() {
                             to={housekeepingTarget}
                             onClick={openRoomWork}
                             className="shrink-0 text-xs px-3 py-1.5 bg-white hover:bg-amber-100 border-amber-300 text-amber-900 font-semibold rounded-lg shadow-2xs"
-                          >
-                            Xử lý dọn phòng
-                          </DeskLinkButton>
+                          >{tr("reception:today.manageRoomCleaning")}</DeskLinkButton>
                         </div>
                       ) : null}
 
                       {roomWork.isError && (
-                        <ErrorState message="Chưa tải được công việc buồng phòng của phòng này." retry={() => void roomWork.refetch()} />
+                        <ErrorState message={tr("reception:today.unableToLoadHousekeepingTasksForThisRoom")} retry={() => void roomWork.refetch()} />
                       )}
                       <RoomConditionEditor key={selectedRoom.id} room={selectedRoom} onSaved={() => setSelectedRoom(null)} />
 
@@ -898,12 +839,9 @@ export function ReceptionDashboard() {
                           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-100">
                             <span className="font-bold uppercase tracking-wider text-[11px] text-emerald-900 flex items-center gap-1.5">
                               <Users className="size-3.5 text-emerald-700" />
-                              THÔNG TIN KHÁCH ĐANG Ở
-                            </span>
+                              {tr("reception:today.inHouseGuestInformation")}</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200/80">
-                                SĐT: {occupiedBooking.customer?.phone || "Chưa có SĐT"}
-                              </span>
+                              <span className="font-mono text-xs font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200/80">{tr("reception:today.phoneValue", { value0: (occupiedBooking.customer?.phone || tr("common:supplement.noPhoneNumber")) })}</span>
                               <GuestBadge status={occupiedBooking.status} />
                             </div>
                           </div>
@@ -916,15 +854,13 @@ export function ReceptionDashboard() {
                             </div>
                             <div>
                               <strong className="block text-sm sm:text-base font-bold text-zinc-900">
-                                {occupiedBooking.customer?.fullName ?? "Khách lẻ tại quầy"}
+                                {occupiedBooking.customer?.fullName ?? tr("reception:today.walkInGuest")}
                               </strong>
-                              <span className="text-[11px] text-zinc-500">
-                                Mã đặt phòng: {occupiedBooking.reference}
-                              </span>
+                              <span className="text-[11px] text-zinc-500">{tr("reception:cashier.reservationCodeValue", { value0: (occupiedBooking.reference) })}</span>
                             </div>
                             <div className="room-guest-shortcuts">
-                            <DeskLink to={`${base}/bookings/${occupiedBooking.id}`} onClick={() => setSelectedRoom(null)} aria-label="Chi tiết booking" title="Chi tiết booking"><FileText className="size-4" /></DeskLink>
-                            <button type="button" onClick={() => { setServiceBooking({ ...occupiedBooking, roomNumber: selectedRoom.roomNumber }); setSelectedRoom(null); }} aria-label="Gọi món cho phòng" title="Gọi món cho phòng"><BellRing className="size-4" /></button>
+                            <DeskLink to={`${base}/bookings/${occupiedBooking.id}`} onClick={() => setSelectedRoom(null)} aria-label={tr("reception:today.reservationDetails")} title={tr("reception:today.reservationDetails")}><FileText className="size-4" /></DeskLink>
+                            <button type="button" onClick={() => { setServiceBooking({ ...occupiedBooking, roomNumber: selectedRoom.roomNumber }); setSelectedRoom(null); }} aria-label={tr("reception:today.orderServicesForRoom")} title={tr("reception:today.orderServicesForRoom")}><BellRing className="size-4" /></button>
                           </div>
                           </div>
 
@@ -932,32 +868,27 @@ export function ReceptionDashboard() {
                             <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/70">
                               <dt className="text-zinc-500 text-[11px] flex items-center gap-1">
                                 <Phone className="size-3 text-zinc-400" />
-                                Điện thoại
-                              </dt>
+                                {tr("reception:today.phone")}</dt>
                               <dd className="font-semibold text-zinc-800 mt-1 truncate">
-                                {occupiedBooking.customer?.phone || "Chưa có SĐT"}
+                                {occupiedBooking.customer?.phone || tr("reception:today.noPhoneNumber")}
                               </dd>
                             </div>
                             <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/70">
                               <dt className="text-zinc-500 text-[11px] flex items-center gap-1">
                                 <Receipt className="size-3 text-emerald-600" />
-                                Tổng tiền phòng toàn kỳ
-                              </dt>
+                                {tr("reception:today.totalRoomChargesForEntireStay")}</dt>
                               <dd className="font-bold text-emerald-800 mt-1">
                                 {money(occupiedBooking.totalRoomAmount)}
                               </dd>
-                              <dd className="text-[10px] text-zinc-500 mt-1">
-                                {occupiedBooking.nightlyPrice ? `Giá lúc đặt: ${money(occupiedBooking.nightlyPrice)}/đêm. ` : ''}Tổng gồm các lần gia hạn.
-                              </dd>
+                              <dd className="text-[10px] text-zinc-500 mt-1">{tr("reception:today.valueTotalIncludesExtensions", { value0: (occupiedBooking.nightlyPrice ? tr("common:supplement.priceAtBooking", { value0: money(occupiedBooking.nightlyPrice) }) : '') })}</dd>
                             </div>
                             <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/70 sm:col-span-1">
                               <dt className="text-zinc-500 text-[11px] flex items-center gap-1">
                                 <Calendar className="size-3 text-zinc-400" />
-                                Kỳ lưu trú hiện tại
-                              </dt>
+                                {tr("reception:today.currentStay")}</dt>
                               <dd className="font-semibold text-zinc-800 mt-1 text-[11px] leading-tight">
                                 <div>{occupiedBooking.currentRoomSince ?? occupiedBooking.checkIn} → {occupiedBooking.checkOut}</div>
-                                <div className="text-[10px] text-zinc-500 font-normal">({occupiedBooking.guestCount} khách · Toàn bộ lưu trú: {occupiedBooking.nights} đêm)</div>
+                                <div className="text-[10px] text-zinc-500 font-normal">{tr("reception:today.valueGuestsEntireStayValueNights", { value0: (occupiedBooking.guestCount), value1: (occupiedBooking.nights) })}</div>
                               </dd>
                             </div>
                           </dl>
@@ -970,9 +901,8 @@ export function ReceptionDashboard() {
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
                             <Sparkles className="size-3.5 text-emerald-600" />
-                            THAO TÁC KHẢ DỤNG
-                          </span>
-                          <span className="text-[11px] text-zinc-400">Tùy biến theo phòng</span>
+                            {tr("reception:today.availableActions")}</span>
+                          <span className="text-[11px] text-zinc-400">{tr("reception:today.roomSpecificActions")}</span>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -983,7 +913,7 @@ export function ReceptionDashboard() {
                               className="sm:col-span-2 justify-center bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl shadow-xs"
                             >
                               <LogIn className="size-4 mr-1.5" />
-                              {awaitingOnlinePayment(reservedBooking) ? "Xem booking · Chờ thanh toán" : "Nhận phòng"}
+                              {awaitingOnlinePayment(reservedBooking) ? tr("reception:today.viewReservationAwaitingPayment") : tr("reception:checkIn.checkIn")}
                             </DeskLinkButton>
                           )}
 
@@ -996,8 +926,7 @@ export function ReceptionDashboard() {
                               }}
                               className="sm:col-span-2 justify-center bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl shadow-xs"
                             >
-                              <Plus className="size-4 mr-1.5" /> Đặt phòng này ({money(nightlyPrice)}/đêm)
-                            </Button>
+                              <Plus className="size-4 mr-1.5" /> {tr("common:supplement.bookRoomRate", { value0: money(nightlyPrice) })}</Button>
                           )}
 
                           {!isClean && !occupiedBooking && (
@@ -1009,8 +938,7 @@ export function ReceptionDashboard() {
                               }}
                               className="sm:col-span-2 justify-center bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl shadow-xs"
                             >
-                              <Plus className="size-4 mr-1.5" /> Đặt phòng cho ngày tương lai
-                            </Button>
+                              <Plus className="size-4 mr-1.5" /> {tr("reception:today.reserveForAFutureDate")}</Button>
                           )}
 
                           {(isDirty || isCleaning || selectedRoom.openTaskCount > 0) && (
@@ -1020,8 +948,7 @@ export function ReceptionDashboard() {
                               onClick={openRoomWork}
                               className="justify-center py-2.5 rounded-xl font-medium"
                             >
-                              <Broom className="size-4 mr-1.5 text-amber-600" /> Điều phối buồng phòng
-                            </DeskLinkButton>
+                              <Broom className="size-4 mr-1.5 text-amber-600" /> {tr("reception:today.coordinateHousekeeping")}</DeskLinkButton>
                           )}
                         </div>
                       </div>}
@@ -1032,26 +959,26 @@ export function ReceptionDashboard() {
                           <div>
                             <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
                               <Calendar className="size-3.5 text-zinc-400" />
-                              {scheduleBooking ? 'LỊCH LƯU TRÚ & TÌNH TRẠNG PHÒNG' : 'LỊCH ĐẶT 7 NGÀY TỚI'}
+                              {scheduleBooking ? tr("reception:today.stayCalendarRoomCondition") : tr("reception:today.next7Days")}
                             </span>
                             <span className="text-[11px] text-zinc-500 mt-0.5 block">
                               {formatStayDateDisplay(scheduleStart)} → {formatStayDateDisplay(shiftDate(scheduleStart, scheduleDays - 1))}
-                              {scheduleBooking && ` · ${scheduleNights} đêm · Trả phòng ${formatStayDateDisplay(scheduleBooking.checkOut)}`}
+                              {scheduleBooking && tr("reception:today.valueNightsCheckOutValue", { value0: (scheduleNights), value1: (formatStayDateDisplay(scheduleBooking.checkOut)) })}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-emerald-800">Còn {vacantNightsCount} đêm trống</span>
+                            <span className="text-[11px] text-emerald-800">{tr("reception:today.valueAvailableNights", { value0: (vacantNightsCount) })}</span>
                             {selectedNights.length > 0 && <Button variant="secondary" onClick={() => {
                               const dates = { checkIn: selectedNights[0], checkOut: shiftDate(selectedNights[selectedNights.length - 1], 1) };
                               const room = selectedRoom;
                               setSelectedRoom(null);
                               setBookingRoom(room);
                               setBookingDates(dates);
-                            }}><Plus className="size-3.5" />Đặt phòng ({selectedNights.length} đêm)</Button>}
+                            }}><Plus className="size-3.5" />{tr("common:supplement.bookNights", { value0: selectedNights.length })}</Button>}
                           </div>
                         </div>
 
-                        <div role="list" aria-label="Các đêm lưu trú" className="grid grid-cols-[repeat(auto-fit,minmax(75px,1fr))] gap-2 text-center">
+                        <div role="list" aria-label={tr("reception:today.stayNights")} className="grid grid-cols-[repeat(auto-fit,minmax(75px,1fr))] gap-2 text-center">
                           {next7Days.map((d, idx) => {
                             const isToday = d.dateStr === todayStr;
                             const isOccupied = d.status === "occupied";
@@ -1065,33 +992,33 @@ export function ReceptionDashboard() {
                               ? "border-blue-400 bg-blue-50 text-blue-950"
                               : "border-dashed border-zinc-300 bg-white text-zinc-600";
                             const tagLabel = isHk
-                              ? "Cần dọn"
+                              ? tr("reception:roomState.needsCleaning")
                               : isOccupied
-                              ? "Đang ở"
+                              ? tr("reception:roomState.occupied")
                               : isBooked
-                              ? "Đã đặt"
-                              : "Trống";
+                              ? tr("reception:roomState.reserved")
+                              : tr("reception:today.available");
 
                             return (
                               <div
                                 key={d.dateStr}
                                 role="listitem"
                                 aria-current={isToday ? 'date' : undefined}
-                                aria-label={`${d.isStayNight ? `Đêm ${idx + 1}, ` : ''}${formatStayDateDisplay(d.dateStr)}, ${tagLabel}${isToday ? ', Hôm nay' : ''}`}
+                                aria-label={`${d.isStayNight ? tr("common:supplement.nightIndex", { value0: idx + 1 }) : ''}${formatStayDateDisplay(d.dateStr)}, ${tagLabel}${isToday ? tr("common:supplement.today") : ''}`}
                                 className={`rounded-xl border ${bgClass} ${selectedNights.includes(d.dateStr) ? 'ring-2 ring-sky-600 !bg-sky-100' : ''} ${
                                   isToday ? "ring-2 ring-zinc-800 ring-offset-2 shadow-2xs font-bold" : ""
                                 } transition-all`}
                               >
                                 <button type="button" className="h-full w-full rounded-xl p-2 disabled:cursor-default enabled:cursor-pointer enabled:hover:bg-emerald-100/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
                                   disabled={!canSelectNight(d.dateStr)} aria-pressed={selectedNights.includes(d.dateStr)}
-                                  aria-label={`Chọn đêm ${formatStayDateDisplay(d.dateStr)}`} onClick={() => selectNight(d.dateStr)}>
+                                  aria-label={tr("reception:today.selectNightValue", { value0: (formatStayDateDisplay(d.dateStr)) })} onClick={() => selectNight(d.dateStr)}>
                                 <span className="text-[10px] block font-medium opacity-75">{d.dayOfWeek}</span>
                                 <strong className="text-xs block my-0.5">{formatStayDateDisplay(d.dateStr)}</strong>
                                 <span className={`mt-1 block rounded px-1 py-1 text-[11px] font-bold ${isOccupied ? 'bg-emerald-700 text-white' : isBooked ? 'bg-blue-600 text-white' : isHk ? 'bg-amber-200 text-amber-950' : ''}`}>{tagLabel}</span>
-                                {d.isStayNight && <span className="mt-1 block text-[10px]">Đêm {idx + 1}</span>}
-                                {isBooked && <span className="mt-1 block text-[10px]">Chưa nhận</span>}
-                                {isToday && <span className="mt-1 inline-block rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] font-bold text-white">Hôm nay</span>}
-                                {selectedNights.includes(d.dateStr) && <span className="block text-[9px] font-bold text-sky-800">Đã chọn</span>}
+                                {d.isStayNight && <span className="mt-1 block text-[10px]">{tr("reception:today.nightValue", { value0: (idx + 1) })}</span>}
+                                {isBooked && <span className="mt-1 block text-[10px]">{tr("reception:today.notCheckedIn")}</span>}
+                                {isToday && <span className="mt-1 inline-block rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] font-bold text-white">{tr("reception:tapeChart.today")}</span>}
+                                {selectedNights.includes(d.dateStr) && <span className="block text-[9px] font-bold text-sky-800">{tr("reception:today.selected")}</span>}
                                 </button>
                               </div>
                             );
@@ -1099,36 +1026,30 @@ export function ReceptionDashboard() {
                         </div>
 
                         {!isOoo && <p className="text-[11px] text-zinc-500" aria-live="polite">{selectedNights.length > 0
-                          ? `Đã chọn ${selectedNights.length} đêm: nhận ${formatStayDateDisplay(selectedNights[0])}, trả ${formatStayDateDisplay(shiftDate(selectedNights[selectedNights.length - 1], 1))}.`
-                          : 'Chọn một đêm trống, hoặc chọn đêm đầu và đêm cuối liên tiếp để đặt phòng.'}</p>}
+                          ? tr("reception:today.valueNightsSelectedCheckInValueCheckOutValue", { value0: (selectedNights.length), value1: (formatStayDateDisplay(selectedNights[0])), value2: (formatStayDateDisplay(shiftDate(selectedNights[selectedNights.length - 1], 1))) })
+                          : tr("reception:today.chooseAnAvailableNightOrSelectTheFirstAndLastConsecutiveNights")}</p>}
                         {/* Next Booking preview or Empty note */}
                         {nextUpcomingBooking && nextUpcomingBooking.id !== scheduleBooking?.id ? (
                           <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs flex items-center justify-between">
                             <div>
-                              <span className="text-zinc-400 text-[10px] block font-medium">Khách sắp tới tiếp theo</span>
-                              <strong className="text-zinc-800">{nextUpcomingBooking.customer?.fullName ?? "Khách đặt trước"}</strong>
-                              <span className="text-zinc-500 text-[11px] ml-1.5">
-                                {nextUpcomingBooking.checkIn} → {nextUpcomingBooking.checkOut} ({nextUpcomingBooking.nights} đêm)
-                              </span>
+                              <span className="text-zinc-400 text-[10px] block font-medium">{tr("reception:today.nextArrivingGuest")}</span>
+                              <strong className="text-zinc-800">{nextUpcomingBooking.customer?.fullName ?? tr("reception:today.advanceReservationGuest")}</strong>
+                              <span className="text-zinc-500 text-[11px] ml-1.5">{tr("reception:today.valueValueValueNights", { value0: (nextUpcomingBooking.checkIn), value1: (nextUpcomingBooking.checkOut), value2: (nextUpcomingBooking.nights) })}</span>
                             </div>
                             <DeskLinkButton
                               variant="secondary"
                               to={`${base}/bookings/${nextUpcomingBooking.id}`}
                               onClick={() => setSelectedRoom(null)}
                               className="text-xs py-1 px-2.5 rounded-lg"
-                            >
-                              Xem
-                            </DeskLinkButton>
+                            >{tr("reception:today.view")}</DeskLinkButton>
                           </div>
                         ) : !scheduleBooking ? (
-                          <div className="p-2.5 rounded-xl bg-zinc-50/70 border border-dashed border-zinc-200 text-center text-zinc-500 text-[11px]">
-                            Phòng chưa có lịch đặt trong tuần tới. Sẵn sàng đón khách mới.
-                          </div>
+                          <div className="p-2.5 rounded-xl bg-zinc-50/70 border border-dashed border-zinc-200 text-center text-zinc-500 text-[11px]">{tr("reception:today.thisRoomHasNoReservationsInTheComingWeekReadyForNew")}</div>
                         ) : null}
                       </div>
                       {occupiedBooking && <div className="room-checkout-footer flex gap-2">
-                        <Button variant="secondary" onClick={() => { setExtensionBooking({ ...occupiedBooking, roomNumber: selectedRoom.roomNumber }); setSelectedRoom(null); }}>Gia hạn</Button>
-                        <DeskLinkButton to={`${base}/bookings/${occupiedBooking.id}/billing`} onClick={() => setSelectedRoom(null)} className="w-full justify-center"><Receipt className="size-4" /> Trả phòng & Hóa đơn</DeskLinkButton>
+                        <Button variant="secondary" onClick={() => { setExtensionBooking({ ...occupiedBooking, roomNumber: selectedRoom.roomNumber }); setSelectedRoom(null); }}>{tr("reception:today.extendStay")}</Button>
+                        <DeskLinkButton to={`${base}/bookings/${occupiedBooking.id}/billing`} onClick={() => setSelectedRoom(null)} className="w-full justify-center"><Receipt className="size-4" /> {tr("reception:today.checkOutInvoice")}</DeskLinkButton>
                       </div>}
                     </div>
                   );

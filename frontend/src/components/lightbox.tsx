@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../i18n";
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 
@@ -19,6 +20,7 @@ export function Lightbox({
   open: boolean;
   onClose: () => void;
 }) {
+  useLocale();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
   const [previousInitial, setPreviousInitial] = useState(initialIndex);
@@ -47,7 +49,7 @@ export function Lightbox({
       className="lightbox-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="Thư viện ảnh phòng"
+      aria-label={tr("common:lightbox.roomPhotoGallery")}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -59,7 +61,7 @@ export function Lightbox({
         <button
           className="icon-button lightbox-close"
           onClick={onClose}
-          aria-label="Đóng thư viện ảnh"
+          aria-label={tr("common:lightbox.closePhotoGallery")}
         >
           <X size={24} />
         </button>
@@ -70,7 +72,7 @@ export function Lightbox({
           <button
             className="lightbox-nav lightbox-prev"
             onClick={() => setCurrentIndex((i) => (i - 1 + images.length) % images.length)}
-            aria-label="Ảnh trước"
+            aria-label={tr("common:lightbox.previousPhoto")}
           >
             <ChevronLeft size={32} />
           </button>
@@ -89,7 +91,7 @@ export function Lightbox({
           <button
             className="lightbox-nav lightbox-next"
             onClick={() => setCurrentIndex((i) => (i + 1) % images.length)}
-            aria-label="Ảnh sau"
+            aria-label={tr("common:lightbox.nextPhoto")}
           >
             <ChevronRight size={32} />
           </button>
@@ -103,7 +105,7 @@ export function Lightbox({
               key={idx}
               className={`lightbox-thumb ${idx === currentIndex ? 'active' : ''}`}
               onClick={() => setCurrentIndex(idx)}
-              aria-label={`Xem ảnh ${idx + 1}`}
+              aria-label={tr("common:lightbox.viewPhotoValue", { value0: (idx + 1) })}
             >
               <img src={img.src} alt={img.alt} />
             </button>
@@ -120,6 +122,7 @@ export function RoomGallery({
   images: GalleryImage[];
   roomName?: string;
 }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
 
@@ -146,8 +149,7 @@ export function RoomGallery({
         >
           <img src={main.src} alt={main.alt} className="detail-photo" />
           <span className="gallery-badge">
-            <Maximize2 size={14} /> Phóng to ({images.length} ảnh)
-          </span>
+            <Maximize2 size={14} /> {tr("common:supplement.zoomPhotos", { value0: images.length })}</span>
         </div>
 
         {side.length > 0 && (
@@ -170,7 +172,7 @@ export function RoomGallery({
                 }}
               >
                 <img src={img.src} alt={img.alt} />
-                <span className="thumb-label">{img.title ?? `Góc nhìn ${i + 2}`}</span>
+                <span className="thumb-label">{img.title ?? tr("common:lightbox.viewValue", { value0: (i + 2) })}</span>
               </div>
             ))}
           </div>

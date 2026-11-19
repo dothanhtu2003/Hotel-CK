@@ -75,7 +75,7 @@ it.each(['PENDING', 'CONFIRMED'])('checks in a %s ready room with one click', as
   render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><ToastContext.Provider value={toast}><CheckInWizard bookingId="booking" /></ToastContext.Provider></QueryClientProvider></MemoryRouter>);
   fireEvent.click(screen.getByRole('button', { name: 'Nhận phòng' }));
   await waitFor(() => expect(request).toHaveBeenCalledWith('/bookings/booking/check-in', { method: 'PATCH' }));
-  await waitFor(() => expect(toast).toHaveBeenCalledWith('Nhận phòng thành công.'));
+  await waitFor(() => expect(toast.mock.calls[0]?.[0]()).toBe('Nhận phòng thành công.'));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 

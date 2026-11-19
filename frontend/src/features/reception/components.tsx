@@ -1,6 +1,9 @@
+import { formatDate as localizedDate } from "../../i18n/format";
+import { catalogName } from "../../i18n/catalog";
+import { t as tr, useLocale } from "../../i18n";
 import { DeskLink } from "./navigation";
 import { useDeskNavigate } from "./navigation-state";
-import { awaitingOnlinePayment, deskBookingStatusLabel } from './contracts';
+import { awaitingOnlinePayment, deskBookingStatusLabel, deskError, type DeskBooking } from './contracts';
 import { CheckoutSummary } from "./reservation-panels";
 import { CheckInWizard } from "./check-in";
 import { useRef, useState } from "react";
@@ -11,7 +14,7 @@ import { Avatar, Badge, type BadgeTone } from "../../components/kamra-ui";
 import { money, type Booking, type Order } from "../guest/contracts";
 import { api } from "../../lib/api";
 import { useToast } from "../../components/toast-context";
-import { type DeskBooking, deskError } from "./contracts";
+
 import { useDeskBase, useRefreshDesk } from "./queries";
 
 const STATUS_TONES: Record<string, BadgeTone> = {
@@ -30,6 +33,7 @@ function ConfirmDeskAction({
   onDone,
   variant = "secondary",
   className = "",
+  confirmationLabel,
 }: {
   path: string;
   label: string;
@@ -38,7 +42,9 @@ function ConfirmDeskAction({
   onDone?: (result: unknown) => void;
   variant?: "primary" | "secondary" | "ghost" | "light";
   className?: string;
+  confirmationLabel?: string;
 }) {
+  useLocale();
   const [open, setOpen] = useState(false),
     lock = useRef(false),
     refresh = useRefreshDesk(),
@@ -48,13 +54,13 @@ function ConfirmDeskAction({
     mutationFn: () =>
       api.request(path, { method: action === "invoice" ? "POST" : "PATCH" }),
     onSuccess: async (data) => {
-      toast(`${label} thành công.`);
+      toast(() => (tr("reception:components.valueSuccessful", { value0: (label) })));
       setOpen(false);
       await refresh();
       onDone?.(data);
     },
     onError: async (error) => {
-      toast(deskError(error, action), "error");
+      toast(() => (deskError(error, action)), "error");
       await refresh();
     },
     onSettled: () => {
@@ -95,9 +101,7 @@ function ConfirmDeskAction({
             variant="secondary"
             disabled={mutation.isPending}
             onClick={() => setOpen(false)}
-          >
-            Quay lại
-          </Button>
+          >{tr("reception:components.back")}</Button>
           <Button
             variant="primary"
             busy={mutation.isPending}
@@ -108,7 +112,7 @@ function ConfirmDeskAction({
               mutation.mutate();
             }}
           >
-            {label.toLowerCase().startsWith("xác nhận") ? label : `Xác nhận ${label.toLocaleLowerCase("vi-VN")}`}
+            {confirmationLabel ?? tr(action === "cancel" ? "common:supplement.confirmCancel" : action === "invoice" ? "common:supplement.confirmInvoice" : action === "check-out" ? "common:supplement.confirmCheckout" : "common:supplement.confirmAction")}
           </Button>
         </div>
       </Dialog>
@@ -123,24 +127,25 @@ export function BookingTable({
   rows: (Booking & Partial<DeskBooking>)[];
   billing?: boolean;
 }) {
+  useLocale();
   const base = useDeskBase();
   const navigate = useDeskNavigate();
   return (
     <Table
-      caption="Danh sách booking"
+      caption={tr("reception:components.reservationList")}
       rows={rows}
       rowKey={(b) => b.id}
       rowClassName={() => "cursor-pointer hover:bg-zinc-50/80 transition-colors"}
       onRowClick={(b) => navigate(`${base}/bookings/${b.id}`)}
       empty={
         <EmptyState
-          title="Chưa có booking phù hợp"
-          description="Hãy thử trạng thái khác hoặc quay lại sau."
+          title={tr("reception:components.noMatchingReservations")}
+          description={tr("reception:components.tryAnotherStatusOrComeBackLater")}
         />
       }
       columns={[
         {
-          title: "KHÁCH HÀNG / MÃ",
+          title: tr("reception:components.guestCode"),
           render: (b) => {
             const rawName = b.customer?.fullName?.trim();
             const guestName = rawName
@@ -149,8 +154,8 @@ export function BookingTable({
                   .filter(Boolean)
                   .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
                   .join(" ")
-              : "Khách tại quầy";
-            const contact = b.customer?.phone || b.customer?.email || "Tại quầy";
+              : tr("reception:cashier.walkInGuest");
+            const contact = b.customer?.phone || b.customer?.email || tr("reception:components.atReception");
             return (
               <div className="flex items-center gap-2.5">
                 <DeskLink
@@ -188,37 +193,35 @@ export function BookingTable({
           },
         },
         {
-          title: "PHÒNG",
+          title: tr("reception:components.room"),
           render: (b) => (
             <div>
               {b.roomNumber ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-100/90 text-zinc-800 text-xs font-semibold tabular-nums">
                   <BedDouble className="size-3.5 text-zinc-500 shrink-0" />
-                  Phòng {b.roomNumber}
+                  {tr("reception:components.room2")}{b.roomNumber}
                 </span>
               ) : (
-                <span className="text-zinc-400 text-xs italic">Chưa xếp</span>
+                <span className="text-zinc-400 text-xs italic">{tr("reception:components.unassigned")}</span>
               )}
             </div>
           ),
         },
         {
-          title: "LƯU TRÚ",
+          title: tr("reception:components.stay"),
           render: (b) => (
             <div>
               <div className="tabular-nums text-zinc-800 text-xs font-medium">
-                <time dateTime={b.checkIn}>{b.checkIn.split("-").reverse().join("/")}</time>
+                <time dateTime={b.checkIn}>{localizedDate(b.checkIn)}</time>
                 {" → "}
-                <time dateTime={b.checkOut}>{b.checkOut.split("-").reverse().join("/")}</time>
+                <time dateTime={b.checkOut}>{localizedDate(b.checkOut)}</time>
               </div>
-              <small className="text-zinc-400 block text-[11px] mt-0.5">
-                {b.nights} đêm · {b.guestCount} khách
-              </small>
+              <small className="text-zinc-400 block text-[11px] mt-0.5">{tr("reception:components.valueNightsValueGuests", { value0: (b.nights), value1: (b.guestCount) })}</small>
             </div>
           ),
         },
         {
-          title: "TIỀN PHÒNG",
+          title: tr("reception:components.roomCharges"),
           render: (b) => (
             <span className="tabular-nums font-semibold text-zinc-900 text-sm">
               {money(b.totalRoomAmount)}
@@ -226,7 +229,7 @@ export function BookingTable({
           ),
         },
         {
-          title: "TRẠNG THÁI",
+          title: tr("reception:cashier.status"),
           render: (b) => (
             <Badge tone={STATUS_TONES[b.status] || "zinc"} className="status-badge">
               {deskBookingStatusLabel(b)}
@@ -234,7 +237,7 @@ export function BookingTable({
           ),
         },
         {
-          title: "THAO TÁC",
+          title: tr("reception:cashier.actions"),
           render: (b) => (
             <div
               className="flex items-center justify-end gap-1.5 flex-wrap w-full cursor-default"
@@ -244,17 +247,14 @@ export function BookingTable({
                 <DeskLink
                   to={`${base}/bookings/${b.id}/billing`}
                   className="inline-flex items-center rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-900 transition-colors shadow-2xs"
-                >
-                  Xem chi phí
-                </DeskLink>
+                >{tr("reception:components.viewCharges")}</DeskLink>
               ) : b.status === "CHECKED_IN" ? (
                 <DeskLink
                   to={`${base}/bookings/${b.id}/billing`}
                   className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs"
                 >
                   <LogOut className="size-3" />
-                  Trả phòng / Hóa đơn
-                </DeskLink>
+                  {tr("reception:components.checkOutInvoice")}</DeskLink>
               ) : ["PENDING", "CONFIRMED"].includes(b.status) && !awaitingOnlinePayment(b) ? (
                 <CheckInWizard
                   bookingId={b.id}
@@ -270,8 +270,8 @@ export function BookingTable({
                 <DeskAction
                   path={`/bookings/${b.id}/cancel`}
                   action="cancel"
-                  label="Hủy"
-                  description={`Hủy booking ${b.reference}? Phòng có thể được khách khác đặt lại.`}
+                  label={tr("reception:components.cancel")}
+                  description={tr("reception:components.cancelReservationValueOtherGuestsMayBookTheRoomAfterwards", { value0: (b.reference) })}
                   variant="ghost"
                   className="!text-rose-600 hover:!bg-rose-50 !border-transparent text-xs py-1.5 px-2 font-medium"
                 />
@@ -293,18 +293,19 @@ export function Amounts({
   services: string;
   total: string;
 }) {
+  useLocale();
   return (
     <dl className="guest-facts">
       <div>
-        <dt>Tiền phòng</dt>
+        <dt>{tr("reception:cashier.roomCharges")}</dt>
         <dd>{money(room)}</dd>
       </div>
       <div>
-        <dt>Dịch vụ hoàn thành</dt>
+        <dt>{tr("reception:components.completedServices")}</dt>
         <dd>{money(services)}</dd>
       </div>
       <div>
-        <dt>Tổng tiền</dt>
+        <dt>{tr("reception:components.total")}</dt>
         <dd>
           <strong>{money(total)}</strong>
         </dd>
@@ -318,22 +319,24 @@ function cleanServiceName(name: string) {
 }
 
 export function OrderItems({ order }: { order: Order }) {
+  useLocale();
   return (
     <Table
-      caption="Chi tiết dịch vụ"
+      caption={tr("reception:components.serviceDetails")}
       rows={order.items}
       rowKey={(i) => i.id}
       columns={[
-        { title: "DỊCH VỤ", render: (i) => cleanServiceName(i.serviceName) },
-        { title: "SỐ LƯỢNG", render: (i) => i.quantity },
-        { title: "GIÁ ĐÃ CHỐT", render: (i) => money(i.unitPrice) },
-        { title: "THÀNH TIỀN", render: (i) => money(i.subtotal) },
+        { title: tr("reception:components.service"), render: (i) => catalogName(cleanServiceName(i.serviceName)) },
+        { title: tr("reception:components.quantity"), render: (i) => i.quantity },
+        { title: tr("reception:components.confirmedPrice"), render: (i) => money(i.unitPrice) },
+        { title: tr("reception:components.subtotal"), render: (i) => money(i.subtotal) },
       ]}
     />
   );
 }
 
 export function DeskAction(props: Parameters<typeof ConfirmDeskAction>[0]) {
+  useLocale();
   return props.action === "check-in" ? (
     <CheckInWizard
       bookingId={props.path.split("/")[2]}

@@ -1,3 +1,6 @@
+import { catalogName, catalogDescription } from "../i18n/catalog";
+import { t as tr, useLocale } from "../i18n";
+import { Trans } from "react-i18next";
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -30,30 +33,37 @@ function getRoomTypeImage(typeName: string): string {
 }
 
 export function HomePage() {
+  const locale = useLocale();
   const types = useRoomTypes();
   const [guestFilter, setGuestFilter] = useState<'ALL' | 'COUPLE' | 'FAMILY'>('ALL');
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   // Tính toán ngày nhận phòng (hôm nay) và ngày trả phòng (ngày mai) theo múi giờ Việt Nam
   const today = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Ho_Chi_Minh',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     }).format(new Date());
-  }, []);
+  }, [locale]);
 
   const tomorrow = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return new Date(Date.parse(today + 'T00:00:00Z') + 86400000)
       .toISOString()
       .slice(0, 10);
-  }, [today]);
+  }, [today, locale]);
 
-  const roomTypesList: RoomType[] = types.data ?? [];
+  const roomTypesList: RoomType[] = useMemo(() => types.data ?? [], [types.data]);
 
   // Lọc hạng phòng theo số lượng khách
   const filteredTypes = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     if (guestFilter === 'COUPLE') {
       return roomTypesList.filter((t) => t.maxGuests <= 2);
     }
@@ -61,38 +71,40 @@ export function HomePage() {
       return roomTypesList.filter((t) => t.maxGuests > 2);
     }
     return roomTypesList;
-  }, [roomTypesList, guestFilter]);
+  }, [roomTypesList, guestFilter, locale]);
 
   // Tìm mức giá thấp nhất để hiển thị khuyến mãi
   const lowestPrice = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     if (!roomTypesList.length) return null;
     return roomTypesList.reduce((prev, curr) => {
       const prevVal = Number(prev.nightlyPrice) || 0;
       const currVal = Number(curr.nightlyPrice) || 0;
       return currVal < prevVal ? curr : prev;
     }, roomTypesList[0]);
-  }, [roomTypesList]);
+  }, [roomTypesList, locale]);
 
   const faqs = [
     {
-      q: 'Giờ nhận phòng (Check-in) và trả phòng (Check-out) là mấy giờ?',
-      a: 'Khách sạn hỗ trợ nhận phòng từ 14:00 và trả phòng trước 12:00 trưa hôm sau. Chúng tôi luôn sẵn lòng hỗ trợ nhận sớm hoặc trả trễ miễn phí tùy tình trạng phòng thực tế, kèm giữ hành lý an toàn tại quầy lễ tân.',
+      q: tr("guest:homePage.whatAreTheCheckInAndCheckOutTimes"),
+      a: tr("guest:homePage.checkInStartsAt1400AndCheckOutIsBefore12"),
     },
     {
-      q: 'Tôi có cần thanh toán tiền ngay khi đặt phòng trực tuyến không?',
-      a: 'Quý khách có thể lựa chọn thanh toán linh hoạt: chuyển khoản qua mã QR ngân hàng VietQR hoặc thanh toán trực tiếp bằng tiền mặt / thẻ khi làm thủ tục check-in tại quầy lễ tân.',
+      q: tr("guest:homePage.doINeedToPayWhenBookingOnline"),
+      a: tr("guest:homePage.youCanChooseFlexiblePaymentBankTransferUsingAVietqrCodeOr"),
     },
     {
-      q: 'Chính sách đổi ngày hoặc hủy đặt phòng tại An Nhiên như thế nào?',
-      a: 'Khi đặt phòng trực tiếp qua website, quý khách được hỗ trợ đổi ngày lưu trú hoặc hủy phòng hoàn toàn miễn phí trước 24 giờ so với giờ nhận phòng tiêu chuẩn mà không phát sinh chi phí.',
+      q: tr("guest:homePage.whatIsTheDateChangeOrCancellationPolicyAtAnNhien"),
+      a: tr("guest:homePage.whenBookingDirectlyThroughOurWebsiteYouCanChangeYourStayDates"),
     },
     {
-      q: 'Giá phòng trên website đã bao gồm thuế phí và các tiện ích chưa?',
-      a: 'Tất cả mức giá hiển thị đều là giá trọn gói niêm yết minh bạch, đã bao gồm thuế VAT, phí phục vụ, nước suối đóng chai, trà thảo mộc đón tiếp và wifi tốc độ cao trong suốt kỳ lưu trú.',
+      q: tr("guest:homePage.doWebsiteRoomRatesIncludeTaxesFeesAndAmenities"),
+      a: tr("guest:homePage.allDisplayedRatesAreTransparentAllInclusivePricesWithVatServiceCharges"),
     },
     {
-      q: 'Tôi muốn đặt phòng cho đoàn đông hoặc có yêu cầu riêng thì làm thế nào?',
-      a: 'Quý khách có thể liên hệ trực tiếp với bộ phận lễ tân qua hotline 0987 654 321 hoặc để lại ghi chú khi đặt phòng. Đội ngũ An Nhiên sẽ sắp xếp phòng gần nhau và chuẩn bị tiện ích phù hợp nhất cho đoàn của bạn.',
+      q: tr("guest:homePage.howDoIBookForALargeGroupOrMakeSpecialRequests"),
+      a: tr("guest:homePage.contactReceptionOn0987654321OrLeaveANoteWhenBooking"),
     },
   ];
 
@@ -103,7 +115,7 @@ export function HomePage() {
         <img
           className="hero-image"
           src="/images/hero.jpg"
-          alt="Không gian An Nhiên Hotel sang trọng và thanh bình"
+          alt={tr("guest:homePage.theElegantAndTranquilAnNhienHotel")}
           width="2000"
           height="1333"
           fetchPriority="high"
@@ -111,36 +123,25 @@ export function HomePage() {
         <div className="hero-shade" />
 
         <div className="site-container hero-content">
-          <div className="hero-rating-badge">
-            ✦ 4.9/5 · Trải nghiệm nghỉ dưỡng được yêu thích
-          </div>
+          <div className="hero-rating-badge">{tr("guest:homePage.495AMuchLovedGetawayExperience")}</div>
           <p className="eyebrow light">
             <span />
-            ĐẶT PHÒNG TRỰC TIẾP · AN NHIÊN BOUTIQUE HOTEL
-          </p>
-          <h1>
-            Một khoảng lặng,
-            <br />
-            một kỳ nghỉ <em>trọn vẹn.</em>
-          </h1>
-          <p className="hero-description">
-            Gác lại nhịp sống vội vàng để tận hưởng không gian thanh bình tại An Nhiên.
-            Đặt phòng trực tiếp ngay hôm nay để nhận giá ưu đãi tốt nhất cùng đặc quyền đón tiếp chu đáo.
-          </p>
+            {tr("guest:homePage.bookDirectAnNhienBoutiqueHotel")}</p>
+          <h1><Trans ns="guest" i18nKey="homePage.aMomentOfCalmACompleteGetaway" components={{ part0: <br />, part1: <em /> }} /></h1>
+          <p className="hero-description">{tr("guest:homePage.setTheBusyWorldAsideAndEnjoyTheTranquilityOfAnNhien")}</p>
         </div>
       </section>
 
       {/* Floating Booking Engine */}
-      <section className="hero-booking-wrapper site-container" aria-label="Tìm kiếm và đặt phòng">
+      <section className="hero-booking-wrapper site-container" aria-label={tr("guest:homePage.searchAndBookRooms")}>
         <div className="hero-booking-card">
           <div className="booking-card-header">
             <div>
-              <span className="booking-card-kicker">KỲ NGHỈ CỦA BẠN</span>
-              <h2 className="booking-card-title">Tìm phòng sẵn sàng đón tiếp</h2>
+              <span className="booking-card-kicker">{tr("guest:components.yourGetaway")}</span>
+              <h2 className="booking-card-title">{tr("guest:homePage.findRoomsReadyToWelcomeYou")}</h2>
             </div>
             <span className="booking-card-badge">
-              <Sparkles size={14} /> Giữ giá niêm yết tốt nhất
-            </span>
+              <Sparkles size={14} /> {tr("guest:homePage.bestPublishedRate")}</span>
           </div>
 
           <SearchForm
@@ -150,33 +151,25 @@ export function HomePage() {
 
           <div className="hero-trust-bar">
             <span className="trust-item">
-              <CheckCircle2 size={15} /> Xác nhận tức thì qua hệ thống
-            </span>
+              <CheckCircle2 size={15} /> {tr("guest:homePage.instantSystemConfirmation")}</span>
             <span className="trust-item">
-              <ShieldCheck size={15} /> Miễn phí hủy trước 24 giờ
-            </span>
+              <ShieldCheck size={15} /> {tr("guest:homePage.freeCancellationUpTo24HoursBeforeArrival")}</span>
             <span className="trust-item">
-              <Tag size={15} /> Không phí đặt phòng ẩn
-            </span>
+              <Tag size={15} /> {tr("guest:homePage.noHiddenBookingFees")}</span>
             <span className="trust-item">
-              <Coffee size={15} /> Tặng trà thảo mộc chào mừng
-            </span>
+              <Coffee size={15} /> {tr("guest:homePage.complimentaryWelcomeHerbalTea")}</span>
           </div>
         </div>
       </section>
 
       {/* 2. DIRECT BOOKING PERKS - ĐẶC QUYỀN ĐẶT TRỰC TIẾP */}
-      <section className="direct-perks-section site-container" aria-label="Đặc quyền khi đặt phòng trực tiếp">
+      <section className="direct-perks-section site-container" aria-label={tr("guest:homePage.directBookingBenefits")}>
         <div className="section-heading text-center">
           <div>
-            <p className="eyebrow">ƯU ĐÃI ĐẶC QUYỀN</p>
-            <h2>
-              Lý do nên đặt phòng <em>trực tiếp</em> tại An Nhiên
-            </h2>
+            <p className="eyebrow">{tr("guest:homePage.exclusiveBenefits")}</p>
+            <h2><Trans ns="guest" i18nKey="homePage.whyBookDirectlyWithAnNhien" components={{ part0: <em /> }} /></h2>
           </div>
-          <p>
-            Đặt phòng ngay tại website chính thức để tận hưởng trọn vẹn những ưu đãi độc quyền mà các kênh trung gian không có.
-          </p>
+          <p>{tr("guest:homePage.bookThroughOurOfficialWebsiteToEnjoyExclusiveBenefitsUnavailableThroughIntermediaries")}</p>
         </div>
 
         <div className="perks-grid">
@@ -184,44 +177,36 @@ export function HomePage() {
             <div className="perk-icon-wrap">
               <Tag size={26} strokeWidth={1.5} />
             </div>
-            <span className="perk-badge">Tiết kiệm 5-10%</span>
-            <h3>Cam kết giá tốt nhất</h3>
-            <p>
-              Giá niêm yết trực tiếp luôn là mức giá ưu đãi nhất. Không qua trung gian, không phát sinh phụ phí ẩn khi nhận phòng.
-            </p>
+            <span className="perk-badge">{tr("guest:homePage.save510")}</span>
+            <h3>{tr("guest:homePage.bestRateGuarantee")}</h3>
+            <p>{tr("guest:homePage.ourDirectRatesOfferTheBestValueNoIntermediariesAndNoHidden")}</p>
           </article>
 
           <article className="perk-card">
             <div className="perk-icon-wrap">
               <Coffee size={26} strokeWidth={1.5} />
             </div>
-            <span className="perk-badge">Miễn phí 100%</span>
-            <h3>Trà & Cà phê đón tiếp</h3>
-            <p>
-              Thưởng thức trà thảo mộc An Nhiên và cà phê thượng hạng phục vụ chu đáo ngay khi làm thủ tục check-in.
-            </p>
+            <span className="perk-badge">{tr("guest:homePage.100Complimentary")}</span>
+            <h3>{tr("guest:homePage.welcomeTeaCoffee")}</h3>
+            <p>{tr("guest:homePage.enjoyAnNhienHerbalTeaAndPremiumCoffeeServedWithCareWhen")}</p>
           </article>
 
           <article className="perk-card">
             <div className="perk-icon-wrap">
               <Clock size={26} strokeWidth={1.5} />
             </div>
-            <span className="perk-badge">Ưu tiên số 1</span>
-            <h3>Linh hoạt giờ nhận phòng</h3>
-            <p>
-              Ưu tiên hỗ trợ nhận phòng sớm hoặc trả phòng trễ khi khách sạn có phòng trống sẵn sàng, kèm dịch vụ giữ hành lý an toàn.
-            </p>
+            <span className="perk-badge">{tr("guest:homePage.firstPriority")}</span>
+            <h3>{tr("guest:homePage.flexibleCheckIn")}</h3>
+            <p>{tr("guest:homePage.priorityAssistanceWithEarlyCheckInOrLateCheckOutWhenRooms")}</p>
           </article>
 
           <article className="perk-card">
             <div className="perk-icon-wrap">
               <HeartHandshake size={26} strokeWidth={1.5} />
             </div>
-            <span className="perk-badge">An tâm tuyệt đối</span>
-            <h3>Đổi ngày & Hủy linh hoạt</h3>
-            <p>
-              Kế hoạch thay đổi? Dễ dàng đổi ngày hoặc hủy phòng hoàn toàn miễn phí trước 24 giờ. Đội ngũ hỗ trợ 24/7.
-            </p>
+            <span className="perk-badge">{tr("guest:homePage.completePeaceOfMind")}</span>
+            <h3>{tr("guest:homePage.flexibleDateChangesCancellation")}</h3>
+            <p>{tr("guest:homePage.plansChangedChangeDatesOrCancelFreeOfChargeUpTo24")}</p>
           </article>
         </div>
       </section>
@@ -231,39 +216,31 @@ export function HomePage() {
         <div className="site-container">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">BỘ SƯU TẬP HẠNG PHÒNG</p>
-              <h2>
-                Không gian nghỉ ngơi <em>dành cho bạn.</em>
-              </h2>
+              <p className="eyebrow">{tr("guest:homePage.roomCollection")}</p>
+              <h2><Trans ns="guest" i18nKey="homePage.aRelaxingSpaceForYou" components={{ part0: <em /> }} /></h2>
             </div>
             <Link to="/rooms" className="text-link">
-              Xem tất cả phòng & lịch trống <ArrowUpRight size={18} />
+              {tr("guest:homePage.viewAllRoomsAvailability")}<ArrowUpRight size={18} />
             </Link>
           </div>
 
           {/* Quick Filter Tabs */}
-          <div className="room-filter-tabs" role="tablist" aria-label="Lọc theo nhu cầu nghỉ dưỡng">
+          <div className="room-filter-tabs" role="tablist" aria-label={tr("guest:homePage.filterByYourGetawayNeeds")}>
             <button
               type="button"
               className={`filter-tab-btn ${guestFilter === 'ALL' ? 'active' : ''}`}
               onClick={() => setGuestFilter('ALL')}
-            >
-              Tất cả hạng phòng ({roomTypesList.length})
-            </button>
+            >{tr("guest:homePage.allRoomTypesValue", { value0: (roomTypesList.length) })}</button>
             <button
               type="button"
               className={`filter-tab-btn ${guestFilter === 'COUPLE' ? 'active' : ''}`}
               onClick={() => setGuestFilter('COUPLE')}
-            >
-              Cặp đôi & 1-2 khách
-            </button>
+            >{tr("guest:homePage.couples12Guests")}</button>
             <button
               type="button"
               className={`filter-tab-btn ${guestFilter === 'FAMILY' ? 'active' : ''}`}
               onClick={() => setGuestFilter('FAMILY')}
-            >
-              Gia đình & Nhóm (3+ khách)
-            </button>
+            >{tr("guest:homePage.familiesGroups3Guests")}</button>
           </div>
 
           {types.isPending ? (
@@ -277,44 +254,40 @@ export function HomePage() {
                     <div className="showcase-media">
                       <img
                         src={getRoomTypeImage(type.name)}
-                        alt={`Hạng phòng ${type.name} tại An Nhiên Hotel`}
+                        alt={tr("guest:homePage.valueRoomTypeAtAnNhienHotel", { value0: (catalogName(type.name)) })}
                         loading="lazy"
                       />
                       <div className="showcase-media-overlay">
                         <span className="room-capacity-badge">
-                          <Users size={13} /> Tối đa {type.maxGuests} khách
-                        </span>
-                        <span className="room-highlight-chip">✦ Sẵn sàng đón tiếp</span>
+                          <Users size={13} /> {tr("common:supplement.maximumGuests", { value0: type.maxGuests })}</span>
+                        <span className="room-highlight-chip">{tr("guest:homePage.readyToWelcomeYou")}</span>
                       </div>
                     </div>
 
                     <div className="showcase-body">
                       <div className="showcase-header">
                         <div>
-                          <h3 className="showcase-title">{type.name}</h3>
-                          <p className="showcase-subtitle">Không gian an nhiên · Ban công đón sáng</p>
+                          <h3 className="showcase-title">{catalogName(type.name)}</h3>
+                          <p className="showcase-subtitle">{tr("guest:homePage.aPeacefulSpaceSunlitBalcony")}</p>
                         </div>
                         <div className="showcase-price-box">
                           <span className="price-number">{money(type.nightlyPrice)}</span>
-                          <span className="price-unit">/ đêm</span>
+                          <span className="price-unit">{tr("guest:homePage.night")}</span>
                         </div>
                       </div>
 
                       <p className="showcase-desc">
-                        {type.description ||
-                          'Phòng nghỉ với thiết kế mộc mạc, chan hòa ánh sáng và trang bị đầy đủ tiện nghi tiêu chuẩn cho kỳ nghỉ thảnh thơi.'}
+                        {catalogDescription(type.description, type.name) ||
+                          tr("guest:homePage.aRoomWithNaturalMaterialsPlentyOfLightAndAllStandardAmenities")}
                       </p>
 
                       <div className="showcase-specs">
                         <span className="spec-item">
-                          <BedDouble size={14} /> Giường nệm cao cấp
-                        </span>
+                          <BedDouble size={14} /> {tr("guest:homePage.premiumMattress")}</span>
                         <span className="spec-item">
-                          <Wifi size={14} /> Wifi tốc độ cao
-                        </span>
+                          <Wifi size={14} /> {tr("guest:homePage.highSpeedWiFi")}</span>
                         <span className="spec-item">
-                          <Coffee size={14} /> Trà & Nước suối miễn phí
-                        </span>
+                          <Coffee size={14} /> {tr("guest:homePage.complimentaryTeaBottledWater")}</span>
                       </div>
 
                       <div className="showcase-actions">
@@ -322,15 +295,13 @@ export function HomePage() {
                           to={`/rooms?roomTypeId=${type.id}`}
                           variant="secondary"
                           className="btn-details"
-                        >
-                          Xem chi tiết phòng
-                        </LinkButton>
+                        >{tr("guest:homePage.viewRoomDetails")}</LinkButton>
                         <LinkButton
                           to={bookUrl}
                           variant="primary"
                           className="btn-book-now"
                         >
-                          Đặt phòng này <ArrowRight size={16} />
+                          {tr("guest:homePage.bookThisRoom")}<ArrowRight size={16} />
                         </LinkButton>
                       </div>
                     </div>
@@ -342,22 +313,20 @@ export function HomePage() {
 
           <div className="live-rooms-footer">
             <LinkButton to="/rooms" variant="secondary" className="btn-explore-all">
-              Khám phá toàn bộ phòng còn trống hôm nay <ArrowRight size={17} />
+              {tr("guest:homePage.exploreAllRoomsAvailableToday")}<ArrowRight size={17} />
             </LinkButton>
           </div>
         </div>
       </section>
 
       {/* 4. QUY TRÌNH 3 BƯỚC ĐẶT PHÒNG NHANH CHÓNG */}
-      <section className="booking-steps-section site-container" aria-label="Quy trình đặt phòng">
+      <section className="booking-steps-section site-container" aria-label={tr("guest:homePage.bookingProcess")}>
         <div className="section-heading text-center">
           <div>
-            <p className="eyebrow">QUY TRÌNH THUẬN TIỆN</p>
-            <h2>
-              Đặt phòng đơn giản chỉ trong <em>3 bước</em>
-            </h2>
+            <p className="eyebrow">{tr("guest:homePage.aSimpleProcess")}</p>
+            <h2><Trans ns="guest" i18nKey="homePage.bookInJust3Steps" components={{ part0: <em /> }} /></h2>
           </div>
-          <p>Trải nghiệm đặt phòng trực tuyến thông minh, minh bạch và nhanh chóng.</p>
+          <p>{tr("guest:homePage.smartTransparentAndFastOnlineBooking")}</p>
         </div>
 
         <div className="steps-grid">
@@ -366,8 +335,8 @@ export function HomePage() {
             <div className="step-icon">
               <CalendarCheck size={28} strokeWidth={1.4} />
             </div>
-            <h4>Chọn ngày & Hạng phòng</h4>
-            <p>Nhập ngày nhận/trả phòng và số lượng khách để xem danh sách phòng sẵn sàng.</p>
+            <h4>{tr("guest:homePage.chooseDatesRoomType")}</h4>
+            <p>{tr("guest:homePage.enterCheckInAndCheckOutDatesAndGuestNumbersToSee")}</p>
           </div>
 
           <div className="step-card">
@@ -375,8 +344,8 @@ export function HomePage() {
             <div className="step-icon">
               <ShieldCheck size={28} strokeWidth={1.4} />
             </div>
-            <h4>Xác nhận thông tin</h4>
-            <p>Điền thông tin liên hệ chỉ trong 60 giây. Không yêu cầu thẻ tín dụng phức tạp.</p>
+            <h4>{tr("guest:homePage.confirmYourDetails")}</h4>
+            <p>{tr("guest:homePage.enterYourContactDetailsInJust60SecondsNoComplicatedCreditCard")}</p>
           </div>
 
           <div className="step-card">
@@ -384,35 +353,29 @@ export function HomePage() {
             <div className="step-icon">
               <Sparkles size={28} strokeWidth={1.4} />
             </div>
-            <h4>Nhận phòng & Tận hưởng</h4>
-            <p>Nhận mã đặt phòng tức thì qua hệ thống. Thanh toán linh hoạt khi làm thủ tục check-in.</p>
+            <h4>{tr("guest:homePage.checkInEnjoy")}</h4>
+            <p>{tr("guest:homePage.receiveYourReservationCodeInstantlyThroughTheSystemPayFlexiblyAtCheck")}</p>
           </div>
         </div>
       </section>
 
       {/* 5. BOOKING FAQ - GIẢI TỎA THẮC MẮC CỦA KHÁCH HÀNG */}
-      <section className="booking-faq-section site-container" aria-label="Câu hỏi thường gặp về đặt phòng">
+      <section className="booking-faq-section site-container" aria-label={tr("guest:homePage.frequentlyAskedBookingQuestions")}>
         <div className="faq-layout">
           <div className="faq-intro">
             <div className="intro-marker">
               <span className="small-star">✳</span>
-              <p className="eyebrow">HỖ TRỢ ĐẶT PHÒNG</p>
+              <p className="eyebrow">{tr("guest:homePage.bookingSupport")}</p>
             </div>
-            <h2>
-              Những thắc mắc
-              <br />
-              thường gặp của <em>khách hàng</em>
-            </h2>
-            <p>
-              Chúng tôi luôn minh bạch mọi thông tin để bạn có kỳ nghỉ trọn vẹn và an tâm nhất từ lúc bắt đầu đặt phòng.
-            </p>
+            <h2><Trans ns="guest" i18nKey="homePage.frequentlyAskedQuestionsFromOurGuests" components={{ part0: <br />, part1: <em /> }} /></h2>
+            <p>{tr("guest:homePage.weKeepInformationTransparentSoYouCanEnjoyACompleteWorryFree")}</p>
             <div className="faq-support-card">
               <div className="support-icon">
                 <PhoneCall size={22} />
               </div>
               <div>
-                <strong>Cần hỗ trợ tư vấn gấp?</strong>
-                <p>Hotline lễ tân 24/7: 0987 654 321</p>
+                <strong>{tr("guest:homePage.needUrgentBookingAssistance")}</strong>
+                <p>{tr("guest:homePage.247ReceptionHotline0987654321")}</p>
               </div>
             </div>
           </div>
@@ -453,40 +416,31 @@ export function HomePage() {
       <section className="membership-section booking-cta-section">
         <div className="site-container membership-inner">
           <div>
-            <p className="eyebrow light">KỲ NGHỈ THẢNH THƠI</p>
-            <h2>
-              Sẵn sàng cho chuyến
-              <br />
-              đi tiếp theo của <em>bạn?</em>
-            </h2>
+            <p className="eyebrow light">{tr("guest:homePage.aRelaxingGetaway")}</p>
+            <h2><Trans ns="guest" i18nKey="homePage.readyForYourNextTrip" components={{ part0: <br />, part1: <em /> }} /></h2>
           </div>
           <div>
-            <p>
-              Đội ngũ An Nhiên Hotel đã sẵn sàng đón tiếp. Đặt phòng trực tiếp ngay hôm nay để nhận mức giá ưu đãi nhất
-              {lowestPrice ? ` (chỉ từ ${money(lowestPrice.nightlyPrice)}/đêm)` : ''}.
-            </p>
+            <p>{tr("guest:homePage.theAnNhienHotelTeamIsReadyToWelcomeYouBookDirectly", { value0: (lowestPrice ? tr("common:supplement.startingPrice", { value0: money(lowestPrice.nightlyPrice) }) : '') })}</p>
             <div className="cta-actions-group">
               <LinkButton to="/rooms" variant="light">
-                Xem phòng & Đặt ngay <ArrowRight size={18} />
+                {tr("guest:homePage.viewRoomsBookNow")}<ArrowRight size={18} />
               </LinkButton>
-              <LinkButton to="/register" variant="secondary">
-                Tạo tài khoản hội viên
-              </LinkButton>
+              <LinkButton to="/register" variant="secondary">{tr("guest:homePage.createAMemberAccount")}</LinkButton>
             </div>
           </div>
         </div>
       </section>
 
       {/* 7. STICKY MOBILE BOOKING BAR - DÀNH CHO ĐIỆN THOẠI */}
-      <aside className="mobile-sticky-booking-bar" aria-label="Đặt phòng nhanh">
+      <aside className="mobile-sticky-booking-bar" aria-label={tr("guest:homePage.quickBooking")}>
         <div className="mobile-sticky-content">
           <div className="mobile-sticky-price">
-            <span className="price-label">Giá chỉ từ</span>
+            <span className="price-label">{tr("guest:homePage.ratesFrom")}</span>
             <strong>{lowestPrice ? money(lowestPrice.nightlyPrice) : '650.000 ₫'}</strong>
-            <small>/ đêm</small>
+            <small>{tr("guest:homePage.night")}</small>
           </div>
           <LinkButton to="/rooms" variant="primary" className="mobile-sticky-cta">
-            Đặt phòng ngay <ArrowRight size={15} />
+            {tr("guest:homePage.bookNow")}<ArrowRight size={15} />
           </LinkButton>
         </div>
       </aside>

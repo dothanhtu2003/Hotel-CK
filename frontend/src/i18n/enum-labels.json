@@ -1,0 +1,51 @@
+{
+  "Role": {
+    "GUEST": "common:enums.Role.GUEST",
+    "RECEPTIONIST": "common:enums.Role.RECEPTIONIST",
+    "HOUSEKEEPING": "common:enums.Role.HOUSEKEEPING",
+    "ADMIN": "common:enums.Role.ADMIN"
+  },
+  "AccountStatus": {
+    "ACTIVE": "common:enums.AccountStatus.ACTIVE",
+    "DISABLED": "common:enums.AccountStatus.DISABLED"
+  },
+  "OperationalStatus": {
+    "ACTIVE": "common:enums.OperationalStatus.ACTIVE",
+    "OUT_OF_SERVICE": "common:enums.OperationalStatus.OUT_OF_SERVICE"
+  },
+  "HousekeepingStatus": {
+    "CLEAN": "common:enums.HousekeepingStatus.CLEAN",
+    "DIRTY": "common:enums.HousekeepingStatus.DIRTY",
+    "CLEANING": "common:enums.HousekeepingStatus.CLEANING"
+  },
+  "BookingStatus": {
+    "PENDING": "common:enums.BookingStatus.PENDING",
+    "CONFIRMED": "common:enums.BookingStatus.CONFIRMED",
+    "CHECKED_IN": "common:enums.BookingStatus.CHECKED_IN",
+    "CHECKED_OUT": "common:enums.BookingStatus.CHECKED_OUT",
+    "CANCELLED": "common:enums.BookingStatus.CANCELLED"
+  },
+  "OrderStatus": {
+    "PENDING": "common:enums.OrderStatus.PENDING",
+    "COMPLETED": "common:enums.OrderStatus.COMPLETED",
+    "CANCELLED": "common:enums.OrderStatus.CANCELLED"
+  },
+  "TaskStatus": {
+    "TODO": "common:enums.TaskStatus.TODO",
+    "IN_PROGRESS": "common:enums.TaskStatus.IN_PROGRESS",
+    "DONE": "common:enums.TaskStatus.DONE"
+  },
+  "InvoiceStatus": {
+    "ISSUED": "common:enums.InvoiceStatus.ISSUED",
+    "PAID": "common:enums.InvoiceStatus.PAID"
+  },
+  "PaymentMethod": {
+    "CASH": "common:enums.PaymentMethod.CASH",
+    "BANK_TRANSFER": "common:enums.PaymentMethod.BANK_TRANSFER"
+  },
+  "PaymentStatus": {
+    "PENDING": "common:enums.PaymentStatus.PENDING",
+    "COMPLETED": "common:enums.PaymentStatus.COMPLETED",
+    "FAILED": "common:enums.PaymentStatus.FAILED"
+  }
+}

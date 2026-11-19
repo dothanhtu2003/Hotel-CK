@@ -1,3 +1,8 @@
+import { formatDate as localizedDate } from "../i18n/format";
+import { revenueSource, buildRevenueCsv } from "../i18n/revenue";
+import { displayLocale, localized, t as tr, useLocale } from "../i18n";
+
+import { Trans } from "react-i18next";
 import { DeskLink } from '../features/reception/navigation';
 import { Fragment, useMemo, useState } from 'react';
 import {
@@ -12,33 +17,24 @@ import { useDeskBase, useDeskGet } from '../features/reception/queries';
 import { hotelToday, shiftDate } from '../features/reception/room-state';
 import './revenue-page.css';
 
-const methods = { CASH: 'Tiền mặt', BANK_TRANSFER: 'Chuyển khoản' } as const;
-const presets = [[1, 'Hôm nay'], [7, '7 ngày'], [14, '14 ngày'], [0, 'Chọn ngày']] as const;
+const methods = localized(() => ({ CASH: tr("reception:cashier.cash"), BANK_TRANSFER: tr("reception:cashier.bankTransfer") } as const));
+const presets = localized(() => ([[1, tr("reception:tapeChart.today")], [7, tr("reception:revenuePage.7Days")], [14, tr("reception:revenuePage.14Days")], [0, tr("reception:revenuePage.chooseDates")]] as const));
 type Method = keyof typeof methods;
 type Receipt = {
   id: string; bookingId: string; reference: string; invoiceId?: string; room: string;
-  guestId: string; guest: string; date: string; amount: string; method: Method; source: string;
+  guestId: string; guest: string; date: string; amount: string; method: Method; source: string; sourceCode?: string;
   roomAmount: string; serviceAmount: string; collector: string | null; refund: boolean;
 };
 type Report = { pending: number; previousTotal: string; transactions: Receipt[] };
-const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 });
-const stamp = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
-const time = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
-const compact = new Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 });
+const money = localized(() => new Intl.NumberFormat(displayLocale(), { style: 'currency', currency: 'VND', maximumFractionDigits: 2 }));
+const time = localized(() => new Intl.DateTimeFormat(displayLocale(), { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }));
+const compact = localized(() => new Intl.NumberFormat(displayLocale(), { notation: 'compact', maximumFractionDigits: 1 }));
 const format = (cents: number) => money.format(cents / 100);
 const cents = (value: string) => Math.round(Number(value) * 100);
 const share = (value: number, total: number) => total > 0 ? Math.round(value / total * 100) : 0;
 
 function exportCsv(rows: Receipt[], from: string, to: string) {
-  const cell = (value: string) => '"' + value.replace(/^[\s\uFEFF]*[=+\-@]/, match => "'" + match).replaceAll('"', '""') + '"';
-  const lines = [['Mã booking', 'Mã hóa đơn', 'Phòng', 'Khách', 'Ngày', 'Phương thức', 'Nguồn thu', 'Người thu', 'Trạng thái', 'Tiền phòng (VND)', 'Tiền dịch vụ (VND)', 'Số tiền (VND)'].map(cell).join(',')];
-  for (const row of rows) {
-    lines.push([
-      row.reference, row.invoiceId ?? '', row.room, row.guest, stamp.format(new Date(row.date)),
-      methods[row.method], row.source, row.collector ?? '', row.refund ? 'Đã hoàn tiền' : 'Đã xác nhận',
-    ].map(cell).concat(row.roomAmount, row.serviceAmount, row.amount).join(','));
-  }
-  const url = URL.createObjectURL(new Blob(['\uFEFF', lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  const url = URL.createObjectURL(new Blob(['\uFEFF', buildRevenueCsv(rows)], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
   link.download = `doanh-thu-${from}-${to}.csv`;
@@ -47,6 +43,7 @@ function exportCsv(rows: Receipt[], from: string, to: string) {
 }
 
 export default function RevenuePage() {
+  const locale = useLocale();
   const today = hotelToday();
   const base = useDeskBase();
   const [period, setPeriod] = useState<number>(1);
@@ -61,15 +58,19 @@ export default function RevenuePage() {
   const days = (Date.parse(to) - Date.parse(from)) / 86400000 + 1;
   const valid = days >= 1 && days <= 366 && to <= today;
   const query = useDeskGet<Report>(`/revenue?from=${from}&to=${to}`, valid);
-  const rows = query.data?.transactions ?? [];
+  const rows = useMemo(() => query.data?.transactions ?? [], [query.data]);
 
   // Method filtering
   const filtered = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return method === 'ALL' ? rows : rows.filter(row => row.method === method);
-  }, [rows, method]);
+  }, [rows, method, locale]);
 
   // Search filtering
   const searched = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     if (!searchQuery.trim()) return filtered;
     const q = searchQuery.trim().toLowerCase();
     return filtered.filter(row =>
@@ -77,12 +78,14 @@ export default function RevenuePage() {
       row.room.toLowerCase().includes(q) ||
       row.reference.toLowerCase().includes(q) ||
       (row.collector && row.collector.toLowerCase().includes(q)) ||
-      row.source.toLowerCase().includes(q)
+      revenueSource(row).toLowerCase().includes(q)
     );
-  }, [filtered, searchQuery]);
+  }, [filtered, searchQuery, locale]);
 
   // Grouped by guest
   const byGuest = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     const map = new Map<string, Receipt[]>();
     for (const row of searched) {
       const key = row.guestId ?? row.bookingId;
@@ -91,14 +94,16 @@ export default function RevenuePage() {
       else map.set(key, [row]);
     }
     return map;
-  }, [searched]);
+  }, [searched, locale]);
 
   const pageCount = Math.max(1, Math.ceil(byGuest.size / 15));
   const currentPage = Math.min(page, pageCount);
   const yesterday = shiftDate(today, -1);
   const pageGroups = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     return [...byGuest].slice((currentPage - 1) * 15, currentPage * 15);
-  }, [byGuest, currentPage]);
+  }, [byGuest, currentPage, locale]);
 
   const daily = Array.from({ length: valid ? days : 0 }, (_, i) => ({ date: shiftDate(from, i), CASH: 0, BANK_TRANSFER: 0 }));
   const collected = { CASH: 0, BANK_TRANSFER: 0 };
@@ -123,9 +128,9 @@ export default function RevenuePage() {
   return (
     <div className="revenue-page">
       <header className="revenue-header">
-        <h1>Doanh thu</h1>
+        <h1>{tr("reception:revenuePage.revenue")}</h1>
         <div className="revenue-controls">
-          <div className="revenue-segment" role="group" aria-label="Kỳ báo cáo">
+          <div className="revenue-segment" role="group" aria-label={tr("reception:revenuePage.reportingPeriod")}>
             {presets.map(([value, label]) => (
               <button
                 key={value}
@@ -143,13 +148,12 @@ export default function RevenuePage() {
             disabled={!filtered.length || query.isError || !valid}
             onClick={() => exportCsv(filtered, from, to)}
           >
-            <Download size={16} /> Xuất CSV (Excel)
-          </button>
+            <Download size={16} /> {tr("reception:revenuePage.exportCsvExcel")}</button>
         </div>
         {period === 0 && (
           <div className="revenue-controls revenue-dates">
             <label>
-              Từ ngày{' '}
+              {tr("reception:revenuePage.fromDate")}{' '}
               <input
                 type="date"
                 value={from}
@@ -158,7 +162,7 @@ export default function RevenuePage() {
               />
             </label>
             <label>
-              Đến ngày{' '}
+              {tr("reception:revenuePage.toDate")}{' '}
               <input
                 type="date"
                 value={to}
@@ -171,80 +175,80 @@ export default function RevenuePage() {
       </header>
 
       {!valid ? (
-        <p role="alert">Chọn khoảng từ 1 đến 366 ngày, kết thúc chậm nhất hôm nay.</p>
+        <p role="alert">{tr("reception:revenuePage.chooseAPeriodOf1To366DaysEndingNoLaterThan")}</p>
       ) : query.isError ? (
-        <ErrorState message="Không tải được báo cáo doanh thu." retry={() => void query.refetch()} />
+        <ErrorState message={tr("reception:revenuePage.unableToLoadTheRevenueReport")} retry={() => void query.refetch()} />
       ) : !query.data ? (
-        <p role="status">Đang tải báo cáo doanh thu…</p>
+        <p role="status">{tr("reception:revenuePage.loadingRevenueReport")}</p>
       ) : (
         <>
           {query.data.pending > 0 && (
             <div className="revenue-note">
-              <strong>Cần đối soát</strong> · {query.data.pending} khoản thanh toán payOS đang chờ xử lý.{' '}
-              <Link to={`${base}/billing`}>Mở hàng chờ đối soát</Link>
+              <strong>{tr("reception:revenuePage.reviewRequired")}</strong> · {query.data.pending} {tr("reception:revenuePage.payosPaymentsAwaitingReview")}{' '}
+              <Link to={`${base}/billing`}>{tr("reception:revenuePage.openPaymentReviewQueue")}</Link>
             </div>
           )}
 
-          <section className="revenue-kpis" aria-label="Tổng hợp doanh thu">
+          <section className="revenue-kpis" aria-label={tr("reception:revenuePage.revenueSummary")}>
             <div className="revenue-card revenue-primary">
-              <span>Tổng thực thu</span>
+              <span>{tr("reception:revenuePage.netCollectedPayments")}</span>
               <strong>{format(total)}</strong>
               <small>
                 {delta === null
-                  ? `Kỳ trước ${format(previous)}`
-                  : `${delta > 0 ? '+' : ''}${delta.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}% so với kỳ trước`}
+                  ? tr("reception:revenuePage.previousPeriodValue", { value0: (format(previous)) })
+                  : tr("reception:revenuePage.valueValueComparedWithPreviousPeriod", { value0: (delta > 0 ? '+' : ''), value1: (delta.toLocaleString(displayLocale(), { maximumFractionDigits: 1 })) })}
               </small>
             </div>
             <div className="revenue-card">
-              <span>Tiền mặt</span>
+              <span>{tr("reception:cashier.cash")}</span>
               <strong>{format(cash)}</strong>
-              <small>{cashShare}% {hasRefund ? 'tổng tiền thu trước hoàn' : 'tổng tiền thu'}</small>
+              <small>{cashShare}% {hasRefund ? tr("reception:revenuePage.totalCollectedBeforeRefunds") : tr("reception:revenuePage.totalCollected")}</small>
             </div>
             <div className="revenue-card">
-              <span>Chuyển khoản</span>
+              <span>{tr("reception:cashier.bankTransfer")}</span>
               <strong>{format(bank)}</strong>
-              <small>{bankShare}% {hasRefund ? 'tổng tiền thu trước hoàn' : 'tổng tiền thu'}</small>
+              <small>{bankShare}% {hasRefund ? tr("reception:revenuePage.totalCollectedBeforeRefunds") : tr("reception:revenuePage.totalCollected")}</small>
             </div>
             <div className="revenue-card">
-              <span>Số giao dịch đã thu</span>
-              <strong>{rows.filter(row => !row.refund).length.toLocaleString('vi-VN')}</strong>
-              <small>Chỉ tính khoản đã xác nhận</small>
+              <span>{tr("reception:revenuePage.collectedTransactions")}</span>
+              <strong>{rows.filter(row => !row.refund).length.toLocaleString(displayLocale())}</strong>
+              <small>{tr("reception:revenuePage.confirmedReceiptsOnly")}</small>
             </div>
           </section>
 
-          <section className="revenue-kpis revenue-sources" aria-label="Thực thu theo nguồn">
+          <section className="revenue-kpis revenue-sources" aria-label={tr("reception:revenuePage.netCollectedPaymentsBySource")}>
             <div className="revenue-card">
-              <span>Tiền phòng</span>
+              <span>{tr("reception:cashier.roomCharges")}</span>
               <strong>{format(roomTotal)}</strong>
-              <small>Thực thu tiền lưu trú</small>
+              <small>{tr("reception:revenuePage.netCollectedRoomPayments")}</small>
             </div>
             <div className="revenue-card">
-              <span>Tiền dịch vụ</span>
+              <span>{tr("reception:revenuePage.serviceCharges")}</span>
               <strong>{format(serviceTotal)}</strong>
-              <small>{hasRefund ? 'Tiền dịch vụ đã thu, trừ khoản hoàn đã ghi nhận' : 'Tiền dịch vụ đã thu'}</small>
+              <small>{hasRefund ? tr("reception:revenuePage.servicePaymentsCollectedLessRecordedRefunds") : tr("reception:revenuePage.servicePaymentsCollected")}</small>
             </div>
           </section>
 
-          <section className="revenue-charts" aria-label="Biểu đồ doanh thu">
+          <section className="revenue-charts" aria-label={tr("reception:revenuePage.revenueChart")}>
             <div className="revenue-card">
-              <h2>Doanh thu theo ngày</h2>
-              <p>{hasRefund ? 'Thực thu theo phương thức, đã trừ khoản hoàn ghi nhận' : 'Thực thu theo phương thức thanh toán'}</p>
-              <div className="revenue-legend"><span>Tiền mặt</span><span>Chuyển khoản</span></div>
+              <h2>{tr("reception:revenuePage.dailyCollectedPayments")}</h2>
+              <p>{hasRefund ? tr("reception:revenuePage.netCollectedPaymentsByMethodAfterRecordedRefunds") : tr("reception:revenuePage.netCollectedPaymentsByPaymentMethod")}</p>
+              <div className="revenue-legend"><span>{tr("reception:cashier.cash")}</span><span>{tr("reception:cashier.bankTransfer")}</span></div>
               <RevenueBars daily={daily} />
             </div>
             <div className="revenue-card">
-              <h2>Cơ cấu thanh toán</h2>
-              <p>{hasRefund ? 'Tiền thu trước khi trừ khoản hoàn' : 'Tiền thu trong kỳ đã chọn'}</p>
+              <h2>{tr("reception:revenuePage.paymentMix")}</h2>
+              <p>{hasRefund ? tr("reception:revenuePage.collectedPaymentsBeforeRefunds") : tr("reception:revenuePage.paymentsCollectedInTheSelectedPeriod")}</p>
               <div
                 className="revenue-donut"
                 role="img"
-                aria-label={`Tiền mặt ${cashShare}%, chuyển khoản ${bankShare}%`}
+                aria-label={tr("reception:revenuePage.cashValueBankTransferValue", { value0: (cashShare), value1: (bankShare) })}
                 style={{ background: gross ? `conic-gradient(var(--rev-bank) ${bankShare}%, var(--rev-cash) 0)` : 'var(--rev-line)' }}
               >
-                <div><strong>{bankShare}%</strong><small>chuyển khoản</small></div>
+                <div><Trans ns="reception" i18nKey="revenuePage.valueBankTransfer" values={{ value0: (bankShare) }} components={{ part0: <strong />, part1: <small /> }} /></div>
               </div>
-              <div className="revenue-breakdown"><span>Tiền mặt</span><b>{format(collected.CASH)}</b></div>
-              <div className="revenue-breakdown"><span>Chuyển khoản</span><b>{format(collected.BANK_TRANSFER)}</b></div>
+              <div className="revenue-breakdown"><span>{tr("reception:cashier.cash")}</span><b>{format(collected.CASH)}</b></div>
+              <div className="revenue-breakdown"><span>{tr("reception:cashier.bankTransfer")}</span><b>{format(collected.BANK_TRANSFER)}</b></div>
             </div>
           </section>
 
@@ -252,12 +256,8 @@ export default function RevenuePage() {
           <section className="revenue-card">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-100">
               <div>
-                <h2 className="text-base font-bold text-zinc-900 m-0">Giao dịch trong kỳ</h2>
-                <p className="text-xs text-zinc-500 m-0 mt-0.5">
-                  {byGuest.size.toLocaleString('vi-VN')} khách · {filtered.length.toLocaleString('vi-VN')} giao dịch
-                  {method !== 'ALL' && ` · ${methods[method]}`}
-                  {searchQuery.trim() && ` · Tìm thấy ${searched.length} kết quả`}
-                </p>
+                <h2 className="text-base font-bold text-zinc-900 m-0">{tr("reception:revenuePage.transactionsInThisPeriod")}</h2>
+                <p className="text-xs text-zinc-500 m-0 mt-0.5">{tr("reception:revenuePage.valueGuestsValueTransactionsValueValue", { value0: (byGuest.size.toLocaleString(displayLocale())), value1: (filtered.length.toLocaleString(displayLocale())), value2: (method !== 'ALL' ? ` · ${methods[method]}` : ''), value3: (searchQuery.trim() && tr("common:supplement.searchResults", { value0: searched.length })) })}</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -266,7 +266,7 @@ export default function RevenuePage() {
                   <Search className="size-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Tìm phòng, khách, mã..."
+                    placeholder={tr("reception:revenuePage.searchRoomGuestCode")}
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -289,7 +289,7 @@ export default function RevenuePage() {
                 </div>
 
                 {/* Payment Method Filter */}
-                <div className="revenue-segment" role="group" aria-label="Phương thức thanh toán">
+                <div className="revenue-segment" role="group" aria-label={tr("reception:unifiedBookingModal.paymentMethod")}>
                   {(['ALL', 'CASH', 'BANK_TRANSFER'] as const).map((value) => (
                     <button
                       key={value}
@@ -300,7 +300,7 @@ export default function RevenuePage() {
                         setPage(1);
                       }}
                     >
-                      {value === 'ALL' ? 'Tất cả' : methods[value]}
+                      {value === 'ALL' ? tr("reception:createServiceOrder.all") : methods[value]}
                     </button>
                   ))}
                 </div>
@@ -312,17 +312,17 @@ export default function RevenuePage() {
                   className="h-8 px-2.5 rounded-lg text-xs font-medium border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
                 >
                   <ChevronsUpDown className="size-3.5 text-zinc-400" />
-                  <span>{expandAll ? 'Thu gọn' : 'Mở tất cả'}</span>
+                  <span>{expandAll ? tr("reception:revenuePage.collapse") : tr("reception:revenuePage.expandAll")}</span>
                 </button>
               </div>
             </div>
 
             {/* Grouped Table View */}
             <div className="revenue-table">
-              <table aria-label="Giao dịch doanh thu">
+              <table aria-label={tr("reception:revenuePage.revenueTransactions")}>
                 <thead>
                   <tr>
-                    {['Giờ', 'Giao dịch', 'Mã booking', 'Phòng', 'Khách', 'Phương thức', 'Người thu', 'Trạng thái', 'Tiền phòng', 'Tiền dịch vụ', 'Số tiền'].map((label) => (
+                    {[tr("reception:revenuePage.time"), tr("reception:revenuePage.transaction"), tr("reception:revenuePage.reservationCode"), tr("reception:reservationPanels.room"), tr("reception:revenuePage.guest"), tr("reception:paymentForm.method"), tr("reception:revenuePage.collectedBy"), tr("reception:reservationPanels.status"), tr("reception:cashier.roomCharges"), tr("reception:revenuePage.serviceCharges"), tr("reception:reservationPanels.amount")].map((label) => (
                       <th scope="col" key={label}>{label}</th>
                     ))}
                   </tr>
@@ -348,17 +348,13 @@ export default function RevenuePage() {
                               >
                                 <span aria-hidden="true" className="revenue-chevron">{open ? '▾' : '▸'}</span>
                                 <strong>{latest.guest}</strong>
-                                <span> · {group.length} giao dịch</span>
+                                <span>{tr("reception:revenuePage.valueTransactions", { value0: (group.length) })}</span>
                               </button>
 
                               {/* Customer meta info to balance the columns */}
                               <div className="flex items-center gap-2">
-                                <span className="revenue-room-badge">
-                                  Phòng {latest.room}
-                                </span>
-                                <span className="font-mono text-xs text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">
-                                  Mã: {latest.reference}
-                                </span>
+                                <span className="revenue-room-badge">{tr("reception:cashier.roomValue", { value0: (latest.room) })}</span>
+                                <span className="font-mono text-xs text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">{tr("reception:revenuePage.codeValue", { value0: (latest.reference) })}</span>
                                 <div className="flex items-center gap-1">
                                   {methodsInGroup.map((m) => (
                                     <span key={m} className={`revenue-tag ${m}`}>
@@ -378,15 +374,15 @@ export default function RevenuePage() {
                           const date = hotelToday(new Date(row.date));
                           const previous = group[index - 1];
                           const startsDay = !previous || hotelToday(new Date(previous.date)) !== date;
-                          const label = date === today ? 'Hôm nay' : date === yesterday ? 'Hôm qua' : '';
-                          const dateLabel = date.split('-').reverse().join('/');
+                          const label = date === today ? tr("reception:tapeChart.today") : date === yesterday ? tr("reception:revenuePage.yesterday") : '';
+                          const dateLabel = localizedDate(date);
                           const description = row.refund
-                            ? 'Hoàn tiền dịch vụ'
+                            ? tr("reception:revenuePage.serviceRefund")
                             : cents(row.roomAmount) && cents(row.serviceAmount)
-                            ? 'Thu tiền phòng và dịch vụ'
+                            ? tr("reception:revenuePage.collectRoomAndServicePayment")
                             : cents(row.roomAmount)
-                            ? 'Thu tiền phòng'
-                            : 'Thu tiền dịch vụ';
+                            ? tr("reception:revenuePage.collectRoomPayment")
+                            : tr("reception:revenuePage.collectServicePayment");
 
                           return (
                             <Fragment key={row.id}>
@@ -409,7 +405,7 @@ export default function RevenuePage() {
                                 </td>
                                 <td>
                                   <strong>{description}</strong>
-                                  <small>{row.source}</small>
+                                  <small>{revenueSource(row)}</small>
                                 </td>
                                 <td>
                                   <DeskLink to={`${base}/bookings/${row.bookingId}`} className="font-mono">
@@ -417,7 +413,7 @@ export default function RevenuePage() {
                                   </DeskLink>
                                 </td>
                                 <td>
-                                  <span className="revenue-room-badge">P.{row.room}</span>
+                                  <span className="revenue-room-badge">{tr("reception:createServiceOrder.rm")}{row.room}</span>
                                 </td>
                                 <td>{row.guest}</td>
                                 <td>
@@ -428,9 +424,9 @@ export default function RevenuePage() {
                                 <td>{row.collector ?? '—'}</td>
                                 <td>
                                   {row.refund ? (
-                                    <span className="revenue-refund-tag">Đã hoàn tiền</span>
+                                    <span className="revenue-refund-tag">{tr("reception:revenuePage.refunded")}</span>
                                   ) : (
-                                    'Đã xác nhận'
+                                    tr("reception:tapeChart.confirmed")
                                   )}
                                 </td>
                                 <td>{cents(row.roomAmount) > 0 ? format(cents(row.roomAmount)) : '0 ₫'}</td>
@@ -447,9 +443,7 @@ export default function RevenuePage() {
                   })}
                   {!filtered.length && (
                     <tr>
-                      <td colSpan={11} className="py-12 text-center text-zinc-400">
-                        Không có giao dịch trong kỳ đã chọn.
-                      </td>
+                      <td colSpan={11} className="py-12 text-center text-zinc-400">{tr("reception:revenuePage.noTransactionsInTheSelectedPeriod")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -459,12 +453,7 @@ export default function RevenuePage() {
             {/* Pagination */}
             {pageCount > 1 && (
               <div className="mt-4 pt-3 border-t border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <span className="text-xs text-zinc-500">
-                  Hiển thị{' '}
-                  <strong className="text-zinc-800 font-semibold">
-                    {pageGroups.length} / {byGuest.size} khách hàng ({filtered.length} giao dịch)
-                  </strong>
-                </span>
+                <span className="text-xs text-zinc-500"><Trans ns="reception" i18nKey="revenuePage.showingValueValueGuestsValueTransactions" values={{ value0: (pageGroups.length), value1: (byGuest.size), value2: (filtered.length) }} components={{ part0: <strong className="text-zinc-800 font-semibold" /> }} /></span>
                 <Pagination page={currentPage} pageSize={15} total={byGuest.size} onChange={setPage} />
               </div>
             )}
@@ -476,12 +465,13 @@ export default function RevenuePage() {
 }
 
 function RevenueBars({ daily }: { daily: { date: string; CASH: number; BANK_TRANSFER: number }[] }) {
+  useLocale();
   const max = Math.max(1, ...daily.map(d => Math.max(0, d.CASH) + Math.max(0, d.BANK_TRANSFER)));
   const min = Math.min(0, ...daily.map(d => Math.min(0, d.CASH) + Math.min(0, d.BANK_TRANSFER)));
   const y = (value: number) => 18 + (max - value) / (max - min) * 192;
   const slot = 570 / daily.length;
   const width = Math.min(36, slot * .65);
-  return <svg viewBox="0 0 640 242" role="img" aria-label="Biểu đồ cột thực thu theo ngày">
+  return <svg viewBox="0 0 640 242" role="img" aria-label={tr("reception:revenuePage.dailyNetCollectedPaymentsBarChart")}>
     {[min, min + (max - min) / 4, (min + max) / 2, max - (max - min) / 4, max].map(value => <g key={value}>
       <line x1="64" x2="638" y1={y(value)} y2={y(value)} />
       <text x="0" y={y(value) + 4}>{compact.format(value / 100)}</text>
@@ -490,11 +480,11 @@ function RevenueBars({ daily }: { daily: { date: string; CASH: number; BANK_TRAN
       const x = 66 + slot * (i + .5);
       const bankBase = d.BANK_TRANSFER >= 0 ? Math.max(0, d.CASH) : Math.min(0, d.CASH);
       return <g key={d.date}>
-        <title>{d.date} · Tiền mặt {format(d.CASH)} · Chuyển khoản {format(d.BANK_TRANSFER)}</title>
+        <title>{tr("reception:revenuePage.valueCashValueBankTransferValue", { value0: (d.date), value1: (format(d.CASH)), value2: (format(d.BANK_TRANSFER)) })}</title>
         <rect x={x - width / 2} y={Math.min(y(0), y(d.CASH))} width={width} height={Math.abs(y(0) - y(d.CASH))} fill="var(--rev-cash)" />
         <rect x={x - width / 2} y={Math.min(y(bankBase), y(bankBase + d.BANK_TRANSFER))} width={width}
           height={Math.abs(y(bankBase) - y(bankBase + d.BANK_TRANSFER))} fill="var(--rev-bank)" />
-        {i % Math.ceil(daily.length / 7) === 0 && <text x={x} y="234" textAnchor="middle">{d.date.slice(5).split('-').reverse().join('/')}</text>}
+        {i % Math.ceil(daily.length / 7) === 0 && <text x={x} y="234" textAnchor="middle">{localizedDate(d.date, { month: '2-digit', day: '2-digit' })}</text>}
       </g>;
     })}
   </svg>;

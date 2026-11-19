@@ -1,3 +1,7 @@
+import { catalogName } from "../i18n/catalog";
+import { displayLocale, safeError, t as tr, useLocale } from "../i18n";
+
+
 import { DeskBackLink, DeskLink } from '../features/reception/navigation';
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
@@ -51,6 +55,7 @@ import {
 import '../features/housekeeping/housekeeping.css';
 
 export function HousekeepingDashboard() {
+  const locale = useLocale();
   const base = useHousekeepingBase();
 
   // Queries
@@ -74,9 +79,9 @@ export function HousekeepingDashboard() {
   const [viewMode, setViewMode] = useState<'CARDS' | 'TABLE'>('CARDS');
 
   // Counts
-  const todoTasks = useMemo(() => todoQuery.data?.data ?? [], [todoQuery.data?.data]);
-  const progressTasks = useMemo(() => progressQuery.data?.data ?? [], [progressQuery.data?.data]);
-  const doneTasks = useMemo(() => doneQuery.data?.data ?? [], [doneQuery.data?.data]);
+  const todoTasks = useMemo(() => { void locale; return (todoQuery.data?.data ?? []); }, [todoQuery.data?.data, locale]);
+  const progressTasks = useMemo(() => { void locale; return (progressQuery.data?.data ?? []); }, [progressQuery.data?.data, locale]);
+  const doneTasks = useMemo(() => { void locale; return (doneQuery.data?.data ?? []); }, [doneQuery.data?.data, locale]);
 
   const todoCount = todoQuery.data?.meta.total ?? todoTasks.length;
   const progressCount = progressQuery.data?.meta.total ?? progressTasks.length;
@@ -87,13 +92,17 @@ export function HousekeepingDashboard() {
 
   // Available floors
   const availableFloors = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     const floors = new Set<number>();
     [...progressTasks, ...todoTasks, ...doneTasks].forEach((t) => floors.add(t.room.floor));
     return Array.from(floors).sort((a, b) => a - b);
-  }, [progressTasks, todoTasks, doneTasks]);
+  }, [progressTasks, todoTasks, doneTasks, locale]);
 
   // Filtered tasks for display
   const displayedTasks = useMemo(() => {
+    void locale; // Recompute presentation when the language changes.
+
     let list: Task[] = [];
     if (statusFilter === 'ACTIVE') {
       list = [...progressTasks, ...todoTasks];
@@ -120,7 +129,7 @@ export function HousekeepingDashboard() {
     }
 
     return list;
-  }, [statusFilter, floorFilter, searchQuery, progressTasks, todoTasks, doneTasks]);
+  }, [statusFilter, floorFilter, searchQuery, progressTasks, todoTasks, doneTasks, locale]);
 
   return (
     <div className="hk-page-container space-y-4">
@@ -133,7 +142,7 @@ export function HousekeepingDashboard() {
           className={`hk-stat-card ${statusFilter === 'TODO' ? 'active' : ''}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-600">Chờ dọn ngay</span>
+            <span className="text-xs font-semibold text-zinc-600">{tr("housekeeping:housekeepingPages.readyToClean")}</span>
             <span className="flex size-7 items-center justify-center rounded-lg bg-amber-50/80 text-amber-600 border border-amber-200/50">
               <AlertCircle className="size-3.5" />
             </span>
@@ -142,9 +151,7 @@ export function HousekeepingDashboard() {
             <span className="text-2xl font-bold text-zinc-900 tracking-tight">
               {todoQuery.isPending ? '…' : todoCount}
             </span>
-            <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
-              Cần xử lý
-            </span>
+            <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">{tr("housekeeping:housekeepingPages.needsAttention")}</span>
           </div>
         </button>
 
@@ -155,7 +162,7 @@ export function HousekeepingDashboard() {
           className={`hk-stat-card ${statusFilter === 'IN_PROGRESS' ? 'active' : ''}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-600">Đang dọn</span>
+            <span className="text-xs font-semibold text-zinc-600">{tr("housekeeping:contracts.cleaning")}</span>
             <span className="flex size-7 items-center justify-center rounded-lg bg-sky-50 text-sky-700 border border-sky-200/60">
               <Brush className="size-3.5" />
             </span>
@@ -164,9 +171,7 @@ export function HousekeepingDashboard() {
             <span className="text-2xl font-bold text-zinc-900 tracking-tight">
               {progressQuery.isPending ? '…' : progressCount}
             </span>
-            <span className="text-[11px] font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md">
-              Đang làm
-            </span>
+            <span className="text-[11px] font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md">{tr("housekeeping:housekeepingPages.inProgress")}</span>
           </div>
         </button>
 
@@ -177,7 +182,7 @@ export function HousekeepingDashboard() {
           className={`hk-stat-card ${statusFilter === 'DONE' ? 'active' : ''}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-600">Đã xong ca</span>
+            <span className="text-xs font-semibold text-zinc-600">{tr("housekeeping:housekeepingPages.shiftTasksCompleted")}</span>
             <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50/80 text-emerald-600 border border-emerald-200/50">
               <CheckCircle2 className="size-3.5" />
             </span>
@@ -186,9 +191,7 @@ export function HousekeepingDashboard() {
             <span className="text-2xl font-bold text-zinc-900 tracking-tight">
               {doneQuery.isPending ? '…' : doneCount}
             </span>
-            <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-              Phòng sạch
-            </span>
+            <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">{tr("housekeeping:contracts.cleanRoom")}</span>
           </div>
         </button>
 
@@ -199,7 +202,7 @@ export function HousekeepingDashboard() {
           className={`hk-stat-card ${statusFilter === 'ACTIVE' ? 'active' : ''}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-600">Tất cả cần làm</span>
+            <span className="text-xs font-semibold text-zinc-600">{tr("housekeeping:housekeepingPages.allToDo")}</span>
             <span className="flex size-7 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 border border-zinc-200/60">
               <BedDouble className="size-3.5" />
             </span>
@@ -208,9 +211,7 @@ export function HousekeepingDashboard() {
             <span className="text-2xl font-bold text-zinc-900 tracking-tight">
               {totalActive}
             </span>
-            <span className="text-[11px] font-medium text-zinc-500">
-              / {totalShift} tổng ca
-            </span>
+            <span className="text-[11px] font-medium text-zinc-500">{tr("housekeeping:housekeepingPages.valueTotalShiftTasks", { value0: (totalShift) })}</span>
           </div>
         </button>
       </div>
@@ -218,7 +219,7 @@ export function HousekeepingDashboard() {
       {/* Error alert if any query fails */}
       {hasError && (
         <ErrorState
-          message="Không thể tải đầy đủ danh sách công việc. Vui lòng thử lại."
+          message={tr("housekeeping:housekeepingPages.unableToLoadTheFullTaskListPleaseTryAgain")}
           retry={refreshAll}
         />
       )}
@@ -232,12 +233,12 @@ export function HousekeepingDashboard() {
             <div className="flex items-center gap-1.5 mr-1">
               <span className="text-xs font-semibold text-zinc-900">
                 {statusFilter === 'TODO'
-                  ? 'Phòng chờ dọn'
+                  ? tr("housekeeping:housekeepingPages.roomsAwaitingCleaning")
                   : statusFilter === 'IN_PROGRESS'
-                  ? 'Phòng đang dọn'
+                  ? tr("housekeeping:housekeepingPages.roomsBeingCleaned")
                   : statusFilter === 'DONE'
-                  ? 'Phòng đã hoàn thành'
-                  : 'Tất cả phòng cần dọn'}
+                  ? tr("housekeeping:housekeepingPages.completedRooms")
+                  : tr("housekeeping:housekeepingPages.allRoomsNeedingCleaning")}
               </span>
               <span className="text-[11px] font-bold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200/70">
                 {displayedTasks.length}
@@ -247,9 +248,7 @@ export function HousekeepingDashboard() {
                   type="button"
                   onClick={() => setStatusFilter('ACTIVE')}
                   className="text-[11px] text-zinc-400 hover:text-zinc-700 underline cursor-pointer ml-1"
-                >
-                  Hiện tất cả
-                </button>
+                >{tr("housekeeping:housekeepingPages.showAll")}</button>
               )}
             </div>
 
@@ -261,18 +260,14 @@ export function HousekeepingDashboard() {
                 type="button"
                 onClick={() => setFloorFilter('ALL')}
                 className={`hk-floor-pill ${floorFilter === 'ALL' ? 'active' : ''}`}
-              >
-                Tất cả tầng
-              </button>
+              >{tr("housekeeping:housekeepingPages.allFloors")}</button>
               {availableFloors.map((floor) => (
                 <button
                   key={floor}
                   type="button"
                   onClick={() => setFloorFilter(String(floor))}
                   className={`hk-floor-pill ${floorFilter === String(floor) ? 'active' : ''}`}
-                >
-                  Tầng {floor}
-                </button>
+                >{tr("housekeeping:housekeepingPages.floorValue", { value0: (floor) })}</button>
               ))}
             </div>
           </div>
@@ -285,7 +280,7 @@ export function HousekeepingDashboard() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm số phòng…"
+                placeholder={tr("housekeeping:housekeepingPages.searchRoomNumber")}
                 className="h-8 w-full pl-8 pr-7 text-xs rounded-lg border border-zinc-200 bg-zinc-50/60 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors"
               />
               {searchQuery && (
@@ -302,7 +297,7 @@ export function HousekeepingDashboard() {
             <div className="flex items-center bg-zinc-100 rounded-lg p-0.5 border border-zinc-200">
               <button
                 type="button"
-                title="Dạng thẻ phòng"
+                title={tr("housekeeping:housekeepingPages.roomCardView")}
                 onClick={() => setViewMode('CARDS')}
                 className={`p-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                   viewMode === 'CARDS'
@@ -314,7 +309,7 @@ export function HousekeepingDashboard() {
               </button>
               <button
                 type="button"
-                title="Dạng danh sách thu gọn"
+                title={tr("housekeeping:housekeepingPages.compactListView")}
                 onClick={() => setViewMode('TABLE')}
                 className={`p-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                   viewMode === 'TABLE'
@@ -331,7 +326,7 @@ export function HousekeepingDashboard() {
               className="h-8 px-2.5 rounded-lg text-xs font-medium border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition-colors inline-flex items-center gap-1.5 shadow-2xs"
             >
               <Brush className="size-3.5 text-zinc-400" />
-              <span className="hidden sm:inline">Sơ đồ phòng</span>
+              <span className="hidden sm:inline">{tr("housekeeping:housekeepingPages.roomBoard")}</span>
             </Link>
           </div>
         </div>
@@ -366,17 +361,15 @@ export function HousekeepingDashboard() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <div className="flex items-center gap-2">
-                              <h3 className="text-2xl font-bold tracking-tight text-zinc-900 m-0">
-                                Phòng {task.room.roomNumber}
-                              </h3>
+                              <h3 className="text-2xl font-bold tracking-tight text-zinc-900 m-0">{tr("housekeeping:components.roomValue", { value0: (task.room.roomNumber) })}</h3>
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-md">
                                 <Layers className="size-3 text-zinc-400" />
-                                Tầng {task.room.floor}
+                                {tr("housekeeping:components.floor")}{task.room.floor}
                               </span>
                             </div>
                             <p className="text-xs text-zinc-500 font-medium mt-1 flex items-center gap-1">
                               <BedDouble className="size-3.5 text-zinc-400" />
-                              {cleanRoomTypeName(task.room.roomType.name)}
+                              {catalogName(cleanRoomTypeName(task.room.roomType.name))}
                             </p>
                           </div>
                           <CleaningBadge status={task.room.housekeepingStatus} />
@@ -388,49 +381,37 @@ export function HousekeepingDashboard() {
                             <div className="hk-note-box priority flex items-center gap-2">
                               <Sparkles className="size-3.5 text-amber-500 shrink-0" />
                               <div>
-                                <strong className="font-semibold block text-zinc-800 text-xs">
-                                  Dọn phòng trả (Check-out)
-                                </strong>
-                                <span className="text-[11px] text-zinc-500">
-                                  Ưu tiên vệ sinh sớm để đón khách nhận phòng tiếp theo.
-                                </span>
+                                <strong className="font-semibold block text-zinc-800 text-xs">{tr("housekeeping:contracts.checkOutCleaning")}</strong>
+                                <span className="text-[11px] text-zinc-500">{tr("housekeeping:housekeepingPages.prioritizeCleaningToPrepareForTheNextArrival")}</span>
                               </div>
                             </div>
                           ) : isStayover ? (
                             <div className="hk-note-box flex items-center gap-2">
                               <Clock className="size-3.5 text-sky-600 shrink-0" />
                               <div>
-                                <strong className="font-semibold block text-zinc-800">
-                                  Dọn phòng đang ở (Stayover)
-                                </strong>
-                                <span className="text-[11px] text-zinc-500">
-                                  Dọn nhẹ, thay ga giường và bổ sung đồ dùng amenities.
-                                </span>
+                                <strong className="font-semibold block text-zinc-800">{tr("housekeeping:contracts.stayoverCleaning")}</strong>
+                                <span className="text-[11px] text-zinc-500">{tr("housekeeping:housekeepingPages.lightCleaningLinenChangesAndAmenityReplenishment")}</span>
                               </div>
                             </div>
                           ) : isDeep ? (
                             <div className="hk-note-box flex items-center gap-2">
                               <Sparkles className="size-3.5 text-purple-600 shrink-0" />
                               <div>
-                                <strong className="font-semibold block text-purple-900">
-                                  Tổng vệ sinh (Deep clean)
-                                </strong>
-                                <span className="text-[11px] text-purple-700">
-                                  Làm sạch kỹ toàn diện căn phòng.
-                                </span>
+                                <strong className="font-semibold block text-purple-900">{tr("housekeeping:contracts.deepCleaning")}</strong>
+                                <span className="text-[11px] text-purple-700">{tr("housekeeping:housekeepingPages.thoroughDeepCleaningOfTheEntireRoom")}</span>
                               </div>
                             </div>
                           ) : task.notes ? (
                             <div className="hk-note-box flex items-start gap-2">
                               <FileText className="size-3.5 text-zinc-400 mt-0.5 shrink-0" />
                               <span className="text-zinc-700 font-medium">
-                                {task.notes}
+                                {formatTaskNotes(task.notes)}
                               </span>
                             </div>
                           ) : (
                             <div className="hk-note-box flex items-center gap-2 text-zinc-500">
                               <Brush className="size-3.5 text-zinc-400" />
-                              <span>Dọn dẹp phòng tiêu chuẩn</span>
+                              <span>{tr("housekeeping:housekeepingPages.standardRoomCleaning")}</span>
                             </div>
                           )}
                         </div>
@@ -441,23 +422,20 @@ export function HousekeepingDashboard() {
                             {task.status === 'DONE' && task.completedAt ? (
                               <span className="text-emerald-700 font-medium inline-flex items-center gap-1">
                                 <CheckCircle2 className="size-3" />
-                                Xong lúc: {new Date(task.completedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                {tr("housekeeping:housekeepingPages.completedAt")}{new Date(task.completedAt).toLocaleTimeString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })}
                               </span>
                             ) : task.status === 'IN_PROGRESS' ? (
                               <span className="text-sky-700 font-semibold inline-flex items-center gap-1">
                                 <Clock className="size-3 animate-spin" />
-                                Đang dọn dẹp…
-                              </span>
+                                {tr("housekeeping:housekeepingPages.cleaningInProgress")}</span>
                             ) : (
-                              <span>Giao việc: {new Date(task.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span>{tr("housekeeping:housekeepingPages.assignedAtValue", { value0: (new Date(task.createdAt).toLocaleTimeString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })) })}</span>
                             )}
                           </span>
                           {task.assignedStaff ? (
-                            <span className="text-zinc-500 font-medium">
-                              Phân công: {task.assignedStaff.fullName}
-                            </span>
+                            <span className="text-zinc-500 font-medium">{tr("housekeeping:housekeepingPages.assignedValue", { value0: (task.assignedStaff.fullName) })}</span>
                           ) : (
-                            <span className="text-zinc-400 italic">Chưa phân công</span>
+                            <span className="text-zinc-400 italic">{tr("housekeeping:components.unassigned")}</span>
                           )}
                         </div>
                       </div>
@@ -468,7 +446,7 @@ export function HousekeepingDashboard() {
                           <WorkAction
                             task={task}
                             action="start"
-                            customLabel="Bắt đầu dọn phòng"
+                            customLabel={tr("housekeeping:components.startCleaning")}
                             className="hk-btn-work-start"
                             icon={<Play className="size-4 fill-current" />}
                           />
@@ -478,7 +456,7 @@ export function HousekeepingDashboard() {
                           <WorkAction
                             task={task}
                             action="complete"
-                            customLabel="Hoàn tất & Phòng sạch"
+                            customLabel={tr("housekeeping:housekeepingPages.completeMarkClean")}
                             className="hk-btn-work-complete"
                             icon={<CheckCircle2 className="size-4" />}
                           />
@@ -487,8 +465,7 @@ export function HousekeepingDashboard() {
                         {task.status === 'DONE' && (
                           <div className="w-full py-2.5 px-3 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs font-semibold text-center flex items-center justify-center gap-1.5">
                             <CheckCircle2 className="size-4 text-emerald-600" />
-                            Đã hoàn thành sạch sẽ
-                          </div>
+                            {tr("housekeeping:housekeepingPages.cleaningCompleted")}</div>
                         )}
 
                         <div className="flex items-center justify-between pt-1">
@@ -496,14 +473,12 @@ export function HousekeepingDashboard() {
                             to={`${base}/tasks/${task.id}`}
                             className="text-xs font-medium text-brand-700 hover:text-brand-900 inline-flex items-center gap-1"
                           >
-                            Chi tiết công việc <ArrowRight className="size-3" />
+                            {tr("housekeeping:housekeepingPages.taskDetails")}<ArrowRight className="size-3" />
                           </DeskLink>
                           <Link
                             to={`${base}/tasks?roomId=${task.roomId}`}
                             className="text-[11px] text-zinc-400 hover:text-zinc-600"
-                          >
-                            Lịch sử phòng
-                          </Link>
+                          >{tr("housekeeping:housekeepingPages.roomHistory")}</Link>
                         </div>
                       </div>
                     </article>
@@ -522,28 +497,20 @@ export function HousekeepingDashboard() {
                 <CheckCircle2 className="size-8" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-xl font-bold text-zinc-900">
-                  🎉 Tuyệt vời! Bạn đã hoàn thành tất cả phòng!
-                </h3>
-                <p className="text-xs text-zinc-600 leading-relaxed">
-                  Tất cả {doneCount} phòng được giao trong ca trực đã được vệ sinh sạch sẽ và sẵn sàng đón khách. Cảm ơn sự tận tâm và chu đáo của bạn!
-                </p>
+                <h3 className="text-xl font-bold text-zinc-900">{tr("housekeeping:housekeepingPages.greatWorkAllYourRoomsAreComplete")}</h3>
+                <p className="text-xs text-zinc-600 leading-relaxed">{tr("housekeeping:housekeepingPages.allValueRoomsAssignedThisShiftAreCleanAndReadyForGuests", { value0: (doneCount) })}</p>
               </div>
               <div className="pt-2 flex items-center justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => setStatusFilter('DONE')}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer shadow-xs"
-                >
-                  Xem danh sách phòng đã dọn ({doneCount})
-                </button>
+                >{tr("housekeeping:housekeepingPages.viewCompletedRoomsValue", { value0: (doneCount) })}</button>
                 <button
                   type="button"
                   onClick={refreshAll}
                   className="px-4 py-2 rounded-xl text-xs font-medium border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition-colors cursor-pointer"
-                >
-                  Làm mới ca trực
-                </button>
+                >{tr("housekeeping:housekeepingPages.refreshShift")}</button>
               </div>
             </div>
           ) : (
@@ -552,13 +519,11 @@ export function HousekeepingDashboard() {
               <div className="size-14 rounded-2xl bg-zinc-100 text-zinc-400 flex items-center justify-center mx-auto">
                 <ClipboardList className="size-6" />
               </div>
-              <h3 className="text-base font-bold text-zinc-800">
-                Chưa có phòng nào trong mục này
-              </h3>
+              <h3 className="text-base font-bold text-zinc-800">{tr("housekeeping:housekeepingPages.noRoomsInThisSection")}</h3>
               <p className="text-xs text-zinc-500 leading-relaxed">
                 {searchQuery || floorFilter !== 'ALL'
-                  ? 'Không tìm thấy phòng phù hợp với bộ lọc hiện tại. Hãy thử chọn tất cả tầng hoặc xóa từ khóa tìm kiếm.'
-                  : 'Hiện tại bạn chưa có phòng nào được phân công trong trạng thái này.'}
+                  ? tr("housekeeping:housekeepingPages.noRoomsMatchTheFiltersTryAllFloorsOrClearYourSearch")
+                  : tr("housekeeping:housekeepingPages.youHaveNoAssignedRoomsInThisStatus")}
               </p>
               <div className="pt-1 flex items-center justify-center gap-2">
                 {(searchQuery || floorFilter !== 'ALL') && (
@@ -569,17 +534,13 @@ export function HousekeepingDashboard() {
                       setSearchQuery('');
                     }}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 text-white"
-                  >
-                    Xóa bộ lọc
-                  </button>
+                  >{tr("housekeeping:housekeepingPages.clearFilters")}</button>
                 )}
                 <button
                   type="button"
                   onClick={refreshAll}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium border border-zinc-200 hover:bg-zinc-50 text-zinc-700"
-                >
-                  Làm mới dữ liệu
-                </button>
+                >{tr("housekeeping:housekeepingPages.refreshData")}</button>
               </div>
             </div>
           )}
@@ -591,6 +552,7 @@ export function HousekeepingDashboard() {
 }
 
 export function HousekeepingBoardPage() {
+  useLocale();
   const { user } = useAuth(),
     [params, setParams] = useSearchParams(),
     base = useHousekeepingBase(),
@@ -619,26 +581,20 @@ export function HousekeepingBoardPage() {
       {/* Compact Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-              Sơ đồ buồng phòng
-            </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">{tr("housekeeping:housekeepingPages.housekeepingBoard")}</h1>
             <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 border border-brand-200/50">
               <Sparkles className="size-3" />
-              {manager ? 'Housekeeping Board' : 'Phòng được giao'}
+              {manager ? 'Housekeeping Board' : tr("housekeeping:housekeepingPages.assignedRooms")}
             </span>
             {query.data?.meta && (
-              <span className="text-xs text-zinc-400 font-medium">
-                · {query.data.meta.total} phòng
-              </span>
+              <span className="text-xs text-zinc-400 font-medium">{tr("housekeeping:housekeepingPages.valueRooms", { value0: (query.data.meta.total) })}</span>
             )}
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Xem trực quan tình trạng dọn dẹp từng căn phòng và thao tác trực tiếp trên thẻ phòng.
-          </p>
+          <p className="text-xs text-zinc-500 mt-0.5">{tr("housekeeping:housekeepingPages.viewRoomCleaningStatusAndTakeActionDirectlyOnEachRoomCard")}</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={query.isFetching}
@@ -648,14 +604,13 @@ export function HousekeepingBoardPage() {
             <RefreshCw
               className={`size-3.5 ${query.isFetching ? 'animate-spin' : ''}`}
             />
-            Làm mới board
-          </button>
+            {tr("housekeeping:housekeepingPages.refreshBoard")}</button>
           <Link
             to={`${base}/tasks`}
             className="h-8.5 px-3 text-xs font-medium rounded-lg bg-brand-700 hover:bg-brand-800 text-white transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
           >
             <ClipboardList className="size-3.5" />
-            {manager ? 'Lịch sử công việc' : 'Công việc của tôi'}
+            {manager ? tr("housekeeping:housekeepingPages.taskHistory") : tr("housekeeping:housekeepingPages.myTasks")}
           </Link>
         </div>
       </div>
@@ -666,7 +621,7 @@ export function HousekeepingBoardPage() {
         <div
           className="flex flex-wrap items-center gap-1.5"
           role="group"
-          aria-label="Bộ lọc trạng thái phòng"
+          aria-label={tr("housekeeping:housekeepingPages.roomStatusFilter")}
         >
           <button
             type="button"
@@ -676,9 +631,7 @@ export function HousekeepingBoardPage() {
                 : 'text-zinc-600 hover:bg-zinc-100'
             }`}
             onClick={() => filter('housekeepingStatus', '')}
-          >
-            Tất cả cần xử lý
-          </button>
+          >{tr("housekeeping:housekeepingPages.allNeedingAttention")}</button>
           <button
             type="button"
             className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
@@ -689,8 +642,7 @@ export function HousekeepingBoardPage() {
             onClick={() => filter('housekeepingStatus', 'DIRTY')}
           >
             <span className="size-2 rounded-full bg-orange-500 shrink-0" />
-            Cần dọn (Dirty)
-          </button>
+            {tr("housekeeping:housekeepingPages.needsCleaning")}</button>
           <button
             type="button"
             className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
@@ -701,19 +653,16 @@ export function HousekeepingBoardPage() {
             onClick={() => filter('housekeepingStatus', 'CLEANING')}
           >
             <span className="size-2 rounded-full bg-amber-400 shrink-0" />
-            Đang dọn (Cleaning)
-          </button>
+            {tr("housekeeping:housekeepingPages.cleaning")}</button>
         </div>
 
         {/* Operational Filter & Reset */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
             <label
               htmlFor="operational-filter"
               className="text-xs text-zinc-500 whitespace-nowrap"
-            >
-              Hoạt động:
-            </label>
+            >{tr("housekeeping:housekeepingPages.operation")}</label>
             <select
               id="operational-filter"
               value={
@@ -724,9 +673,9 @@ export function HousekeepingBoardPage() {
               onChange={(e) => filter('operationalStatus', e.target.value)}
               className="h-8 px-2.5 text-xs border border-zinc-200 rounded-lg bg-zinc-50/50 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors text-zinc-700 cursor-pointer"
             >
-              <option value="">Tất cả</option>
-              <option value="ACTIVE">Đang hoạt động</option>
-              <option value="OUT_OF_SERVICE">Tạm ngừng phục vụ</option>
+              <option value="">{tr("housekeeping:housekeepingPages.all")}</option>
+              <option value="ACTIVE">{tr("housekeeping:housekeepingPages.active")}</option>
+              <option value="OUT_OF_SERVICE">{tr("housekeeping:housekeepingPages.outOfService")}</option>
             </select>
           </div>
 
@@ -744,7 +693,7 @@ export function HousekeepingBoardPage() {
             }
             onChange={(e) => filter('housekeepingStatus', e.target.value)}
           >
-            <option value="">Tất cả trạng thái</option>
+            <option value="">{tr("housekeeping:housekeepingPages.allStatuses")}</option>
             {cleaningStatuses.filter((s) => s !== 'CLEAN').map((s) => (
               <option key={s} value={s}>
                 {cleaningLabels[s]}
@@ -766,8 +715,7 @@ export function HousekeepingBoardPage() {
                 setParams(next);
               }}
             >
-              <X className="size-3" /> Xóa lọc
-            </button>
+              <X className="size-3" /> {tr("housekeeping:housekeepingPages.clearFilters2")}</button>
           )}
         </div>
       </div>
@@ -776,7 +724,7 @@ export function HousekeepingBoardPage() {
         <Skeleton />
       ) : query.error ? (
         <ErrorState
-          message={query.error.message}
+          message={safeError(query.error)}
           retry={() => void query.refetch()}
         />
       ) : (
@@ -807,6 +755,7 @@ export function HousekeepingBoardPage() {
 }
 
 export function HousekeepingTasksPage() {
+  useLocale();
   const { user } = useAuth(),
     base = useHousekeepingBase(),
     [params, setParams] = useSearchParams(),
@@ -826,16 +775,15 @@ export function HousekeepingTasksPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
               {user && managesHousekeeping(user.role)
-                ? 'Lịch sử công việc buồng phòng'
-                : 'Công việc của tôi'}
+                ? tr("housekeeping:housekeepingPages.housekeepingTaskHistory")
+                : tr("housekeeping:housekeepingPages.myTasks")}
             </h1>
             <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 border border-brand-200/50">
               <ClipboardList className="size-3" />
-              Công việc
-            </span>
+              {tr("housekeeping:housekeepingPages.tasks")}</span>
             {roomId && (
               <span className="inline-flex items-center gap-1 text-xs text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-md font-medium">
-                Phòng: {roomId.slice(0, 8)}
+                {tr("housekeeping:housekeepingPages.room")}{roomId.slice(0, 8)}
                 <Link
                   to={`${base}/tasks`}
                   className="ml-1 text-zinc-400 hover:text-zinc-700 font-bold"
@@ -845,9 +793,7 @@ export function HousekeepingTasksPage() {
               </span>
             )}
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Theo dõi danh sách công việc, ghi chú phòng và xác nhận trạng thái trực tiếp.
-          </p>
+          <p className="text-xs text-zinc-500 mt-0.5">{tr("housekeeping:housekeepingPages.trackTasksRoomNotesAndConfirmStatusDirectly")}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -860,14 +806,11 @@ export function HousekeepingTasksPage() {
             <RefreshCw
               className={`size-3.5 ${query.isFetching ? 'animate-spin' : ''}`}
             />
-            Làm mới công việc
-          </button>
+            {tr("housekeeping:housekeepingPages.refreshTasks")}</button>
           <Link
             to={base === '/housekeeping' ? base + '/board' : base}
             className="h-8.5 px-3 text-xs font-medium rounded-lg bg-brand-700 hover:bg-brand-800 text-white transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
-          >
-            Sơ đồ phòng
-          </Link>
+          >{tr("housekeeping:housekeepingPages.roomBoard")}</Link>
         </div>
       </div>
 
@@ -887,9 +830,7 @@ export function HousekeepingTasksPage() {
                 ? 'bg-zinc-900 text-white font-semibold shadow-2xs'
                 : 'text-zinc-600 hover:bg-zinc-100'
             }`}
-          >
-            Tất cả trạng thái
-          </button>
+          >{tr("housekeeping:housekeepingPages.allStatuses")}</button>
           <button
             type="button"
             onClick={() => {
@@ -903,9 +844,7 @@ export function HousekeepingTasksPage() {
                 ? 'bg-amber-50 text-amber-800 font-semibold border border-amber-200 shadow-2xs'
                 : 'text-zinc-600 hover:bg-zinc-100'
             }`}
-          >
-            Cần thực hiện
-          </button>
+          >{tr("housekeeping:contracts.toDo")}</button>
           <button
             type="button"
             onClick={() => {
@@ -919,9 +858,7 @@ export function HousekeepingTasksPage() {
                 ? 'bg-sky-50 text-sky-800 font-semibold border border-sky-200 shadow-2xs'
                 : 'text-zinc-600 hover:bg-zinc-100'
             }`}
-          >
-            Đang thực hiện
-          </button>
+          >{tr("housekeeping:contracts.inProgress")}</button>
           <button
             type="button"
             onClick={() => {
@@ -935,9 +872,7 @@ export function HousekeepingTasksPage() {
                 ? 'bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200 shadow-2xs'
                 : 'text-zinc-600 hover:bg-zinc-100'
             }`}
-          >
-            Đã hoàn thành
-          </button>
+          >{tr("housekeeping:contracts.completed")}</button>
         </div>
 
         {status && (
@@ -951,8 +886,7 @@ export function HousekeepingTasksPage() {
               setParams(next);
             }}
           >
-            <X className="size-3" /> Xóa lọc
-          </button>
+            <X className="size-3" /> {tr("housekeeping:housekeepingPages.clearFilters2")}</button>
         )}
       </div>
 
@@ -963,7 +897,7 @@ export function HousekeepingTasksPage() {
           </div>
         ) : query.error ? (
           <ErrorState
-            message={query.error.message}
+            message={safeError(query.error)}
             retry={() => void query.refetch()}
           />
         ) : (
@@ -987,6 +921,7 @@ export function HousekeepingTasksPage() {
 }
 
 export function HousekeepingTaskDetailPage() {
+  useLocale();
   const { id = '' } = useParams(),
     base = useHousekeepingBase(),
     { user } = useAuth(),
@@ -996,7 +931,7 @@ export function HousekeepingTaskDetailPage() {
   if (query.error)
     return (
       <ErrorState
-        message={query.error.message}
+        message={safeError(query.error)}
         retry={() => void query.refetch()}
       />
     );
@@ -1012,21 +947,15 @@ export function HousekeepingTaskDetailPage() {
           className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors mb-2.5"
           to={`${base}/tasks`}
         >
-          <ArrowLeft className="size-3.5" /> Danh sách công việc
-        </DeskBackLink>
+          <ArrowLeft className="size-3.5" /> {tr("housekeeping:housekeepingPages.taskList")}</DeskBackLink>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-800">
               <Sparkles className="size-3.5 text-emerald-700" />
-              Chi tiết công việc buồng phòng
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mt-1">
-              Dọn phòng {task.room.roomNumber}
-            </h1>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Theo dõi tiến độ, phân công nhân viên và xác nhận hoàn tất vệ sinh phòng.
-            </p>
+              {tr("housekeeping:housekeepingPages.housekeepingTaskDetails")}</div>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mt-1">{tr("housekeeping:housekeepingPages.cleanRoomValue", { value0: (task.room.roomNumber) })}</h1>
+            <p className="text-xs text-zinc-500 mt-0.5">{tr("housekeeping:housekeepingPages.trackProgressAssignStaffAndConfirmRoomCleaningCompletion")}</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1039,8 +968,7 @@ export function HousekeepingTaskDetailPage() {
               <RefreshCw
                 className={`size-3.5 ${query.isFetching ? 'animate-spin' : ''}`}
               />
-              Làm mới chi tiết
-            </button>
+              {tr("housekeeping:housekeepingPages.refreshDetails")}</button>
           </div>
         </div>
       </div>
@@ -1058,16 +986,12 @@ export function HousekeepingTaskDetailPage() {
           <section className="panel guest-box border border-zinc-200 rounded-xl bg-white p-5 shadow-2xs space-y-4">
             {/* Statuses Header */}
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-zinc-500">
-                  Trạng thái:
-                </span>
+              <div className="hk-task-status flex items-center gap-2">
+                <span className="text-xs font-semibold text-zinc-500">{tr("housekeeping:housekeepingPages.status")}</span>
                 <TaskBadge status={task.status} assigned={Boolean(task.assignedStaffId)} />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-zinc-500">
-                  Phòng:
-                </span>
+                <span className="text-xs font-semibold text-zinc-500">{tr("housekeeping:housekeepingPages.room2")}</span>
                 <CleaningBadge status={task.room.housekeepingStatus} />
               </div>
             </div>
@@ -1075,7 +999,7 @@ export function HousekeepingTaskDetailPage() {
             {/* Key-Value Details */}
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between py-1.5 border-b border-zinc-100">
-                <span className="text-zinc-500 font-medium">Mã công việc</span>
+                <span className="text-zinc-500 font-medium">{tr("housekeeping:housekeepingPages.taskId")}</span>
                 <span
                   className="font-mono text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded text-[11px]"
                   title={task.id}
@@ -1084,54 +1008,44 @@ export function HousekeepingTaskDetailPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-zinc-100">
-                <span className="text-zinc-500 font-medium">Phòng</span>
+                <span className="text-zinc-500 font-medium">{tr("housekeeping:housekeepingPages.room3")}</span>
                 <span className="font-semibold text-zinc-900 inline-flex items-center gap-1.5">
                   <BedDouble className="size-3.5 text-zinc-400" />
-                  Phòng {task.room.roomNumber} · {cleanRoomTypeName(task.room.roomType.name)} · Tầng {task.room.floor}
+                  {tr("housekeeping:components.room2")}{task.room.roomNumber} · {catalogName(cleanRoomTypeName(task.room.roomType.name))} {tr("housekeeping:housekeepingPages.floor")}{task.room.floor}
                 </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-zinc-100">
-                <span className="text-zinc-500 font-medium">
-                  Trạng thái vận hành
-                </span>
+                <span className="text-zinc-500 font-medium">{tr("housekeeping:housekeepingPages.operationalStatus")}</span>
                 {task.room.operationalStatus === 'ACTIVE' ? (
                   <span className="text-emerald-700 font-medium inline-flex items-center gap-1">
                     <span className="size-1.5 rounded-full bg-emerald-500" />
-                    Đang hoạt động
-                  </span>
+                    {tr("housekeeping:housekeepingPages.active")}</span>
                 ) : (
                   <span className="text-rose-700 font-medium inline-flex items-center gap-1">
                     <AlertTriangle className="size-3 text-rose-500" />
-                    Tạm ngừng phục vụ
-                  </span>
+                    {tr("housekeeping:housekeepingPages.outOfService")}</span>
                 )}
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-zinc-100">
-                <span className="text-zinc-500 font-medium">
-                  Nhân viên phụ trách
-                </span>
+                <span className="text-zinc-500 font-medium">{tr("housekeeping:housekeepingPages.assignedStaff")}</span>
                 {task.assignedStaff ? (
                   <span className="font-semibold text-zinc-900 inline-flex items-center gap-1">
                     <User className="size-3.5 text-zinc-400" />
                     {task.assignedStaff.fullName}
                   </span>
                 ) : (
-                  <span className="text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-[11px] font-medium">
-                    Chưa phân công
-                  </span>
+                  <span className="text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-[11px] font-medium">{tr("housekeeping:components.unassigned")}</span>
                 )}
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-zinc-100">
-                <span className="text-zinc-500 font-medium">Thời gian tạo</span>
+                <span className="text-zinc-500 font-medium">{tr("housekeeping:housekeepingPages.createdAt")}</span>
                 <span className="text-zinc-700 tabular-nums inline-flex items-center gap-1">
                   <Calendar className="size-3 text-zinc-400" />
                   {workTime(task.createdAt)}
                 </span>
               </div>
               <div className="flex items-center justify-between py-1.5">
-                <span className="text-zinc-500 font-medium">
-                  Thời gian hoàn thành
-                </span>
+                <span className="text-zinc-500 font-medium">{tr("housekeeping:housekeepingPages.completedAt2")}</span>
                 <span className="text-zinc-700 tabular-nums">
                   {task.completedAt ? (
                     <span className="text-emerald-700 font-medium inline-flex items-center gap-1">
@@ -1139,7 +1053,7 @@ export function HousekeepingTaskDetailPage() {
                       {workTime(task.completedAt)}
                     </span>
                   ) : (
-                    <span className="text-zinc-400 italic">Chưa hoàn thành</span>
+                    <span className="text-zinc-400 italic">{tr("housekeeping:components.notCompleted")}</span>
                   )}
                 </span>
               </div>
@@ -1149,10 +1063,9 @@ export function HousekeepingTaskDetailPage() {
             <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-3.5 space-y-1">
               <span className="text-[11px] font-bold text-zinc-500 flex items-center gap-1.5 uppercase tracking-wider">
                 <FileText className="size-3 text-zinc-400" />
-                Ghi chú công việc
-              </span>
+                {tr("housekeeping:forms.taskNotes")}</span>
               <p className="text-xs font-medium text-zinc-800 m-0 leading-relaxed">
-                {formatTaskNotes(task.notes) || 'Không có ghi chú.'}
+                {formatTaskNotes(task.notes) || tr("housekeeping:housekeepingPages.noNotes")}
               </p>
             </div>
 

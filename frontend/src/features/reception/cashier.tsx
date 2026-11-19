@@ -1,3 +1,7 @@
+import { formatDate as localizedDate } from "../../i18n/format";
+import { displayLocale, localized, message as uiMessage, resolveMessage, safeError, t as tr, useLocale } from "../../i18n";
+
+
 import { useSearchParams } from 'react-router';
 import { DeskLink } from "./navigation";
 import { ExtendStayDialog } from './extend-stay-dialog';
@@ -32,11 +36,11 @@ type BillingRow = DeskBooking & {
   paymentState: "OUTSTANDING" | "PAID" | "CANCELLED" | "REVIEW_REFUND";
 };
 
-const groups = [
-  { id: "departures", label: "Trả hôm nay" },
-  { id: "outstanding", label: "Còn phải thu" },
-  { id: "history", label: "Lịch sử" },
-] as const;
+const groups = localized(() => ([
+  { id: "departures", label: tr("reception:cashier.dueToday") },
+  { id: "outstanding", label: tr("reception:cashier.balanceDue") },
+  { id: "history", label: tr("reception:cashier.history") },
+] as const));
 
 function shiftDay(isoDate: string, days: number): string {
   try {
@@ -51,6 +55,7 @@ function shiftDay(isoDate: string, days: number): string {
 }
 
 export function CashierPage() {
+  useLocale();
   const base = useDeskBase();
   const [filters, setFilters] = useSearchParams();
   const group = groups.find(({ id }) => id === filters.get("group"))?.id ?? "departures";
@@ -79,8 +84,8 @@ export function CashierPage() {
     <div className="cashier-page">
       <header className="cashier-heading">
         <div>
-          <h1>Thu ngân & hóa đơn</h1>
-          <p className="cashier-heading-sub">Quản lý thanh toán, hóa đơn và thu hồi công nợ lưu trú.</p>
+          <h1>{tr("reception:cashier.cashierInvoices")}</h1>
+          <p className="cashier-heading-sub">{tr("reception:cashier.managePaymentsInvoicesAndOutstandingStayCharges")}</p>
         </div>
 
         {group === "departures" && (
@@ -88,7 +93,7 @@ export function CashierPage() {
             <button
               type="button"
               className="cashier-date-arrow-btn"
-              aria-label="Ngày trước"
+              aria-label={tr("reception:cashier.previousDay")}
               onClick={() => selectDate(shiftDay(date, -1))}
             >
               <ChevronLeft size={16} />
@@ -98,11 +103,11 @@ export function CashierPage() {
               <span className="cashier-date-display">
                 <Calendar size={14} className="text-emerald-700" />
                 <span className="font-semibold text-stone-800">
-                  {isToday ? "Hôm nay · " : ""}{date.split("-").reverse().join("/")}
+                  {isToday ? tr("reception:cashier.today") : ""}{localizedDate(date)}
                 </span>
               </span>
               <input
-                aria-label="Ngày trả phòng cần thu"
+                aria-label={tr("reception:cashier.checkOutDateForCollection")}
                 type="date"
                 value={date}
                 onChange={e => {
@@ -116,7 +121,7 @@ export function CashierPage() {
             <button
               type="button"
               className="cashier-date-arrow-btn"
-              aria-label="Ngày sau"
+              aria-label={tr("reception:cashier.nextDay")}
               onClick={() => selectDate(shiftDay(date, 1))}
             >
               <ChevronRight size={16} />
@@ -127,16 +132,14 @@ export function CashierPage() {
                 type="button"
                 className="cashier-today-btn"
                 onClick={() => selectDate(hotelToday())}
-              >
-                Về hôm nay
-              </button>
+              >{tr("reception:cashier.goToToday")}</button>
             )}
           </div>
         )}
       </header>
 
       {/* Merged Interactive Tab Cards */}
-      <div className="cashier-groups cashier-tab-cards-grid" aria-label="Nhóm thanh toán" >
+      <div className="cashier-groups cashier-tab-cards-grid" aria-label={tr("reception:cashier.paymentGroup")} >
         {groups.map(g => {
           const isSelected = group === g.id;
           const isOutstanding = g.id === "outstanding";
@@ -165,14 +168,14 @@ export function CashierPage() {
                 <div className="cashier-tab-card-header">
                   <span className="cashier-tab-card-title">{g.label}</span>
                   {isOutstanding && count && count > 0 && (
-                    <span className="cashier-debt-pill">Cần thu</span>
+                    <span className="cashier-debt-pill">{tr("reception:cashier.toCollect")}</span>
                   )}
                 </div>
                 <div className="cashier-tab-card-count-row">
                   <strong className="cashier-tab-card-num">
                     {hasCount ? count : "—"}
                   </strong>{" "}
-                  <span className="cashier-tab-card-unit">phòng</span>
+                  <span className="cashier-tab-card-unit">{tr("reception:cashier.rooms")}</span>
                 </div>
               </div>
             </button>
@@ -193,8 +196,8 @@ export function CashierPage() {
           <div className="cashier-search-wrap">
             <Search size={15} className="cashier-search-icon" />
             <input
-              aria-label="Tìm khách, phòng hoặc mã booking"
-              placeholder="Tên khách, số phòng, mã booking, SĐT…"
+              aria-label={tr("reception:cashier.searchGuestRoomOrReservationCode")}
+              placeholder={tr("reception:cashier.guestNameRoomReservationCodePhone")}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -202,7 +205,7 @@ export function CashierPage() {
               <button
                 type="button"
                 className="cashier-search-clear-btn"
-                aria-label="Xóa tìm kiếm"
+                aria-label={tr("reception:cashier.clearSearch")}
                 onClick={() => {
                   setSearch("");
                   updateFilters({ q: "", page: "" });
@@ -212,35 +215,33 @@ export function CashierPage() {
               </button>
             )}
           </div>
-          <button type="submit" className="cashier-search-btn">Tìm kiếm</button>
+          <button type="submit" className="cashier-search-btn">{tr("reception:cashier.search")}</button>
         </form>
 
         {query.isPending ? (
           <Skeleton />
         ) : query.error ? (
-          <ErrorState message={query.error.message} retry={() => void query.refetch()} />
+          <ErrorState message={safeError(query.error)} retry={() => void query.refetch()} />
         ) : (
           <>
             <Table
-              caption="Danh sách thu ngân"
+              caption={tr("reception:cashier.cashierList")}
               rows={query.data!.data}
               rowKey={r => r.id}
               onRowClick={setSelected}
               empty={
                 <div className="cashier-empty">
-                  <strong>Không có khoản nào trong nhóm này</strong>
+                  <strong>{tr("reception:cashier.noEntriesInThisGroup")}</strong>
                   <p></p>
-                  <button type="button" onClick={() => selectGroup("outstanding")}>
-                    Xem khoản còn phải thu
-                  </button>
+                  <button type="button" onClick={() => selectGroup("outstanding")}>{tr("reception:cashier.viewOutstandingCharges")}</button>
                 </div>
               }
               columns={[
                 {
-                  title: "KHÁCH / PHÒNG",
+                  title: tr("reception:cashier.guestRoom"),
                   render: r => (
                     <div className="cashier-room-cell">
-                      <span className="cashier-room-badge" title={`Phòng ${r.roomNumber}`}>
+                      <span className="cashier-room-badge" title={tr("reception:cashier.roomValue", { value0: (r.roomNumber) })}>
                         {r.roomNumber}
                       </span>
                       <div className="cashier-guest-info">
@@ -248,33 +249,33 @@ export function CashierPage() {
                           type="button"
                           className="cashier-customer"
                           onClick={() => setSelected(r)}
-                          aria-label={`Xem chi phí phòng ${r.roomNumber}`}
+                          aria-label={tr("reception:cashier.viewChargesForRoomValue", { value0: (r.roomNumber) })}
                         >
-                          {r.customer?.fullName ?? "Khách tại quầy"}
+                          {r.customer?.fullName ?? tr("reception:cashier.walkInGuest")}
                         </button>
                         <div className="cashier-submeta">
                           <span className="cashier-ref-code">{r.reference}</span>
                           <span className="cashier-meta-dot">·</span>
-                          <span>Trả: {r.checkOut.split("-").reverse().join("/")}</span>
+                          <span>{tr("reception:cashier.checkOutValue", { value0: (localizedDate(r.checkOut)) })}</span>
                           <span className="cashier-meta-dot">·</span>
-                          <span className="cashier-status-text">{statusLabels[r.status] ?? r.status}</span>
-                          {r.status === "CHECKED_IN" && r.checkOut < hotelToday() && <Badge tone="amber">Quá hạn {Math.round((Date.parse(hotelToday()) - Date.parse(r.checkOut)) / 86400000)} ngày</Badge>}
+                          <span className="cashier-status-text">{statusLabels[r.status] ?? tr("common:status.unknown")}</span>
+                          {r.status === "CHECKED_IN" && r.checkOut < hotelToday() && <Badge tone="amber">{tr("reception:cashier.valueDaysOverdue", { value0: (Math.round((Date.parse(hotelToday()) - Date.parse(r.checkOut)) / 86400000)) })}</Badge>}
                         </div>
                       </div>
                     </div>
                   ),
                 },
                 {
-                  title: "TỔNG TIỀN",
+                  title: tr("reception:cashier.total"),
                   render: r => (
                     <div className="cashier-amount-cell">
                       <strong className="cashier-amount-val">{money(r.totalAmount)}</strong>
-                      {!r.invoiceId && <span className="cashier-amount-sub">Tạm tính</span>}
+                      {!r.invoiceId && <span className="cashier-amount-sub">{tr("reception:cashier.estimated")}</span>}
                     </div>
                   ),
                 },
                 {
-                  title: "ĐÃ THU",
+                  title: tr("reception:cashier.collected"),
                   render: r => (
                     <div className="cashier-amount-cell">
                       <span className="cashier-amount-paid">{money(r.paidAmount)}</span>
@@ -282,7 +283,7 @@ export function CashierPage() {
                   ),
                 },
                 {
-                  title: "CÒN PHẢI THU",
+                  title: tr("reception:cashier.balanceDue2"),
                   render: r => {
                     const isDue = r.paymentState === "OUTSTANDING";
                     const isPaid = r.paymentState === "PAID";
@@ -300,68 +301,68 @@ export function CashierPage() {
                         </strong>
                         <span className={`cashier-balance-label ${isDue ? "label-due" : isPaid ? "label-paid" : ""}`}>
                           {isPaid
-                            ? "✓ Đã thanh toán đủ"
+                            ? tr("reception:cashier.fullyPaid")
                             : isCancelled
-                            ? "Booking đã hủy"
+                            ? tr("reception:cashier.reservationCancelled")
                             : isReviewRefund
-                            ? "Cần đối soát hoàn tiền"
+                            ? tr("reception:cashier.refundReviewRequired")
                             : r.invoiceId
-                            ? "Chưa thanh toán đủ"
-                            : "Chưa phát hành HĐ"}
+                            ? tr("reception:cashier.notFullyPaid")
+                            : tr("reception:cashier.invoiceNotIssued")}
                         </span>
                       </div>
                     );
                   },
                 },
                 {
-                  title: "TRẠNG THÁI",
+                  title: tr("reception:cashier.status"),
                   render: r => (
                     <div className="cashier-status-cell">
                       <Badge tone={r.paymentState === 'PAID' ? 'green' : r.paymentState === 'OUTSTANDING' ? 'amber' : 'zinc'}>
                         {r.paymentState === 'PAID'
-                          ? 'Đã thanh toán'
+                          ? tr("reception:cashier.paid")
                           : r.paymentState === 'CANCELLED'
-                          ? 'Đã hủy'
+                          ? tr("reception:cashier.cancelled")
                           : r.paymentState === 'REVIEW_REFUND'
-                          ? 'Cần hoàn tiền'
-                          : 'Cần thu'}
-                        {r.pendingOrderCount > 0 ? ` · ${r.pendingOrderCount} đơn chờ` : ''}
+                          ? tr("reception:cashier.refundRequired")
+                          : tr("reception:cashier.toCollect")}
+                        {r.pendingOrderCount > 0 ? tr("reception:cashier.valuePendingOrders", { value0: (r.pendingOrderCount) }) : ''}
                       </Badge>
                     </div>
                   ),
                 },
                 {
-                  title: "THAO TÁC",
+                  title: tr("reception:cashier.actions"),
                   render: r => (
                     <div className="cashier-row-actions" onClick={e => e.stopPropagation()}>
-                      {r.status === "CHECKED_IN" && r.checkOut < hotelToday() ? <button type="button" className="cashier-action-btn btn-collect" onClick={() => setOverdue(r)}>Xử lý</button> : r.paymentState === "OUTSTANDING" ? (
+                      {r.status === "CHECKED_IN" && r.checkOut < hotelToday() ? <button type="button" className="cashier-action-btn btn-collect" onClick={() => setOverdue(r)}>{tr("reception:cashier.process")}</button> : r.paymentState === "OUTSTANDING" ? (
                         <button
                           type="button"
                           className="cashier-action-btn btn-collect"
                           onClick={() => setSelected(r)}
-                          title={`Thu tiền phòng ${r.roomNumber}`}
+                          title={tr("reception:cashier.collectPaymentForRoomValue", { value0: (r.roomNumber) })}
                         >
                           <CreditCard size={13} />
-                          <span>Thu tiền</span>
+                          <span>{tr("reception:cashier.collectPayment")}</span>
                         </button>
                       ) : r.invoiceId ? (
                         <DeskLink
                           className="cashier-action-btn btn-invoice"
                           to={`${base}/invoices/${r.invoiceId}`}
-                          aria-label={`Xem hóa đơn phòng ${r.roomNumber}`}
-                          title="Xem / in hóa đơn"
+                          aria-label={tr("reception:cashier.viewInvoiceForRoomValue", { value0: (r.roomNumber) })}
+                          title={tr("reception:cashier.viewPrintInvoice")}
                         >
                           <FileText size={13} />
-                          <span>Hóa đơn</span>
+                          <span>{tr("reception:cashier.invoice")}</span>
                         </DeskLink>
                       ) : (
                         <button
                           type="button"
                           className="cashier-action-btn btn-view"
                           onClick={() => setSelected(r)}
-                          title={`Xem chi tiết phòng ${r.roomNumber}`}
+                          title={tr("reception:cashier.viewDetailsForRoomValue", { value0: (r.roomNumber) })}
                         >
-                          <span>Chi tiết</span>
+                          <span>{tr("reception:cashier.details")}</span>
                         </button>
                       )}
                     </div>
@@ -370,7 +371,7 @@ export function CashierPage() {
               ]}
             />
             <footer>
-              <span>{query.data!.meta.total} booking</span>
+              <span>{tr("common:supplement.reservationCount", { value0: query.data!.meta.total })}</span>
               <Pagination {...query.data!.meta} onChange={(value) => updateFilters({ page: String(value) })} />
             </footer>
           </>
@@ -384,17 +385,18 @@ export function CashierPage() {
 }
 
 function BillingDrawer({ booking, onClose }: { booking: BillingRow; onClose: () => void }) {
+  useLocale();
   const base = useDeskBase();
   const invoice = useDeskInvoice(booking.id);
   return (
-    <Dialog open onClose={onClose} title="Chi tiết chi phí và thanh toán" className="cashier-drawer">
+    <Dialog open onClose={onClose} title={tr("reception:cashier.chargesAndPaymentDetails")} className="cashier-drawer">
       <header className="cashier-drawer-header">
         <div className="cashier-drawer-header-info">
           <div className="flex items-center gap-2.5">
             <span className="cashier-room-badge large">{booking.roomNumber}</span>
             <div>
-              <h2>{booking.customer?.fullName ?? "Khách tại quầy"}</h2>
-              <p className="cashier-drawer-sub">Mã đặt phòng: {booking.reference}</p>
+              <h2>{booking.customer?.fullName ?? tr("reception:cashier.walkInGuest")}</h2>
+              <p className="cashier-drawer-sub">{tr("reception:cashier.reservationCodeValue", { value0: (booking.reference) })}</p>
             </div>
           </div>
         </div>
@@ -403,20 +405,20 @@ function BillingDrawer({ booking, onClose }: { booking: BillingRow; onClose: () 
       {invoice.isPending ? (
         <Skeleton />
       ) : invoice.error ? (
-        <ErrorState message={invoice.error.message} retry={() => void invoice.refetch()} />
+        <ErrorState message={safeError(invoice.error)} retry={() => void invoice.refetch()} />
       ) : (
         <>
           <dl className="cashier-totals">
             {[
-              ["Tiền phòng", invoice.data?.roomAmount ?? booking.roomAmount],
-              ["Dịch vụ", invoice.data?.serviceAmount ?? booking.serviceAmount],
-              ["Tổng chi phí", invoice.data?.totalAmount ?? booking.totalAmount],
-              ["Đã thu", invoice.data?.paidAmount ?? booking.paidAmount],
-              ["Còn phải thu", invoice.data?.balance ?? booking.balance],
-            ].map(([label, value]) => (
-              <div key={label} className={label === "Còn phải thu" ? "cashier-total-balance" : ""}>
+              ["room", tr("reception:cashier.roomCharges"), invoice.data?.roomAmount ?? booking.roomAmount],
+              ["services", tr("reception:cashier.services"), invoice.data?.serviceAmount ?? booking.serviceAmount],
+              ["total", tr("reception:cashier.totalCharges"), invoice.data?.totalAmount ?? booking.totalAmount],
+              ["collected", tr("reception:cashier.collected2"), invoice.data?.paidAmount ?? booking.paidAmount],
+              ["balance", tr("reception:cashier.balanceDue"), invoice.data?.balance ?? booking.balance],
+            ].map(([id, label, value]) => (
+              <div key={id} className={id === "balance" ? "cashier-total-balance" : ""}>
                 <dt>{label}</dt>
-                <dd className={label === "Còn phải thu" && Number(value) > 0 ? "text-amber-800 font-bold" : ""}>
+                <dd className={id === "balance" && Number(value) > 0 ? "text-amber-800 font-bold" : ""}>
                   {money(value)}
                 </dd>
               </div>
@@ -425,22 +427,20 @@ function BillingDrawer({ booking, onClose }: { booking: BillingRow; onClose: () 
 
           {invoice.data ? (
             <>
-              <DeskLink className="cashier-link" to={`${base}/invoices/${invoice.data.id}`}>
-                Xem / in hóa đơn
-              </DeskLink>
+              <DeskLink className="cashier-link" to={`${base}/invoices/${invoice.data.id}`}>{tr("reception:cashier.viewPrintInvoice")}</DeskLink>
               {booking.status !== "CANCELLED" && <PaymentForm invoice={invoice.data} />}
-              <h3>Lịch sử thanh toán</h3>
-              {!invoice.data.payments.length && <p className="text-stone-500 text-xs">Chưa ghi nhận khoản thu.</p>}
+              <h3>{tr("reception:cashier.paymentHistory")}</h3>
+              {!invoice.data.payments.length && <p className="text-stone-500 text-xs">{tr("reception:cashier.noPaymentsRecorded")}</p>}
               {invoice.data.payments.map(p => (
                 <div className="cashier-payment" key={p.id}>
                   <div>
-                    <span className="font-semibold">{p.method === "CASH" ? "Tiền mặt" : "Chuyển khoản"}</span>
-                    <small>{p.paidAt ? new Date(p.paidAt).toLocaleString("vi-VN") : "Chưa có ngày thu"}</small>
+                    <span className="font-semibold">{p.method === "CASH" ? tr("reception:cashier.cash") : tr("reception:cashier.bankTransfer")}</span>
+                    <small>{p.paidAt ? new Date(p.paidAt).toLocaleString(displayLocale(), { timeZone: 'Asia/Ho_Chi_Minh' }) : tr("reception:cashier.noCollectionDate")}</small>
                   </div>
                   <div>
                     {money(p.amount)}{" "}
                     <Badge tone={p.status === "COMPLETED" ? "green" : p.status === "FAILED" ? "rose" : "amber"}>
-                      {p.status === "COMPLETED" ? "Đã thu" : p.status === "FAILED" ? "Thất bại" : "Đang chờ"}
+                      {p.status === "COMPLETED" ? tr("reception:cashier.collected2") : p.status === "FAILED" ? tr("reception:cashier.failed") : tr("reception:cashier.pending")}
                     </Badge>
                   </div>
                 </div>
@@ -450,12 +450,10 @@ function BillingDrawer({ booking, onClose }: { booking: BillingRow; onClose: () 
             <div className="cashier-empty">
               <p>
                 {booking.status === "CANCELLED"
-                  ? "Booking đã hủy. Kiểm tra chi tiết trước khi xử lý chi phí."
-                  : "Chi phí tạm tính. Mở hồ sơ để kiểm tra dịch vụ và phát hành hóa đơn trước khi thu tiền."}
+                  ? tr("reception:cashier.reservationCancelledCheckDetailsBeforeProcessingCharges")
+                  : tr("reception:cashier.estimatedChargesOpenTheRecordToCheckServicesAndIssueAnInvoice")}
               </p>
-              <DeskLink className="cashier-link" to={`${base}/bookings/${booking.id}/billing`}>
-                Mở chi phí & phát hành hóa đơn
-              </DeskLink>
+              <DeskLink className="cashier-link" to={`${base}/bookings/${booking.id}/billing`}>{tr("reception:cashier.openChargesIssueInvoice")}</DeskLink>
             </div>
           )}
         </>
@@ -465,6 +463,7 @@ function BillingDrawer({ booking, onClose }: { booking: BillingRow; onClose: () 
 }
 
 function PaymentReviewQueue() {
+  useLocale();
   const base = useDeskBase();
   const query = useDeskGet<{
     payments: { id: string; bookingId: string; reference: string; amount: string; customerName: string }[];
@@ -472,21 +471,20 @@ function PaymentReviewQueue() {
   }>('/payments/booking-reviews');
 
   if (query.isPending) return null;
-  if (query.error) return <ErrorState message="Không tải được hàng chờ đối soát thanh toán." retry={() => void query.refetch()} />;
+  if (query.error) return <ErrorState message={tr("reception:cashier.unableToLoadThePaymentReviewQueue")} retry={() => void query.refetch()} />;
   const data = query.data!;
   if (!data.payments.length) return null;
 
   return (
     <section className="cashier-list cashier-reviews">
-      <h2>Đối soát thanh toán</h2>
+      <h2>{tr("reception:cashier.paymentReview")}</h2>
       {data.payments.map(p => (
         <div key={p.id}>
           <p>
             <DeskLink to={`${base}/bookings/${p.bookingId}`}>
               {p.reference} · {p.customerName}
             </DeskLink>{" "}
-            · Đã nhận {money(p.amount)} · Cần kiểm tra hoàn tiền. Chỉ xác nhận hoàn sau khi kiểm tra giao dịch ngân hàng.
-          </p>
+            {tr("reception:cashier.received")}{money(p.amount)} {tr("reception:cashier.refundReviewRequiredConfirmARefundOnlyAfterCheckingTheBankTransaction")}</p>
           <ResolveRefund id={p.id} onDone={() => void query.refetch()} />
         </div>
       ))}
@@ -495,6 +493,7 @@ function PaymentReviewQueue() {
 }
 
 function ResolveRefund({ id, onDone }: { id: string; onDone: () => void }) {
+  useLocale();
   const [reference, setReference] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
 
   return (
@@ -510,23 +509,24 @@ function ResolveRefund({ id, onDone }: { id: string; onDone: () => void }) {
           });
           onDone();
         } catch {
-          setError('Chưa ghi nhận được. Kiểm tra giao dịch và thử lại.');
+          setError(uiMessage("reception:cashier.unableToRecordThisCheckTheTransactionAndTryAgain"));
         } finally {
           setBusy(false);
         }
       }}
     >
       <label>
-        Mã giao dịch hoàn tiền đã xác minh{" "}
+        {tr("reception:cashier.verifiedRefundTransactionReference")}{" "}
         <input required maxLength={200} value={reference} onChange={e => setReference(e.target.value)} />
       </label>
-      <button disabled={busy || !reference.trim()}>Xác nhận đã hoàn tiền</button>
-      {error && <p role="alert">{error}</p>}
+      <button disabled={busy || !reference.trim()}>{tr("reception:cashier.confirmRefundCompleted")}</button>
+      {error && <p role="alert">{resolveMessage(error)}</p>}
     </form>
   );
 }
 
 export function StaleBookingQueue() {
+  useLocale();
   const base = useDeskBase();
   const query = useDeskGet<{ staleCounterBookings: { id: string; reference: string }[] }>('/payments/booking-reviews');
   const rows = query.data?.staleCounterBookings ?? [];
@@ -534,7 +534,7 @@ export function StaleBookingQueue() {
 
   return (
     <details className="cashier-list cashier-reviews">
-      <summary>Booking chờ quá 24 giờ ({rows.length})</summary>
+      <summary>{tr("reception:cashier.reservationsPendingOver24HoursValue", { value0: (rows.length) })}</summary>
       {rows.map(b => (
         <p key={b.id}>
           <DeskLink to={`${base}/bookings/${b.id}`}>{b.reference}</DeskLink>
@@ -545,5 +545,6 @@ export function StaleBookingQueue() {
 }
 
 function OverdueStay({ booking, onClose }: { booking: BillingRow; onClose: () => void }) {
+  useLocale();
   return <ExtendStayDialog booking={booking} onClose={onClose} />;
 }

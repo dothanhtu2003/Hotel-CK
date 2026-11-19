@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../../i18n";
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
@@ -6,6 +7,7 @@ import { Button } from '../../components/ui';
 import { money, type Invoice } from './contracts';
 
 export function PayosPayment({ invoice }: { invoice: Invoice }) {
+  useLocale();
   const cache = useQueryClient();
   const [params] = useSearchParams();
   const paid = invoice.status === 'PAID';
@@ -24,16 +26,16 @@ export function PayosPayment({ invoice }: { invoice: Invoice }) {
     mutationFn: () => api.request<{ checkoutUrl: string }>(`/invoices/${invoice.id}/payos`, { method: 'POST' }),
     onSuccess: data => { window.location.assign(data.checkoutUrl); },
   });
-  if (paid) return <p role="status" className="notice">{invoice.booking.status === 'CHECKED_OUT' ? 'Đã thanh toán đủ và hoàn tất trả phòng.' : 'Đã thanh toán đủ. Vui lòng liên hệ lễ tân để hoàn tất trả phòng.'}</p>;
+  if (paid) return <p role="status" className="notice">{invoice.booking.status === 'CHECKED_OUT' ? tr("guest:payosPayment.fullyPaidAndCheckedOut") : tr("guest:payosPayment.fullyPaidPleaseContactReceptionToCompleteCheckOut")}</p>;
   if (invoice.booking.status !== 'CHECKED_IN') return null;
-  return <div className="guest-box" aria-label="Thanh toán trực tuyến">
-    <h3>Thanh toán trực tuyến qua payOS</h3>
-    <p>Thanh toán {money(invoice.balance)} bằng mã QR hoặc ứng dụng ngân hàng. Hóa đơn sẽ cập nhật sau khi giao dịch được xác minh.</p>
-    {params.get('payos') === 'cancel' && <p role="status">Bạn đã quay lại từ trang thanh toán. Hệ thống đang kiểm tra trạng thái giao dịch.</p>}
-    {(start.error || sync.error) && <p role="alert">Chưa thể kết nối payOS. Vui lòng thử lại hoặc liên hệ lễ tân.</p>}
+  return <div className="guest-box" aria-label={tr("guest:payosPayment.onlinePayment")}>
+    <h3>{tr("guest:payosPayment.onlinePaymentWithPayos")}</h3>
+    <p>{tr("guest:payosPayment.payValueUsingAQrCodeOrBankingAppTheInvoiceWill", { value0: (money(invoice.balance)) })}</p>
+    {params.get('payos') === 'cancel' && <p role="status">{tr("guest:payosPayment.youHaveReturnedFromThePaymentPageTheSystemIsCheckingThe")}</p>}
+    {(start.error || sync.error) && <p role="alert">{tr("guest:payosPayment.unableToConnectToPayosPleaseTryAgainOrContactReception")}</p>}
     <div className="guest-actions">
-      <Button busy={start.isPending} disabled={sync.isFetching} onClick={() => start.mutate()}>Thanh toán qua payOS</Button>
-      <Button variant="secondary" busy={sync.isFetching} disabled={start.isPending} onClick={() => void sync.refetch()}>Kiểm tra thanh toán</Button>
+      <Button busy={start.isPending} disabled={sync.isFetching} onClick={() => start.mutate()}>{tr("guest:payosPayment.payWithPayos")}</Button>
+      <Button variant="secondary" busy={sync.isFetching} disabled={start.isPending} onClick={() => void sync.refetch()}>{tr("guest:bookingPayment.checkPayment")}</Button>
     </div>
   </div>;
 }

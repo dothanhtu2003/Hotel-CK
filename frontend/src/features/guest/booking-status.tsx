@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../../i18n";
 import type { Booking } from './contracts';
 import { GuestBadge } from './components';
 
@@ -13,31 +14,30 @@ export function bookingOverdue(booking: Pick<Booking, 'status' | 'checkIn' | 'ch
 }
 
 export function BookingStatus({ booking, detail = false }: { booking: Booking; detail?: boolean }) {
+  useLocale();
   const overdue = bookingOverdue(booking);
   return (
     <div className="stay-status-wrap">
       {overdue === 'arrival' ? (
         <span className="status-badge badge-overdue">
           <i aria-hidden="true" />
-          Quá hạn nhận phòng
-        </span>
+          {tr("guest:bookingStatus.checkInOverdue")}</span>
       ) : (
         <GuestBadge
           status={booking.status}
-          label={booking.status === 'CANCELLED' ? 'Đã hủy' : booking.holdState === 'CHECKING_PAYMENT' ? 'Đang đối soát thanh toán' : booking.status === 'PENDING' ? (booking.onlinePaymentRequired ? 'Chờ thanh toán' : 'Chờ xác nhận') : undefined}
+          label={booking.status === 'CANCELLED' ? tr("guest:bookingStatus.cancelled") : booking.holdState === 'CHECKING_PAYMENT' ? tr("guest:bookingStatus.paymentVerificationInProgress") : booking.status === 'PENDING' ? (booking.onlinePaymentRequired ? tr("guest:bookingStatus.awaitingPayment") : tr("guest:bookingStatus.awaitingConfirmation")) : undefined}
         />
       )}
       {overdue === 'departure' && (
         <span className="status-badge badge-overdue" role="status">
           <i aria-hidden="true" />
-          Quá hạn trả phòng
-        </span>
+          {tr("guest:bookingStatus.checkOutOverdue")}</span>
       )}
       {detail && overdue && (
         <p className="pending-orders-alert">
           {overdue === 'arrival'
-            ? 'Đã qua ngày nhận phòng. Vui lòng liên hệ lễ tân để xác nhận, đổi lịch hoặc hủy booking.'
-            : 'Đã qua ngày trả phòng dự kiến. Bạn vẫn đang lưu trú; vui lòng liên hệ lễ tân để gia hạn hoặc hoàn tất trả phòng.'}
+            ? tr("guest:bookingStatus.yourCheckInDateHasPassedContactReceptionToConfirmChangeDates")
+            : tr("guest:bookingStatus.yourScheduledCheckOutDateHasPassedYourStayIsStillActive")}
         </p>
       )}
     </div>

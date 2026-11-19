@@ -539,3 +539,6 @@
 .dialog-actions .button-primary:hover {
   background: #044332 !important;
 }
+
+.billing-room-hero { flex-shrink: 0; width: auto; max-width: 100%; }
+.billing-room-hero-num { overflow-wrap: anywhere; }

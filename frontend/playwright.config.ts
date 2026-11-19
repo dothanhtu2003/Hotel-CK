@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
+  globalTeardown: './scripts/e2e-database.mjs',
   testDir: './tests', testMatch: '**/*.e2e.ts', fullyParallel: false, workers: 1, timeout: 30_000, reporter: 'list',
   use: { baseURL: 'http://localhost:5174', viewport: { width: 1440, height: 1000 }, trace: 'off', screenshot: 'only-on-failure',
     launchOptions: { ...(process.env.PLAYWRIGHT_CHROME_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROME_PATH } : { channel: 'chrome' }) } },

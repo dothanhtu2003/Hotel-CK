@@ -1,3 +1,4 @@
+import { LocalizedError } from "../../i18n";
 import { z } from 'zod';
 import { cents, type Invoice } from '../guest/contracts';
 import { paymentSchema } from './contracts';
@@ -9,7 +10,7 @@ const prefix = 'an-nhien:pending-receipt:';
 export function readAttempt(userId: string, storage: Storage = sessionStorage): PaymentAttempt | null {
   const raw = storage.getItem(prefix + userId); if (raw === null) return null;
   const parsed = attemptSchema.parse(JSON.parse(raw));
-  if (parsed.userId !== userId) throw new Error('Khoản thu chờ kiểm tra không khớp tài khoản.');
+  if (parsed.userId !== userId) throw new LocalizedError("reception:paymentAttempt.thePendingReceiptDoesNotMatchThisAccount");
   return parsed;
 }
 export function saveAttempt(a: PaymentAttempt, storage: Storage = sessionStorage) { storage.setItem(prefix + a.userId, JSON.stringify(attemptSchema.parse(a))); }

@@ -1,3 +1,6 @@
+import { catalogName, catalogDescription } from "../../i18n/catalog";
+import { t as tr, useLocale } from "../../i18n";
+import { Trans } from "react-i18next";
 import { X, Check, ArrowRight } from 'lucide-react';
 import { Button, Dialog, LinkButton } from '../../components/ui';
 import { money, type Room } from './contracts';
@@ -21,32 +24,32 @@ export function RoomCompareModal({
   onClose,
   queryStay = '',
 }: RoomCompareProps) {
+  useLocale();
   const comparedRooms = rooms.filter((r) => comparedIds.includes(r.id));
 
   if (!open) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} title="So sánh các loại phòng" className="compare-dialog">
+    <Dialog open={open} onClose={onClose} title={tr("guest:roomCompare.compareRoomTypes")} className="compare-dialog">
       {comparedRooms.length === 0 ? (
-        <p>Chưa có phòng nào được chọn để so sánh. Hãy bấm "So sánh" trên các thẻ phòng.</p>
+        <p>{tr("guest:roomCompare.noRoomsSelectedForComparisonSelectCompareOnARoomCard")}</p>
       ) : (
         <div className="compare-table-wrap">
           <table className="compare-table">
             <thead>
               <tr>
-                <th className="compare-th-feature">Đặc điểm</th>
+                <th className="compare-th-feature">{tr("guest:roomCompare.features")}</th>
                 {comparedRooms.map((r) => (
                   <th key={r.id} className="compare-th-room">
                     <div className="compare-col-header">
-                      <strong>Phòng {r.roomNumber}</strong>
-                      <span>{r.roomType.name}</span>
+                      <strong>{tr("guest:roomCompare.roomValue", { value0: (r.roomNumber) })}</strong>
+                      <span>{catalogName(r.roomType.name)}</span>
                       <button
                         className="compare-remove-btn"
                         onClick={() => onRemove(r.id)}
-                        aria-label={`Bỏ so sánh phòng ${r.roomNumber}`}
+                        aria-label={tr("guest:roomCompare.removeRoomValueFromComparison", { value0: (r.roomNumber) })}
                       >
-                        <X size={15} /> Bỏ chọn
-                      </button>
+                        <X size={15} /> {tr("guest:roomCompare.remove")}</button>
                     </div>
                   </th>
                 ))}
@@ -54,50 +57,46 @@ export function RoomCompareModal({
             </thead>
             <tbody>
               <tr>
-                <td className="compare-feature-label">Giá mỗi đêm</td>
+                <td className="compare-feature-label">{tr("guest:roomCompare.pricePerNight")}</td>
                 {comparedRooms.map((r) => (
-                  <td key={r.id} className="compare-price-val">
-                    <strong>{money(r.roomType.nightlyPrice)}</strong> / đêm
-                  </td>
+                  <td key={r.id} className="compare-price-val"><Trans ns="guest" i18nKey="roomCompare.valueNight" values={{ value0: (money(r.roomType.nightlyPrice)) }} components={{ part0: <strong /> }} /></td>
                 ))}
               </tr>
               <tr>
-                <td className="compare-feature-label">Số khách tối đa</td>
+                <td className="compare-feature-label">{tr("guest:roomCompare.maximumGuests")}</td>
                 {comparedRooms.map((r) => (
-                  <td key={r.id}>
-                    Tối đa <strong>{r.roomType.maxGuests} khách</strong>
-                  </td>
+                  <td key={r.id}><Trans ns="guest" i18nKey="roomCompare.upToValueGuests" values={{ value0: (r.roomType.maxGuests) }} components={{ part0: <strong /> }} /></td>
                 ))}
               </tr>
               <tr>
-                <td className="compare-feature-label">Vị trí & Tầng</td>
+                <td className="compare-feature-label">{tr("guest:roomCompare.locationFloor")}</td>
                 {comparedRooms.map((r) => (
-                  <td key={r.id}>Tầng {r.floor}</td>
+                  <td key={r.id}>{tr("guest:roomCompare.floorValue", { value0: (r.floor) })}</td>
                 ))}
               </tr>
               <tr>
-                <td className="compare-feature-label">Mô tả không gian</td>
+                <td className="compare-feature-label">{tr("guest:roomCompare.roomDescription")}</td>
                 {comparedRooms.map((r) => (
                   <td key={r.id} className="compare-desc">
-                    {r.roomType.description}
+                    {catalogDescription(r.roomType.description, r.roomType.name)}
                   </td>
                 ))}
               </tr>
               <tr>
-                <td className="compare-feature-label">Tiện nghi nổi bật</td>
+                <td className="compare-feature-label">{tr("guest:roomCompare.featuredAmenities")}</td>
                 {comparedRooms.map((r) => (
                   <td key={r.id}>
                     <ul className="compare-amenities-list">
-                      <li><Check size={14} /> Bồn tắm nước ấm</li>
-                      <li><Check size={14} /> Ban công đón sáng</li>
-                      <li><Check size={14} /> Wi-Fi 6 tốc độ cao</li>
-                      <li><Check size={14} /> Trà & Cà phê miễn phí</li>
+                      <li><Check size={14} /> {tr("guest:roomCompare.warmBathtub")}</li>
+                      <li><Check size={14} /> {tr("guest:roomCompare.sunlitBalcony")}</li>
+                      <li><Check size={14} /> {tr("guest:roomCompare.highSpeedWiFi6")}</li>
+                      <li><Check size={14} /> {tr("guest:roomCompare.complimentaryTeaCoffee")}</li>
                     </ul>
                   </td>
                 ))}
               </tr>
               <tr>
-                <td className="compare-feature-label">Hành động</td>
+                <td className="compare-feature-label">{tr("guest:roomCompare.actions")}</td>
                 {comparedRooms.map((r) => (
                   <td key={r.id}>
                     <LinkButton
@@ -105,7 +104,7 @@ export function RoomCompareModal({
                       variant="primary"
                       className="compare-choose-btn"
                     >
-                      Chọn phòng {r.roomNumber} <ArrowRight size={15} />
+                      {tr("guest:roomCompare.chooseRoom")}{r.roomNumber} <ArrowRight size={15} />
                     </LinkButton>
                   </td>
                 ))}
@@ -117,11 +116,9 @@ export function RoomCompareModal({
 
       <div className="dialog-actions">
         {comparedRooms.length > 0 && (
-          <Button variant="secondary" onClick={onClear}>
-            Xóa danh sách so sánh
-          </Button>
+          <Button variant="secondary" onClick={onClear}>{tr("guest:roomCompare.clearComparison")}</Button>
         )}
-        <Button onClick={onClose}>Đóng</Button>
+        <Button onClick={onClose}>{tr("guest:roomCompare.close")}</Button>
       </div>
     </Dialog>
   );
@@ -136,19 +133,16 @@ export function CompareFloatingBar({
   onOpen: () => void;
   onClear: () => void;
 }) {
+  useLocale();
   if (count === 0) return null;
 
   return (
-    <aside className="compare-floating-dock" aria-label="Thanh so sánh phòng">
+    <aside className="compare-floating-dock" aria-label={tr("guest:roomCompare.roomComparisonBar")}>
       <div className="compare-dock-content">
-        <span>Đã chọn <strong>{count}</strong> phòng để so sánh</span>
+        <span><Trans ns="guest" i18nKey="roomCompare.valueRoomsSelectedForComparison" values={{ value0: (count) }} components={{ part0: <strong /> }} /></span>
         <div className="compare-dock-actions">
-          <Button onClick={onOpen} variant="primary">
-            So sánh ngay
-          </Button>
-          <Button onClick={onClear} variant="ghost" className="compare-dock-clear">
-            Xóa
-          </Button>
+          <Button onClick={onOpen} variant="primary">{tr("guest:roomCompare.compareNow")}</Button>
+          <Button onClick={onClear} variant="ghost" className="compare-dock-clear">{tr("guest:roomCompare.clear")}</Button>
         </div>
       </div>
     </aside>

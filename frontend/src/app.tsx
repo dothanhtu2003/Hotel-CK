@@ -1,3 +1,6 @@
+import { LanguageSwitcher } from "./i18n/language-switcher";
+import { t as tr, useLocale } from "./i18n";
+import { Trans } from "react-i18next";
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useAuth } from './features/auth/auth-context';
@@ -32,22 +35,27 @@ import { NotFoundPage } from './pages/not-found-page';
 import { LinkButton, LoadingState } from './components/ui';
 
 function RoleGuard({ role }: { role: Role }) {
+  useLocale();
   const { user } = useAuth(), location = useLocation();
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
-  if (user.role !== role && !(role === 'RECEPTIONIST' && user.role === 'ADMIN')) return <main className="access-denied"><p className="eyebrow">403 · QUYỀN TRUY CẬP</p><h1>Không gian này<br />dành cho <em>vai trò khác.</em></h1><p>Tài khoản hiện tại không có quyền truy cập khu vực này.</p><LinkButton to={homeForRole[user.role]}>Về không gian của bạn</LinkButton></main>;
+  if (user.role !== role && !(role === 'RECEPTIONIST' && user.role === 'ADMIN')) return <main className="access-denied"><LanguageSwitcher /><p className="eyebrow">{tr("common:app.403AccessDenied")}</p><h1><Trans ns="common" i18nKey="app.thisSpaceIsForAnotherRole" components={{ part0: <br />, part1: <em /> }} /></h1><p>{tr("common:app.yourAccountDoesNotHaveAccessToThisArea")}</p><LinkButton to={homeForRole[user.role]}>{tr("common:app.goToYourWorkspace")}</LinkButton></main>;
   return <Outlet />;
 }
 function RouteEffects() {
+  const locale = useLocale();
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); document.title = `${pathname === '/login' ? 'Đăng nhập' : pathname === '/register' ? 'Tạo tài khoản' : pathname.includes('/profile') ? 'Hồ sơ cá nhân' : pathname === '/' ? 'Một kỳ nghỉ trọn vẹn' : 'Không gian của bạn'} · An Nhiên Hotel`; }, [pathname]);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [pathname]);
+  useEffect(() => { const title = pathname === '/login' ? tr("common:publicLayout.signIn") : pathname === '/register' ? tr("common:authPages.createAccount") : pathname.includes('/profile') ? tr("common:guestPortalLayout.myProfile") : pathname === '/' ? tr("common:metadata.home") : tr("common:metadata.workspace"); document.title = `${title} · An Nhiên Hotel`; document.documentElement.lang = locale; document.querySelector('meta[name="description"]')?.setAttribute('content', tr("common:metadata.description")); }, [pathname, locale]);
   return null;
 }
 function HomeEntry() {
+  useLocale();
   const { user } = useAuth();
   if (user && user.role !== 'GUEST') return <Navigate to={homeForRole[user.role]} replace />;
   return <HomePage />;
 }
 export function App() {
+  useLocale();
   const staffRoles: Role[] = ['RECEPTIONIST', 'ADMIN', 'HOUSEKEEPING'];
 
   return (

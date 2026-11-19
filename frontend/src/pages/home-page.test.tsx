@@ -43,7 +43,7 @@ it('HomePage renders Booking Hub, Direct Perks, Room Showcase with real prices a
     data: mockRoomTypes,
     isPending: false,
     error: null,
-  } as any);
+  } as ReturnType<typeof guestQueries.useRoomTypes>);
 
   renderHome();
 
@@ -51,7 +51,7 @@ it('HomePage renders Booking Hub, Direct Perks, Room Showcase with real prices a
   expect(screen.getByLabelText('NGÀY NHẬN PHÒNG')).toBeTruthy();
   expect(screen.getByLabelText('NGÀY TRẢ PHÒNG')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Tìm phòng' })).toBeTruthy();
-  expect(screen.getByText('Xác nhận tức thì qua hệ thống')).toBeTruthy();
+  expect(screen.getByText('Xác nhận sau khi thanh toán đủ')).toBeTruthy();
   expect(screen.getByText('Miễn phí hủy trước 24 giờ')).toBeTruthy();
 
   // 2. Direct Booking Perks
@@ -81,6 +81,6 @@ it('HomePage renders Booking Hub, Direct Perks, Room Showcase with real prices a
   );
   fireEvent.click(secondQuestion);
   expect(
-    screen.getByText(/Quý khách có thể lựa chọn thanh toán linh hoạt/)
+    screen.getByText(/Đặt phòng trực tuyến cần thanh toán trước toàn bộ tiền phòng qua payOS/)
   ).toBeTruthy();
 });

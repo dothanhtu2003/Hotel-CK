@@ -1,3 +1,4 @@
+import { t as tr, useLocale } from "../../i18n";
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
@@ -9,6 +10,7 @@ import type { BookingPaymentState } from './booking-payment';
 
 type Checkout = { checkoutUrl: string; qrCode?: string; accountNumber?: string; accountName?: string; bankBin?: string; description?: string; amount?: number };
 export function BookingQr({ bookingId }: { bookingId: string }) {
+  useLocale();
   const cache = useQueryClient(), notified = useRef(false);
   const [now, setNow] = useState(Date.now), [copied, setCopied] = useState('');
   const state = useQuery({ queryKey: ['booking-qr-state', bookingId], queryFn: async () => {
@@ -32,27 +34,32 @@ export function BookingQr({ bookingId }: { bookingId: string }) {
       for (const key of ['guest', 'reception', 'housekeeping']) void cache.invalidateQueries({ queryKey: [key] });
     }
   }, [paid, cache]);
-  const copy = async (label: string, value: string) => { try { await navigator.clipboard.writeText(value); setCopied(label); } catch { setCopied('Không sao chép được. Vui lòng sao chép thủ công.'); } };
-  if (paid) return <section className="py-8 text-center space-y-3" aria-label="Thanh toán thành công">
-    <CheckCircle2 className="mx-auto size-14 text-emerald-600" /><h3 className="text-xl font-bold text-emerald-900">Thanh toán thành công</h3>
-    <p role="status">Đã nhận {money(state.data!.paidAmount)}. Đặt phòng đã được xác nhận.</p>
+  const copy = async (field: string, value: string) => { try { await navigator.clipboard.writeText(value); setCopied(field); } catch { setCopied('failed'); } };
+  const fieldLabels: Record<string, string> = {
+    holder: tr('guest:bookingQr.accountHolder'), account: tr('guest:bookingQr.accountNumber'),
+    bank: tr('guest:bookingQr.bankCode'), amount: tr('guest:bookingQr.amount'), description: tr('guest:bookingQr.transferDescription'),
+  };
+  if (paid) return <section className="py-8 text-center space-y-3" aria-label={tr("guest:bookingQr.paymentSuccessful")}>
+    <CheckCircle2 className="mx-auto size-14 text-emerald-600" /><h3 className="text-xl font-bold text-emerald-900">{tr("guest:bookingQr.paymentSuccessful")}</h3>
+    <p role="status">{tr("guest:bookingQr.receivedValueYourReservationIsConfirmed", { value0: (money(state.data!.paidAmount)) })}</p>
   </section>;
-  return <section aria-label="QR thanh toán tiền phòng" className="space-y-4">
+  return <section aria-label={tr("guest:bookingQr.roomPaymentQr")} className="space-y-4">
     <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-center justify-between gap-3">
-      <div><p className="text-xs text-emerald-800">Tổng tiền phòng</p><p className="text-2xl font-bold text-emerald-950">{state.data ? money(state.data.totalAmount) : 'Đang tải…'}</p></div>
+      <div><p className="text-xs text-emerald-800">{tr("guest:bookingQr.totalRoomCharge")}</p><p className="text-2xl font-bold text-emerald-950">{state.data ? money(state.data.totalAmount) : tr("guest:bookingQr.loading")}</p></div>
       {remaining !== null && <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-900"><Clock className="size-4" />{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}</span>}
     </div>
-    {expired || state.data?.bookingStatus === 'CANCELLED' ? <p role="status" className="notice">Mã thanh toán đã hết hạn hoặc booking đã hủy. Hệ thống sẽ đối soát giao dịch trước khi giải phóng phòng.</p> : state.data?.paymentReview ? <p role="alert" className="notice">Giao dịch cần đối soát. Vui lòng không chuyển thêm tiền.</p> : <>
-      {(state.isPending || (allowed && link.isPending) || (link.data?.qrCode && qr.isPending)) && <p role="status" className="py-8 text-center">Đang tải mã QR thanh toán…</p>}
-      {allowed && qr.data && <div className="text-center space-y-2"><div className="mx-auto w-fit rounded-2xl border border-zinc-200 bg-white p-2"><img src={qr.data} alt="Mã VietQR thanh toán tiền phòng qua payOS" className="w-64 max-w-full" /></div><p className="text-sm text-zinc-600">Mở ứng dụng ngân hàng và quét mã QR</p></div>}
-      {allowed && link.data && !link.data.qrCode && <p role="alert">Giao dịch cũ chưa lưu mã QR. <a className="underline" href={link.data.checkoutUrl} target="_blank" rel="noopener noreferrer">Tiếp tục thanh toán liên kết hiện tại</a>.</p>}
+    {expired || state.data?.bookingStatus === 'CANCELLED' ? <p role="status" className="notice">{tr("guest:bookingQr.thePaymentCodeExpiredOrTheReservationWasCancelledTheSystemWill")}</p> : state.data?.paymentReview ? <p role="alert" className="notice">{tr("guest:bookingQr.thisTransactionNeedsReviewPleaseDoNotTransferMoreMoney")}</p> : <>
+      {(state.isPending || (allowed && link.isPending) || (link.data?.qrCode && qr.isPending)) && <p role="status" className="py-8 text-center">{tr("guest:bookingQr.loadingPaymentQr")}</p>}
+      {allowed && qr.data && <div className="text-center space-y-2"><div className="mx-auto w-fit rounded-2xl border border-zinc-200 bg-white p-2"><img src={qr.data} alt={tr("guest:bookingQr.vietqrCodeForRoomPaymentThroughPayos")} className="w-64 max-w-full" /></div><p className="text-sm text-zinc-600">{tr("guest:bookingQr.openYourBankingAppAndScanTheQrCode")}</p></div>}
+      {allowed && link.data && !link.data.qrCode && <p role="alert">{tr("guest:bookingQr.thePreviousTransactionHasNoSavedQrCode")}<a className="underline" href={link.data.checkoutUrl} target="_blank" rel="noopener noreferrer">{tr("guest:bookingQr.continueWithTheExistingPaymentLink")}</a>.</p>}
       {allowed && link.data?.qrCode && <dl className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 px-4">
-        {([['Chủ tài khoản', link.data.accountName], ['Số tài khoản', link.data.accountNumber], ['Mã ngân hàng', link.data.bankBin], ['Số tiền', state.data?.totalAmount], ['Nội dung', link.data.description]] as const).map(([label, value]) => value && <div key={label} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><dt className="text-xs text-zinc-500">{label}</dt><dd className="break-all text-sm font-semibold text-zinc-900">{label === 'Số tiền' ? money(value) : value}</dd></div>{['Số tài khoản', 'Số tiền', 'Nội dung'].includes(label) && <button type="button" aria-label={`Sao chép ${label.toLowerCase()}`} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50" onClick={() => void copy(label, value)}><Copy className="size-4" /></button>}</div>)}
+        {([['holder', link.data.accountName], ['account', link.data.accountNumber], ['bank', link.data.bankBin], ['amount', state.data?.totalAmount], ['description', link.data.description]] as const).map(([field, value]) => value && <div key={field} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><dt className="text-xs text-zinc-500">{fieldLabels[field]}</dt><dd className="break-all text-sm font-semibold text-zinc-900">{field === 'amount' ? money(value) : value}</dd></div>{['account', 'amount', 'description'].includes(field) && <button type="button" aria-label={tr('guest:bookingQr.copyValue', { value0: fieldLabels[field] })} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50" onClick={() => void copy(field, value)}><Copy className="size-4" /></button>}</div>)}
+
       </dl>}
     </>}
-    {copied && <p role="status" className="text-xs text-emerald-800">{copied.startsWith('Không') ? copied : `Đã sao chép ${copied.toLowerCase()}.`}</p>}
-    {(state.error || sync.error || link.error || qr.error) && <div role="alert" className="text-sm text-rose-800">Chưa tải hoặc xác minh được thanh toán. Booking vẫn được lưu. <Button variant="secondary" onClick={() => { void state.refetch(); void sync.refetch(); if (link.error) void link.refetch(); if (qr.error) void qr.refetch(); }}>Thử lại</Button></div>}
-    <div className="flex items-start gap-2 text-xs text-zinc-500"><ShieldCheck className="size-4 shrink-0" /><p>Hệ thống tự cập nhật khi payOS xác nhận nhận đủ tiền. Đóng cửa sổ không hủy booking.</p></div>
-    <Button variant="secondary" busy={sync.isFetching} onClick={() => void sync.refetch()}>Kiểm tra thanh toán</Button>
+    {copied && <p role="status" className="text-xs text-emerald-800">{copied === 'failed' ? tr('guest:bookingQr.unableToCopyPleaseCopyManually') : tr('guest:bookingQr.copiedValue', { value0: fieldLabels[copied] })}</p>}
+    {(state.error || sync.error || link.error || qr.error) && <div role="alert" className="text-sm text-rose-800">{tr("guest:bookingQr.unableToLoadOrVerifyPaymentYourReservationIsStillSaved")}<Button variant="secondary" onClick={() => { void state.refetch(); void sync.refetch(); if (link.error) void link.refetch(); if (qr.error) void qr.refetch(); }}>{tr("guest:bookingQr.tryAgain")}</Button></div>}
+    <div className="flex items-start gap-2 text-xs text-zinc-500"><ShieldCheck className="size-4 shrink-0" /><p>{tr("guest:bookingQr.theSystemUpdatesAutomaticallyWhenPayosConfirmsFullPaymentClosingThisWindow")}</p></div>
+    <Button variant="secondary" busy={sync.isFetching} onClick={() => void sync.refetch()}>{tr("guest:bookingPayment.checkPayment")}</Button>
   </section>;
 }

@@ -1,3 +1,5 @@
+import { LanguageSwitcher } from "../i18n/language-switcher";
+import { t as tr, useLocale } from "../i18n";
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
@@ -29,6 +31,7 @@ import { CommandPalette } from '../components/command-palette';
 import { HousekeepingShiftProgress } from '../features/housekeeping/components';
 
 export function WorkspaceLayout() {
+  useLocale();
   const { user, logout } = useAuth(),
     navigate = useNavigate(),
     toast = useToast(),
@@ -84,23 +87,21 @@ export function WorkspaceLayout() {
   const showRevenue = user.role === 'RECEPTIONIST' || home === '/reception';
   const isBillingPage = location.pathname.includes('/invoices/') || location.pathname.endsWith('/billing') || location.pathname.startsWith(`${home}/billing/`);
   const title = location.pathname === `${home}/revenue`
-    ? 'Doanh thu'
+    ? tr("common:navigation.revenue")
     : location.pathname.includes('/profile')
-    ? 'Hồ sơ cá nhân'
+    ? tr("common:guestPortalLayout.myProfile")
     : location.pathname.includes('/invoices/') || location.pathname.endsWith('/billing')
-    ? 'Hóa đơn & thanh toán'
-    : features.find((f) => location.pathname.includes('/' + f.slug))?.title ?? 'Tổng quan';
+    ? tr("common:navigation.invoicesPayments")
+    : features.find((f) => location.pathname.includes('/' + f.slug))?.title ?? tr("common:workspaceLayout.overview");
 
   const isReception = user.role === 'RECEPTIONIST' || user.role === 'ADMIN';
   const hideDesktopTopbar = isReception && location.pathname.replace(/\/+$/, '') !== home;
 
   // Kamra-style grouped navigation for reception
   const receptionNavigation = (
-    <nav className="flex-1 space-y-4 px-1" aria-label="Điều hướng lễ tân" onClick={() => setMobileOpen(false)}>
+    <nav className="flex-1 space-y-4 px-1" aria-label={tr("common:workspaceLayout.receptionNavigation")} onClick={() => setMobileOpen(false)}>
       <div>
-        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-          VẬN HÀNH (FRONT DESK)
-        </div>
+        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">{tr("common:workspaceLayout.frontDeskOperations")}</div>
         <div className="space-y-0.5">
           <NavLink
             to={home}
@@ -114,7 +115,7 @@ export function WorkspaceLayout() {
             }
           >
             <LayoutDashboard className="size-4 shrink-0" />
-            <span>Hôm nay</span>
+            <span>{tr("common:workspaceLayout.today")}</span>
           </NavLink>
           <NavLink
             to={`${home}/bookings`}
@@ -127,7 +128,7 @@ export function WorkspaceLayout() {
             }
           >
             <Users className="size-4 shrink-0" />
-            <span>Quản lý booking</span>
+            <span>{tr("common:navigation.manageReservations")}</span>
           </NavLink>
           <NavLink
             to={`${home}/tape-chart`}
@@ -140,15 +141,13 @@ export function WorkspaceLayout() {
             }
           >
             <CalendarDays className="size-4 shrink-0" />
-            <span>Tape Chart</span>
+            <span>{tr("common:navigation.tapeChart")}</span>
           </NavLink>
         </div>
       </div>
 
       <div>
-        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-          BUỒNG PHÒNG
-        </div>
+        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">{tr("common:workspaceLayout.housekeeping")}</div>
         <div className="space-y-0.5">
           <NavLink
             to={`${home}/housekeeping`}
@@ -161,15 +160,13 @@ export function WorkspaceLayout() {
             }
           >
             <Brush className="size-4 shrink-0" />
-            <span>Buồng phòng</span>
+            <span>{tr("common:navigation.housekeeping")}</span>
           </NavLink>
         </div>
       </div>
 
       <div>
-        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-          TÀI CHÍNH & THU NGÂN
-        </div>
+        <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">{tr("common:workspaceLayout.financeCashier")}</div>
         <div className="space-y-0.5">
           <NavLink
             to={`${home}/${showRevenue ? 'revenue' : 'billing'}`}
@@ -182,7 +179,7 @@ export function WorkspaceLayout() {
             }
           >
             {showRevenue ? <ChartNoAxesCombined className="size-4 shrink-0" /> : <ReceiptText className="size-4 shrink-0" />}
-            <span>{showRevenue ? 'Doanh thu' : 'Hóa đơn & thanh toán'}</span>
+            <span>{showRevenue ? tr("common:navigation.revenue") : tr("common:navigation.invoicesPayments")}</span>
           </NavLink>
         </div>
       </div>
@@ -199,7 +196,7 @@ export function WorkspaceLayout() {
           }
         >
           <UserRound className="size-4 shrink-0" />
-          <span>Hồ sơ cá nhân</span>
+          <span>{tr("common:guestPortalLayout.myProfile")}</span>
         </NavLink>
       </div>
     </nav>
@@ -208,12 +205,11 @@ export function WorkspaceLayout() {
   // Standard non-reception navigation (Guest, Housekeeping)
   const defaultNavigation = (
     <>
-      <p className="nav-label">{user.role === 'GUEST' ? 'KHÔNG GIAN CỦA BẠN' : 'KHÔNG GIAN LÀM VIỆC'}</p>
-      <nav className="workspace-nav" aria-label="Điều hướng tài khoản" onClick={() => setMobileOpen(false)}>
+      <p className="nav-label">{user.role === 'GUEST' ? tr("common:workspaceLayout.yourSpace") : tr("common:workspaceLayout.workspace")}</p>
+      <nav className="workspace-nav" aria-label={tr("common:workspaceLayout.accountNavigation")} onClick={() => setMobileOpen(false)}>
         <NavLink to={home} end>
           <LayoutDashboard size={19} />
-          Tổng quan
-        </NavLink>
+          {tr("common:workspaceLayout.overview")}</NavLink>
         {features.map(({ slug, title: fTitle, icon: Icon }) => (
           <NavLink key={slug} to={`${home}/${slug}`}>
             <Icon size={19} />
@@ -223,8 +219,7 @@ export function WorkspaceLayout() {
         <span className="nav-divider" />
         <NavLink to={`${home}/profile`}>
           <UserRound size={19} />
-          Hồ sơ cá nhân
-        </NavLink>
+          {tr("common:guestPortalLayout.myProfile")}</NavLink>
       </nav>
     </>
   );
@@ -241,26 +236,23 @@ export function WorkspaceLayout() {
           : 'staff-workspace'
       } ${location.pathname.endsWith('/tape-chart') ? 'workspace-tape-chart' : ''} ${hideDesktopTopbar ? 'workspace-without-topbar' : ''}`}
     >
-      <a className="skip-link" href="#main-content">
-        Đến nội dung chính
-      </a>
+      <a className="skip-link" href="#main-content">{tr("common:guestPortalLayout.skipToMainContent")}</a>
 
       {/* Sidebar */}
-      <aside className="workspace-sidebar">
+      <aside className="workspace-sidebar">{isReception && hideDesktopTopbar && <div className="sidebar-language-switcher"><LanguageSwitcher /></div>}
         {isReception ? (
           <>
             <NavLink
               to={home}
               end
               className="mb-4 flex items-center gap-2 rounded-lg px-2 outline-none"
-              aria-label="Trang chủ lễ tân"
+              aria-label={tr("common:workspaceLayout.receptionHome")}
             >
               <div className="flex size-7 items-center justify-center rounded-lg bg-brand-600 text-white font-bold text-sm shadow-sm">
                 A
               </div>
               <span className="text-lg font-semibold tracking-tight text-zinc-900">
-                an nhiên
-                <span className="ml-1 align-middle text-[10px] font-semibold tracking-[0.2em] text-brand-600">
+                {tr("common:workspaceLayout.anNhien")}<span className="ml-1 align-middle text-[10px] font-semibold tracking-[0.2em] text-brand-600">
                   PMS
                 </span>
               </span>
@@ -288,14 +280,14 @@ export function WorkspaceLayout() {
               >
                 <div className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white p-1 shadow-2xs">
                   <input
-                    aria-label="Tìm nhanh booking"
+                    aria-label={tr("common:workspaceLayout.quickReservationSearch")}
                     name="q"
                     maxLength={120}
-                    placeholder="Tìm nhanh booking…"
+                    placeholder={tr("common:workspaceLayout.quickReservationSearch2")}
                     className="w-full bg-transparent px-1.5 py-0.5 text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none"
                   />
                   <button
-                    aria-label="Tìm booking"
+                    aria-label={tr("common:workspaceLayout.findReservations")}
                     type="submit"
                     className="flex size-6 shrink-0 items-center justify-center rounded bg-brand-50 text-brand-700 hover:bg-brand-100 cursor-pointer"
                   >
@@ -348,7 +340,7 @@ export function WorkspaceLayout() {
                       onClick={() => setUserDropdownOpen(false)}
                     >
                       <UserRound size={14} />
-                      <span>Hồ sơ cá nhân</span>
+                      <span>{tr("common:guestPortalLayout.myProfile")}</span>
                     </NavLink>
                     <Link
                       to="/"
@@ -356,7 +348,7 @@ export function WorkspaceLayout() {
                       onClick={() => setUserDropdownOpen(false)}
                     >
                       <ArrowUpRight size={14} />
-                      <span>Ghé thăm website</span>
+                      <span>{tr("common:workspaceLayout.visitWebsite")}</span>
                     </Link>
                     <div className="my-1 border-t border-zinc-100" />
                     <button
@@ -368,14 +360,12 @@ export function WorkspaceLayout() {
                       }}
                     >
                       <LogOut size={14} />
-                      <span>Đăng xuất tài khoản</span>
+                      <span>{tr("common:workspaceLayout.signOutOfAccount")}</span>
                     </button>
                   </div>
                 )}
               </div>
-              <p className="mt-2.5 px-2 text-[10px] text-zinc-400">
-                Kamra PMS v2.4 · An Nhiên Hotel
-              </p>
+              <p className="mt-2.5 px-2 text-[10px] text-zinc-400">{tr("common:workspaceLayout.kamraPmsV24AnNhienHotel")}</p>
             </div>
           </>
         ) : user.role === 'HOUSEKEEPING' ? (
@@ -397,12 +387,11 @@ export function WorkspaceLayout() {
               </Link>
               <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600 border border-zinc-200/80 shadow-2xs">
                 <Brush className="size-3 text-zinc-500" />
-                Nhân viên buồng phòng
-              </span>
+                {tr("common:contracts.housekeepingStaff")}</span>
             </div>
 
             {/* Center: Main Navigation Tabs */}
-            <nav className="flex items-center gap-1 sm:gap-1.5" aria-label="Điều hướng buồng phòng">
+            <nav className="flex items-center gap-1 sm:gap-1.5" aria-label={tr("common:workspaceLayout.housekeepingNavigation")}>
               <NavLink
                 to={home}
                 end
@@ -415,7 +404,7 @@ export function WorkspaceLayout() {
                 }
               >
                 <LayoutDashboard className="size-3.5" />
-                <span>Tổng quan</span>
+                <span>{tr("common:workspaceLayout.overview")}</span>
               </NavLink>
               <NavLink
                 to={`${home}/board`}
@@ -428,7 +417,7 @@ export function WorkspaceLayout() {
                 }
               >
                 <Brush className="size-3.5" />
-                <span>Sơ đồ phòng</span>
+                <span>{tr("common:workspaceLayout.roomBoard")}</span>
               </NavLink>
               <NavLink
                 to={`${home}/tasks`}
@@ -441,13 +430,13 @@ export function WorkspaceLayout() {
                 }
               >
                 <ClipboardList className="size-3.5" />
-                <span>Công việc</span>
+                <span>{tr("common:workspaceLayout.tasks")}</span>
               </NavLink>
             </nav>
 
             {/* Right: Live Shift Progress & User Menu */}
             <div className="flex items-center gap-2.5">
-              <HousekeepingShiftProgress />
+              <LanguageSwitcher /><HousekeepingShiftProgress />
 
               <div className="sidebar-user-container relative" ref={dropdownRef}>
                 <button
@@ -473,9 +462,7 @@ export function WorkspaceLayout() {
                       <p className="text-[10px] text-zinc-400 truncate">
                         {user.email}
                       </p>
-                      <span className="mt-1 inline-block text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">
-                        Nhân viên buồng phòng
-                      </span>
+                      <span className="mt-1 inline-block text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">{tr("common:contracts.housekeepingStaff")}</span>
                     </div>
                     <div className="py-1">
                       <NavLink
@@ -484,8 +471,7 @@ export function WorkspaceLayout() {
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100 transition-colors"
                       >
                         <UserRound className="size-3.5 text-zinc-400" />
-                        Hồ sơ cá nhân
-                      </NavLink>
+                        {tr("common:guestPortalLayout.myProfile")}</NavLink>
                     </div>
                     <div className="border-t border-zinc-100 pt-1">
                       <button
@@ -497,8 +483,7 @@ export function WorkspaceLayout() {
                         className="flex w-full items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       >
                         <LogOut className="size-3.5" />
-                        Đăng xuất
-                      </button>
+                        {tr("common:guestPortalLayout.signOut")}</button>
                     </div>
                   </div>
                 )}
@@ -516,12 +501,10 @@ export function WorkspaceLayout() {
             <div className="sidebar-bottom">
               <Link to="/">
                 <ArrowUpRight size={17} />
-                Ghé thăm website
-              </Link>
+                {tr("common:workspaceLayout.visitWebsite")}</Link>
               <button onClick={() => setLogoutOpen(true)}>
                 <LogOut size={17} />
-                Đăng xuất
-              </button>
+                {tr("common:guestPortalLayout.signOut")}</button>
               <div className="sidebar-user">
                 <span>{user.fullName.slice(0, 1).toUpperCase()}</span>
                 <div>
@@ -540,7 +523,7 @@ export function WorkspaceLayout() {
           <div className="flex items-center gap-2.5">
             <button
               className="mobile-menu icon-button"
-              aria-label="Mở menu tài khoản"
+              aria-label={tr("common:workspaceLayout.openAccountMenu")}
               onClick={() => setMobileOpen(true)}
             >
               <Menu size={18} />
@@ -554,7 +537,7 @@ export function WorkspaceLayout() {
               </div>
             ) : (
               <span>
-                An Nhiên <span className="breadcrumb-slash">/</span>
+                {tr("common:workspaceLayout.anNhien2")}<span className="breadcrumb-slash">/</span>
                 <strong>{title}</strong>
               </span>
             )}
@@ -566,13 +549,11 @@ export function WorkspaceLayout() {
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
-                title={`Tìm khách hoặc booking, hoặc nhảy nhanh đến mục khác (${isMac ? '⌘K' : 'Ctrl+K'})`}
+                title={tr("common:workspaceLayout.searchGuestsOrReservationsOrJumpToAnotherSectionValue", { value0: (isMac ? '⌘K' : 'Ctrl+K') })}
                 className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-1.5 text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors cursor-pointer"
               >
                 <Search className="size-3.5 shrink-0" />
-                <span className="truncate whitespace-nowrap">
-                  Tìm khách, booking, số phòng…
-                </span>
+                <span className="truncate whitespace-nowrap">{tr("common:workspaceLayout.searchGuestsReservationsOrRooms")}</span>
                 <kbd className="ml-auto hidden rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500 md:inline">
                   {isMac ? '⌘K' : 'Ctrl+K'}
                 </kbd>
@@ -581,29 +562,29 @@ export function WorkspaceLayout() {
           )}
 
           {/* Right Header Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3"><LanguageSwitcher />
             {isReception && (
               <>
                 <Link
                   to={`${home}?mode=booking`}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 shadow-xs transition-colors"
-                  aria-label="Đặt phòng mới"
+                  aria-label={tr("common:commandPalette.newReservation")}
                 >
                   <Plus className="size-3.5" />
-                  <span>Đặt phòng mới</span>
+                  <span>{tr("common:commandPalette.newReservation")}</span>
                 </Link>
               </>
             )}
 
             {!isReception && (
               <>
-                <StatusBadge tone="success">Đã xác thực</StatusBadge>
-                <Link to={`${home}/profile`} className="topbar-avatar" aria-label="Xem hồ sơ cá nhân">
+                <StatusBadge tone="success">{tr("common:workspaceLayout.verified")}</StatusBadge>
+                <Link to={`${home}/profile`} className="topbar-avatar" aria-label={tr("common:workspaceLayout.viewProfile")}>
                   {user.fullName.slice(0, 1).toUpperCase()}
                 </Link>
                 <button
                   className="icon-button topbar-logout"
-                  aria-label="Đăng xuất"
+                  aria-label={tr("common:guestPortalLayout.signOut")}
                   onClick={() => setLogoutOpen(true)}
                 >
                   <LogOut size={18} />
@@ -623,8 +604,8 @@ export function WorkspaceLayout() {
         </main>
 
         <footer className="workspace-footer">
-          <span>© {new Date().getFullYear()} An Nhiên Hotel & Suites</span>
-          <span>Chăm chút từng trải nghiệm. Vận hành bởi Kamra PMS.</span>
+          <span>{tr("common:workspaceLayout.valueAnNhienHotelSuites", { value0: (new Date().getFullYear()) })}</span>
+          <span>{tr("common:workspaceLayout.careInEveryExperiencePoweredByKamraPms")}</span>
         </footer>
       </div>
 
@@ -635,7 +616,7 @@ export function WorkspaceLayout() {
       <Dialog
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        title={isReception ? "Menu lễ tân" : "Menu buồng phòng"}
+        title={isReception ? tr("common:workspaceLayout.receptionMenu") : tr("common:workspaceLayout.housekeepingMenu")}
         className="workspace-mobile-dialog"
       >
         {isReception ? receptionNavigation : defaultNavigation}
@@ -647,29 +628,24 @@ export function WorkspaceLayout() {
           }}
         >
           <LogOut size={17} />
-          Đăng xuất
-        </Button>
+          {tr("common:guestPortalLayout.signOut")}</Button>
       </Dialog>
 
       {/* Logout Confirmation */}
-      <Dialog open={logoutOpen} onClose={() => setLogoutOpen(false)} title="Đăng xuất tài khoản?">
+      <Dialog open={logoutOpen} onClose={() => setLogoutOpen(false)} title={tr("common:guestPortalLayout.signOutOfYourAccount")}>
         <div className="dialog-icon">
           <ShieldCheck size={29} />
         </div>
-        <p>Bạn sẽ đăng xuất khỏi phiên làm việc này. Lần truy cập tiếp theo cần đăng nhập lại.</p>
+        <p>{tr("common:workspaceLayout.youWillBeSignedOutOfThisSessionPleaseSignInAgain")}</p>
         <div className="dialog-actions">
-          <Button variant="secondary" onClick={() => setLogoutOpen(false)}>
-            Ở lại
-          </Button>
+          <Button variant="secondary" onClick={() => setLogoutOpen(false)}>{tr("common:guestPortalLayout.staySignedIn")}</Button>
           <Button
             onClick={() => {
               logout();
-              toast('Đã đăng xuất trên thiết bị này.');
+              toast(() => (tr("common:workspaceLayout.youHaveSignedOutOnThisDevice")));
               navigate('/login', { replace: true });
             }}
-          >
-            Xác nhận đăng xuất
-          </Button>
+          >{tr("common:guestPortalLayout.confirmSignOut")}</Button>
         </div>
       </Dialog>
     </div>
@@ -685,6 +661,7 @@ function PendingReceiptNotice({
   home: string;
   enabled: boolean;
 }) {
+  useLocale();
   if (!enabled) return null;
   let attempt;
   let failed = false;
@@ -695,14 +672,12 @@ function PendingReceiptNotice({
   }
   if (failed)
     return (
-      <p className="form-error" role="alert">
-        Không đọc được thông tin khoản thu chờ kiểm tra trong phiên trình duyệt.
-      </p>
+      <p className="form-error" role="alert">{tr("common:workspaceLayout.unableToReadThePendingReceiptInformationInThisBrowserSession")}</p>
     );
   return attempt ? (
     <p className="notice">
-      Có khoản thu cần đối chiếu.{' '}
-      <Link to={`${home}/invoices/${attempt.invoiceId}`}>Mở hóa đơn cần kiểm tra</Link>
+      {tr("common:workspaceLayout.aReceiptNeedsReview")}{' '}
+      <Link to={`${home}/invoices/${attempt.invoiceId}`}>{tr("common:workspaceLayout.openInvoiceForReview")}</Link>
     </p>
   ) : null;
 }

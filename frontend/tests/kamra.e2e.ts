@@ -36,15 +36,16 @@ test("Kamra Today and read-only multiday calendar use real API data at desktop a
     .getByRole("link", { name: "Tape Chart", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Tape Chart", exact: true }),
+    page.getByRole("heading", { name: "Lịch đặt phòng", exact: true }),
   ).toBeVisible();
+  let calendarWrites=0;page.on('request',r=>{if(['POST','PATCH'].includes(r.method())&&/\/api\/(bookings|front-desk|service-orders)/.test(r.url()))calendarWrites++;});
   const f = fixtures();
   const room = await (
     await request.get("http://127.0.0.1:3301/api/rooms/" + f.deskRooms[6].id)
   ).json();
   await page.getByLabel("Loại phòng trên lịch").selectOption(room.roomType.id);
   await page.getByLabel("Ngày bắt đầu lịch").fill("2041-01-01");
-  const bar = page.locator(".tape-bar").first();
+  const bar = page.locator(".tape-chart-scroll button[style*=width]").first();
   await expect(bar).toBeVisible();
   const size = await bar.evaluate((el) => ({
     bar: el.getBoundingClientRect().width,
@@ -58,6 +59,7 @@ test("Kamra Today and read-only multiday calendar use real API data at desktop a
   await bar.click();
   await expect(page.locator("[data-booking-id]")).toBeVisible();
   await expect(
-    page.getByRole("tab", { name: "Dịch vụ", exact: true }),
+    page.getByRole("heading", { name: "Thông tin đặt phòng", exact: true }),
   ).toBeVisible();
+  expect(calendarWrites).toBe(0);
 });

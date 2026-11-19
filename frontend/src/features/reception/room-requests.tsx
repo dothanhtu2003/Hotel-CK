@@ -1,3 +1,6 @@
+import { catalogName } from "../../i18n/catalog";
+import { displayLocale, t as tr, useLocale } from "../../i18n";
+
 import { DeskLink } from "./navigation";
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, BellRing, CheckCircle2, Clock, ExternalLink, Receipt, User } from 'lucide-react';
@@ -44,13 +47,14 @@ export function RoomRequestsDrawer({
   orders: RoomOrder[];
   onClose: () => void;
 }) {
+  useLocale();
   const base = useDeskBase();
 
   return (
     <Dialog
       open
       onClose={onClose}
-      title={`Phòng ${roomNumber} · Yêu cầu của khách`}
+      title={tr("reception:roomRequests.roomValueGuestRequests", { value0: (roomNumber) })}
       className="desk-room-action-modal"
     >
       <div className="drawer-body p-4 sm:p-5 space-y-4">
@@ -62,22 +66,17 @@ export function RoomRequestsDrawer({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-zinc-900 tracking-tight">
-                  Phòng {roomNumber}
-                </h3>
-                <span className="text-xs font-semibold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
-                  {orders.length} yêu cầu chờ xử lý
-                </span>
+                <h3 className="text-base font-bold text-zinc-900 tracking-tight">{tr("reception:cashier.roomValue", { value0: (roomNumber) })}</h3>
+                <span className="text-xs font-semibold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">{tr("reception:roomRequests.valuePendingRequests", { value0: (orders.length) })}</span>
               </div>
               <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
                 <span className="inline-block size-2 rounded-full bg-emerald-500 animate-pulse" />
-                Yêu cầu mới nhất từ khách
-              </p>
+                {tr("reception:roomRequests.latestGuestRequests")}</p>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end"><DeskLink to={`${base}/service-orders`} onClick={onClose} className="text-xs text-emerald-800 underline underline-offset-2">Tất cả đơn dịch vụ</DeskLink></div>
+        <div className="flex justify-end"><DeskLink to={`${base}/service-orders`} onClick={onClose} className="text-xs text-emerald-800 underline underline-offset-2">{tr("reception:roomRequests.allServiceOrders")}</DeskLink></div>
 
         {/* Empty state if all processed */}
         {!orders.length ? (
@@ -88,10 +87,8 @@ export function RoomRequestsDrawer({
             <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-2xs">
               <CheckCircle2 className="size-6" />
             </div>
-            <h4 className="text-sm font-bold text-emerald-950">Đã xử lý hết yêu cầu</h4>
-            <p className="text-xs text-emerald-700 max-w-sm mx-auto">
-              Hiện không còn yêu cầu nào đang chờ xử lý cho phòng {roomNumber}.
-            </p>
+            <h4 className="text-sm font-bold text-emerald-950">{tr("reception:roomRequests.allRequestsResolved")}</h4>
+            <p className="text-xs text-emerald-700 max-w-sm mx-auto">{tr("reception:roomRequests.thereAreNoPendingRequestsForRoomValue", { value0: (roomNumber) })}</p>
           </div>
         ) : (
           <div className="space-y-3.5">
@@ -105,8 +102,7 @@ export function RoomRequestsDrawer({
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200 shadow-2xs">
                       <BellRing size={13} className="text-amber-700" />
-                      Chờ xử lý
-                    </span>
+                      {tr("reception:roomRequests.pending")}</span>
                     <span className="font-mono text-xs font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200/80">
                       #{order.reference}
                     </span>
@@ -116,8 +112,8 @@ export function RoomRequestsDrawer({
                     dateTime={order.orderedAt}
                   >
                     <Clock size={13} className="text-zinc-400" />
-                    {new Date(order.orderedAt).toLocaleString('vi-VN', {
-                      timeZone: 'Asia/Bangkok',
+                    {new Date(order.orderedAt).toLocaleString(displayLocale(), {
+                      timeZone: 'Asia/Ho_Chi_Minh',
                       hour: '2-digit',
                       minute: '2-digit',
                       day: '2-digit',
@@ -130,8 +126,7 @@ export function RoomRequestsDrawer({
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-zinc-500 flex items-center gap-1">
                     <User size={13} className="text-zinc-400" />
-                    Khách hàng:
-                  </span>
+                    {tr("reception:roomRequests.guest")}</span>
                   <strong className="text-zinc-900 font-semibold">{order.customerName}</strong>
                 </div>
 
@@ -144,18 +139,14 @@ export function RoomRequestsDrawer({
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm text-amber-950">Yêu cầu trả phòng</h4>
-                            <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200/90 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300/80">
-                              Cần thanh toán
-                            </span>
+                            <h4 className="font-bold text-sm text-amber-950">{tr("reception:roomRequests.checkOutRequest")}</h4>
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200/90 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300/80">{tr("reception:roomRequests.paymentRequired")}</span>
                           </div>
-                          <p className="text-[11px] text-amber-800/80 mt-0.5">Khách đã yêu cầu làm thủ tục trả phòng</p>
+                          <p className="text-[11px] text-amber-800/80 mt-0.5">{tr("reception:roomRequests.theGuestRequestedCheckOut")}</p>
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs text-zinc-600 leading-relaxed bg-white/80 p-2.5 rounded-xl border border-amber-200/60">
-                      Khách đang chờ kiểm tra phòng và thanh toán. Yêu cầu được giữ đến khi hoàn tất trả phòng.
-                    </p>
+                    <p className="text-xs text-zinc-600 leading-relaxed bg-white/80 p-2.5 rounded-xl border border-amber-200/60">{tr("reception:roomRequests.theGuestIsAwaitingRoomInspectionAndPaymentTheRequestRemainsUntil")}</p>
                     <div className="pt-0.5 flex flex-wrap items-center justify-between gap-2.5">
                       <DeskLink
                         to={`${base}/bookings/${order.checkoutBookingId}/billing`}
@@ -163,26 +154,22 @@ export function RoomRequestsDrawer({
                         className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 shadow-sm hover:shadow-md transition-all group cursor-pointer"
                       >
                         <Receipt className="size-4 text-emerald-200" aria-hidden="true" />
-                        <span>Xử lý trả phòng</span>
+                        <span>{tr("reception:roomRequests.processCheckOut")}</span>
                         <ArrowRight className="size-3.5 opacity-80 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
                       </DeskLink>
-                      <span className="text-[11px] text-zinc-500 font-medium">Chuyển sang hồ sơ thanh toán</span>
+                      <span className="text-[11px] text-zinc-500 font-medium">{tr("reception:roomRequests.openPaymentRecord")}</span>
                     </div>
                   </div>
                 ) : <>
                 {/* Item details list */}
                 <div className="rounded-xl bg-zinc-50 border border-zinc-200/70 p-3 space-y-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                    Dịch vụ yêu cầu
-                  </div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">{tr("reception:roomRequests.requestedServices")}</div>
                   <ul className="space-y-1.5">
                     {order.items.map((item) => (
                       <li key={item.id} className="flex items-center justify-between text-xs text-zinc-800">
                         <span className="flex items-center gap-1.5">
-                          <span className="font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded text-[11px]">
-                            {item.quantity}×
-                          </span>
-                          <span className="font-medium">{item.serviceName}</span>
+                          <span className="font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded text-[11px]">{tr("reception:roomRequests.value", { value0: (item.quantity) })}</span>
+                          <span className="font-medium">{catalogName(item.serviceName)}</span>
                         </span>
                         <span className="font-semibold tabular-nums text-zinc-700">
                           {money(item.subtotal || item.unitPrice)}
@@ -191,7 +178,7 @@ export function RoomRequestsDrawer({
                     ))}
                   </ul>
                   <div className="pt-2 border-t border-zinc-200/60 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-zinc-600">Tổng thanh toán:</span>
+                    <span className="font-semibold text-zinc-600">{tr("reception:roomRequests.totalPayment")}</span>
                     <strong className="text-sm font-bold text-emerald-800 tabular-nums">
                       {money(order.totalAmount)}
                     </strong>
@@ -206,8 +193,7 @@ export function RoomRequestsDrawer({
                     onClick={onClose}
                   >
                     <ExternalLink size={13} />
-                    Xem chi tiết đơn
-                  </DeskLink>
+                    {tr("reception:roomRequests.viewOrderDetails")}</DeskLink>
 
                   <span className="text-sm font-semibold text-amber-800">{serviceOrderLabel(order)}</span>
                   {order.canProcess && (
@@ -216,9 +202,7 @@ export function RoomRequestsDrawer({
                 </div>
 
                 {!order.canProcess && (
-                  <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs">
-                    Không thể ghi nhận khi khách chưa nhận phòng, đã trả phòng hoặc đã lập hóa đơn.
-                  </div>
+                  <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs">{tr("reception:roomRequests.thisCannotBeRecordedBeforeCheckInAfterCheckOutOrAfter")}</div>
                 )}
                 </>}
               </article>

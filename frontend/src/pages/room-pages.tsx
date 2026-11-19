@@ -1,3 +1,8 @@
+import { formatDate as localizedDate } from "../i18n/format";
+import { LocalizedError, safeError, t as tr, useLocale } from "../i18n";
+import { catalogName, catalogDescription } from "../i18n/catalog";
+
+import { Trans } from "react-i18next";
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -54,8 +59,8 @@ function getRoomTypeImage(typeName: string): string {
 function getGalleryImages(roomTypeName: string): GalleryImage[] {
   return [{
     src: getRoomTypeImage(roomTypeName),
-    alt: `Ảnh minh họa hạng phòng ${roomTypeName}`,
-    title: 'Ảnh minh họa · Không phải ảnh xác nhận của phòng',
+    alt: tr("guest:roomPages.illustrationOfTheValueRoomType", { value0: (roomTypeName) }),
+    title: tr("guest:roomPages.illustrativePhotoNotAConfirmedPhotoOfTheRoom"),
   }];
 }
 
@@ -68,6 +73,7 @@ export function ReadyRooms({
   query: string;
   nights: number;
 }) {
+  useLocale();
   return (
     <div className="ready-room-list">
       {rooms.map((room) => (
@@ -76,12 +82,12 @@ export function ReadyRooms({
           <div className="ready-room-media">
             <img
               src={getRoomTypeImage(room.roomType.name)}
-              alt={`Phòng ${room.roomNumber} - ${room.roomType.name}`}
+              alt={tr("guest:roomPages.roomValueValue", { value0: (room.roomNumber), value1: (catalogName(room.roomType.name)) })}
               loading="lazy"
             />
             <div className="ready-room-media-badges">
-              <span className="room-type-chip">{room.roomType.name}</span>
-              <span className="room-floor-chip">Tầng {room.floor}</span>
+              <span className="room-type-chip">{catalogName(room.roomType.name)}</span>
+              <span className="room-floor-chip">{tr("guest:roomCompare.floorValue", { value0: (room.floor) })}</span>
             </div>
           </div>
 
@@ -90,58 +96,46 @@ export function ReadyRooms({
             <div>
               <div className="ready-room-header">
                 <div className="ready-room-title-block">
-                  <h2>Phòng {room.roomNumber}</h2>
-                  <p className="ready-room-type-sub">
-                    {room.roomType.name} · Không gian an nhiên
-                  </p>
+                  <h2>{tr("guest:roomCompare.roomValue", { value0: (room.roomNumber) })}</h2>
+                  <p className="ready-room-type-sub">{tr("guest:roomPages.valueAPeacefulSpace", { value0: (catalogName(room.roomType.name)) })}</p>
                 </div>
                 <span className="ready-room-status-badge">
-                  <span className="status-dot-pulse" /> Còn trống
-                </span>
+                  <span className="status-dot-pulse" /> {tr("guest:roomPages.available")}</span>
               </div>
 
               <p className="ready-room-desc">
-                {room.roomType.description ||
-                  'Không gian nghỉ ngơi thanh bình, trang bị nội thất gỗ ấm áp và tiện nghi chu đáo cho kỳ nghỉ trọn vẹn.'}
+                {catalogDescription(room.roomType.description, room.roomType.name) ||
+                  tr("guest:roomPages.aPeacefulRoomWithWarmWoodenFurnishingsAndThoughtfulAmenitiesForA")}
               </p>
 
               {/* Specs & Amenities Pills */}
               <div className="ready-room-amenities">
                 <span className="ready-spec-pill">
-                  <Users size={14} /> Tối đa {room.roomType.maxGuests} khách
-                </span>
+                  <Users size={14} /> {tr("guest:homePage.upTo")}{room.roomType.maxGuests} {tr("guest:homePage.guests")}</span>
                 <span className="ready-spec-pill">
-                  <BedDouble size={14} /> Giường đệm cao cấp
-                </span>
+                  <BedDouble size={14} /> {tr("guest:roomPages.premiumMattress")}</span>
                 <span className="ready-spec-pill">
-                  <Wifi size={14} /> Wifi tốc độ cao
-                </span>
+                  <Wifi size={14} /> {tr("guest:homePage.highSpeedWiFi")}</span>
                 <span className="ready-spec-pill">
-                  <Coffee size={14} /> Trà & Nước khoáng
-                </span>
+                  <Coffee size={14} /> {tr("guest:roomPages.teaMineralWater")}</span>
               </div>
             </div>
 
             {/* Price & Action */}
             <div className="ready-room-footer">
               <div className="ready-room-price">
-                <div className="price-main">
-                  <strong>{money(room.roomType.nightlyPrice)}</strong>
-                  <small>/ đêm</small>
-                </div>
+                <div className="price-main"><Trans ns="guest" i18nKey="roomPages.valueNight" values={{ value0: (money(room.roomType.nightlyPrice)) }} components={{ part0: <strong />, part1: <small /> }} /></div>
                 {nights > 1 && (
-                  <span className="price-total-estimate">
-                    Dự kiến {nights} đêm: {money(decimal(cents(room.roomType.nightlyPrice) * BigInt(nights)))}
-                  </span>
+                  <span className="price-total-estimate">{tr("guest:roomPages.estimatedForValueNightsValue", { value0: (nights), value1: (money(decimal(cents(room.roomType.nightlyPrice) * BigInt(nights)))) })}</span>
                 )}
-                <span className="price-tax-note">Đã bao gồm thuế & phí dịch vụ</span>
+                <span className="price-tax-note">{tr("guest:roomPages.includesTaxesServiceCharges")}</span>
               </div>
 
               <LinkButton
                 to={`/rooms/${room.id}?${query}`}
                 className="ready-room-book-btn"
               >
-                Đặt phòng <ArrowRight size={16} />
+                {tr("guest:roomPages.bookRoom")}<ArrowRight size={16} />
               </LinkButton>
             </div>
           </div>
@@ -152,6 +146,7 @@ export function ReadyRooms({
 }
 
 export function RoomsPage() {
+  useLocale();
   const [params] = useSearchParams();
   const [activeTypeId, setActiveTypeId] = useState<string>('ALL');
   const today = new Intl.DateTimeFormat('en-CA', {
@@ -195,32 +190,31 @@ export function RoomsPage() {
       {/* Hero Header */}
       <div className="ready-rooms-hero-header">
         <div className="ready-rooms-hero-badge">
-          <span>✦</span> BỘ SƯU TẬP PHÒNG NGHỈ
-        </div>
-        <h1>Phòng sẵn sàng</h1>
+          <span>✦</span> {tr("guest:roomPages.roomCollection")}</div>
+        <h1>{tr("guest:roomPages.readyRooms")}</h1>
 
       </div>
 
       {!stay.success ? (
-        <ErrorState message="Vui lòng chọn ngày trả phòng sau ngày nhận phòng và số khách hợp lệ." />
+        <ErrorState message={tr("guest:roomPages.pleaseChooseACheckOutDateAfterCheckInAndAValid")} />
       ) : result.isPending ? (
         <Skeleton />
       ) : result.error ? (
         <ErrorState
-          message={result.error.message}
+          message={safeError(result.error)}
           retry={() => void result.refetch()}
         />
       ) : (
         <>
           {/* Quick Filter Tabs */}
           {roomTypesInResults.length > 1 && (
-            <div className="ready-room-tabs-bar" role="tablist" aria-label="Lọc theo hạng phòng">
+            <div className="ready-room-tabs-bar" role="tablist" aria-label={tr("guest:roomPages.filterByRoomType")}>
               <button
                 type="button"
                 className={`ready-room-tab-btn ${activeTypeId === 'ALL' ? 'active' : ''}`}
                 onClick={() => setActiveTypeId('ALL')}
               >
-                Tất cả hạng phòng <span className="ready-room-tab-count">{rooms.length}</span>
+                {tr("guest:roomPages.allRoomTypes")}<span className="ready-room-tab-count">{rooms.length}</span>
               </button>
               {roomTypesInResults.map((t) => {
                 const count = rooms.filter((r) => r.roomType.id === t.id).length;
@@ -231,7 +225,7 @@ export function RoomsPage() {
                     className={`ready-room-tab-btn ${activeTypeId === t.id ? 'active' : ''}`}
                     onClick={() => setActiveTypeId(t.id)}
                   >
-                    {t.name} <span className="ready-room-tab-count">{count}</span>
+                    {catalogName(t.name)} <span className="ready-room-tab-count">{count}</span>
                   </button>
                 );
               })}
@@ -240,16 +234,11 @@ export function RoomsPage() {
 
           {/* Availability Status Bar */}
           <div className="ready-room-count-bar">
-            <p className="ready-room-count" role="status">
-              <strong>{displayedRooms.length} phòng</strong>{' '}
-              {stay.data.checkIn === today ? 'sẵn sàng đón bạn hôm nay' : 'còn trống'} ·{' '}
-              {stay.data.checkIn.split('-').reverse().join('/')} –{' '}
-              {stay.data.checkOut.split('-').reverse().join('/')}
-            </p>
+            <p className="ready-room-count" role="status"><Trans ns="guest" i18nKey="roomPages.valueRoomsValueValueValue" values={{ value0: (displayedRooms.length), value1: (stay.data.checkIn === today ? tr("common:supplement.readyToWelcomeYouToday") : tr("common:supplement.available")), value2: (localizedDate(stay.data.checkIn)), value3: (localizedDate(stay.data.checkOut)) }} components={{ part0: <strong /> }} /></p>
             <div className="ready-room-trust-tags">
-              <span>✓ Giữ giá niêm yết</span>
-              <span>✓ Không phụ phí ẩn</span>
-              <span>✓ Xác nhận tức thì</span>
+              <span>{tr("guest:roomPages.publishedRateGuaranteed")}</span>
+              <span>{tr("guest:roomPages.noHiddenCharges")}</span>
+              <span>{tr("guest:roomPages.instantConfirmation")}</span>
             </div>
           </div>
 
@@ -261,8 +250,8 @@ export function RoomsPage() {
             />
           ) : (
             <EmptyState
-              title="Không có phòng sẵn sàng"
-              description="Thử đổi hạng phòng hoặc tìm kiếm ngày nhận/trả phòng khác."
+              title={tr("guest:roomPages.noReadyRooms")}
+              description={tr("guest:roomPages.tryAnotherRoomTypeOrDifferentCheckInAndCheckOutDates")}
             />
           )}
         </>
@@ -272,6 +261,7 @@ export function RoomsPage() {
 }
 
 export function RoomDetailPage() {
+  useLocale();
   const { id = '' } = useParams(),
     [params, setParams] = useSearchParams(),
     location = useLocation(),
@@ -339,7 +329,7 @@ export function RoomDetailPage() {
     retry: false,
     mutationFn: () => {
       const currentDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-      if (checkIn < currentDay) throw new Error('Ngày nhận phòng đã qua. Vui lòng chọn lại ngày lưu trú.');
+      if (checkIn < currentDay) throw new LocalizedError("guest:roomPages.theCheckInDateHasPassedPleaseChooseYourStayDatesAgain");
       const input = bookingSchema.parse({
         checkIn,
         checkOut,
@@ -362,7 +352,7 @@ export function RoomDetailPage() {
         const payment = await api.request<{ checkoutUrl: string }>(`/bookings/${b.id}/payos`, { method: 'POST' });
         window.location.assign(payment.checkoutUrl);
       } catch {
-        toast('Đã tạo yêu cầu đặt phòng, chưa thanh toán. Bạn có thể tiếp tục thanh toán tại chi tiết booking.');
+        toast(() => (tr("guest:roomPages.yourReservationRequestIsSavedButUnpaidContinuePaymentOnTheReservation")));
         navigate('/guest/bookings/' + b.id);
       }
     },
@@ -372,7 +362,7 @@ export function RoomDetailPage() {
   if (room.error)
     return (
       <ErrorState
-        message={room.error.message}
+        message={safeError(room.error)}
         retry={() => void room.refetch()}
       />
     );
@@ -382,7 +372,7 @@ export function RoomDetailPage() {
 
   const primaryActionButton = isReadyToBook ? (
     auth.user?.role && auth.user.role !== 'GUEST' ? (
-      <p className="booking-tax-note">Đặt phòng dành cho tài khoản khách lưu trú.</p>
+      <p className="booking-tax-note">{tr("guest:roomPages.reservationsRequireAGuestAccount")}</p>
     ) : (
       <Button
         className="booking-submit-btn"
@@ -394,20 +384,20 @@ export function RoomDetailPage() {
               })
         }
       >
-        {auth.user ? 'Đặt phòng ngay' : 'Đăng nhập để đặt phòng'}
+        {auth.user ? tr("guest:roomAmenities.bookNow") : tr("guest:roomPages.signInToBook")}
       </Button>
     )
   ) : (
     <Button disabled className="booking-submit-btn">
       {!isValidDates
-        ? 'Chọn ngày nhận & trả phòng'
+        ? tr("guest:roomPages.chooseCheckInCheckOutDates")
         : !isCapacityValid
-        ? `Tối đa ${roomData.roomType.maxGuests} khách`
+        ? tr("guest:roomPages.upToValueGuests", { value0: (roomData.roomType.maxGuests) })
         : roomData.operationalStatus !== 'ACTIVE'
-        ? 'Phòng tạm ngừng phục vụ'
-        : availability.isFetching ? 'Đang kiểm tra phòng trống…'
-        : availability.error ? 'Chưa kiểm tra được phòng trống'
-        : 'Phòng đã kín trong ngày đã chọn'}
+        ? tr("guest:roomPages.roomTemporarilyOutOfService")
+        : availability.isFetching ? tr("guest:roomPages.checkingAvailability")
+        : availability.error ? tr("guest:roomPages.unableToCheckAvailability")
+        : tr("guest:roomPages.theRoomIsUnavailableForTheseDates")}
     </Button>
   );
 
@@ -415,44 +405,37 @@ export function RoomDetailPage() {
 
   return (
     <div className="site-container guest-public">
-      <Link to={'/rooms?' + params.toString()} className="text-link">
-        ← Quay lại danh sách phòng
-      </Link>
+      <Link to={'/rooms?' + params.toString()} className="text-link">{tr("guest:roomPages.backToRooms")}</Link>
       <PageHeading
-        eyebrow="AN NHIÊN · KHÔNG GIAN NGHỈ DƯỠNG"
-        title={roomData.roomType.name}
+        eyebrow={tr("guest:roomPages.anNhienARelaxingRetreat")}
+        title={catalogName(roomData.roomType.name)}
       />
       <div className="guest-detail-grid">
         <div>
-          <RoomGallery images={galleryImages} roomName={roomData.roomType.name} />
-          <p className="editorial-note">
-            Ảnh minh họa chuẩn phong cách hạng phòng {roomData.roomType.name}.
-          </p>
-          <h2>Thông tin phòng</h2>
-          <p>{roomData.roomType.description || 'Mô tả phòng đang được cập nhật. Liên hệ lễ tân để biết thêm chi tiết.'}</p>
-          <p>
-            Tối đa {roomData.roomType.maxGuests} khách ·{' '}
-            {roomData.operationalStatus === 'ACTIVE'
-              ? 'Đang hoạt động'
-              : 'Tạm ngừng phục vụ'}
-          </p>
+          <RoomGallery images={galleryImages} roomName={catalogName(roomData.roomType.name)} />
+          <p className="editorial-note">{tr("guest:roomPages.illustrativePhotoShowingTheStyleOfTheValueRoomType", { value0: (catalogName(roomData.roomType.name)) })}</p>
+          <h2>{tr("guest:roomPages.roomInformation")}</h2>
+          <p>{catalogDescription(roomData.roomType.description, roomData.roomType.name) || tr("guest:roomPages.theRoomDescriptionIsBeingUpdatedContactReceptionForDetails")}</p>
+          <p>{tr("guest:roomPages.upToValueGuestsValue", { value0: (roomData.roomType.maxGuests), value1: (roomData.operationalStatus === 'ACTIVE'
+              ? tr("common:supplement.active")
+              : tr("common:supplement.outOfService")) })}</p>
 
           <dl className="room-detail-facts">
-            <div><dt>Số phòng</dt><dd>{roomData.roomNumber}</dd></div>
-            <div><dt>Tầng</dt><dd>{roomData.floor}</dd></div>
-            <div><dt>Sức chứa tối đa</dt><dd>{roomData.roomType.maxGuests} khách</dd></div>
-            <div><dt>Giá mỗi đêm</dt><dd>{money(roomData.roomType.nightlyPrice)}</dd></div>
+            <div><dt>{tr("guest:roomPages.roomNumber")}</dt><dd>{roomData.roomNumber}</dd></div>
+            <div><dt>{tr("guest:roomPages.floor")}</dt><dd>{roomData.floor}</dd></div>
+            <div><dt>{tr("guest:roomPages.maximumCapacity")}</dt><dd>{tr("guest:bookingPages.valueGuests", { value0: (roomData.roomType.maxGuests) })}</dd></div>
+            <div><dt>{tr("guest:roomCompare.pricePerNight")}</dt><dd>{money(roomData.roomType.nightlyPrice)}</dd></div>
           </dl>
-          <p className="notice">Tiện nghi, loại giường và dịch vụ đi kèm chưa được cập nhật trong hệ thống. Vui lòng xác nhận với lễ tân nếu bạn có yêu cầu riêng.</p>
+          <p className="notice">{tr("guest:roomPages.amenitiesBedTypesAndIncludedServicesHaveNotBeenUpdatedInThe")}</p>
         </div>
 
         {/* In-Card Interactive Booking Box */}
         <section className="panel guest-box booking-box-sticky" id="dat-phong">
           <div className="booking-box-header">
-            <span className="eyebrow">GIÁ NIÊM YẾT</span>
+            <span className="eyebrow">{tr("guest:roomPages.publishedRate")}</span>
             <div className="booking-box-price">
               <strong>{money(roomData.roomType.nightlyPrice)}</strong>
-              <span>/ đêm</span>
+              <span>{tr("guest:homePage.night")}</span>
             </div>
 
           </div>
@@ -460,7 +443,7 @@ export function RoomDetailPage() {
           <div className="booking-form-controls">
             <div className="booking-date-grid">
               <div className="booking-field">
-                <label htmlFor="detail-check-in">Nhận phòng</label>
+                <label htmlFor="detail-check-in">{tr("guest:roomPages.checkIn")}</label>
                 <input
                   type="date"
                   id="detail-check-in"
@@ -471,7 +454,7 @@ export function RoomDetailPage() {
                 />
               </div>
               <div className="booking-field">
-                <label htmlFor="detail-check-out">Trả phòng</label>
+                <label htmlFor="detail-check-out">{tr("guest:roomPages.checkOut")}</label>
                 <input
                   type="date"
                   id="detail-check-out"
@@ -484,9 +467,7 @@ export function RoomDetailPage() {
             </div>
 
             <div className="booking-field">
-              <label htmlFor="detail-guests">
-                Số lượng khách (Tối đa {roomData.roomType.maxGuests} khách)
-              </label>
+              <label htmlFor="detail-guests">{tr("guest:roomPages.numberOfGuestsUpToValue", { value0: (roomData.roomType.maxGuests) })}</label>
               <input
                 type="number"
                 id="detail-guests"
@@ -504,23 +485,23 @@ export function RoomDetailPage() {
           {isValidDates && (
             <div className="booking-live-summary">
               <div className="summary-line">
-                <span>{money(roomData.roomType.nightlyPrice)} × {nights} đêm</span>
+                <span>{tr("guest:roomPages.valueValueNights", { value0: (money(roomData.roomType.nightlyPrice)), value1: (nights) })}</span>
                 <span>{totalEstimate}</span>
               </div>
               <div className="summary-divider" />
               <div className="summary-total-line">
-                <span>Tổng chi phí dự kiến:</span>
+                <span>{tr("guest:roomPages.estimatedTotalCharges")}</span>
                 <strong>{totalEstimate}</strong>
               </div>
             </div>
           )}
 
-          {isValidDates && isCapacityValid && availability.error && <ErrorState message="Chưa kiểm tra được phòng trống." retry={() => void availability.refetch()} />}
-          {isValidDates && isCapacityValid && availability.data && !isAvailable && <p role="status" className="notice">Hãy đổi ngày lưu trú hoặc <Link to={'/rooms?' + params.toString()}>xem phòng khác còn trống</Link>.</p>}
+          {isValidDates && isCapacityValid && availability.error && <ErrorState message={tr("guest:roomPages.unableToCheckAvailability2")} retry={() => void availability.refetch()} />}
+          {isValidDates && isCapacityValid && availability.data && !isAvailable && <p role="status" className="notice"><Trans ns="guest" i18nKey="roomPages.changeDatesOrViewAvailableRooms" components={{ rooms: <Link to={'/rooms?' + params.toString()} /> }} /></p>}
 
           <div className="booking-perks-list">
-            <p>Thanh toán 100% tiền phòng qua payOS để xác nhận giữ phòng.</p>
-            <p>Đơn đặt phòng sẽ hiển thị trong mục Đặt phòng của tôi.</p>
+            <p>{tr("guest:roomPages.pay100OfTheRoomChargeThroughPayosToConfirmYourRoom")}</p>
+            <p>{tr("guest:roomPages.yourReservationWillAppearUnderMyReservations")}</p>
           </div>
         </section>
       </div>
@@ -528,7 +509,7 @@ export function RoomDetailPage() {
       {/* Sticky Booking Summary Bar */}
       <StickyBookingBar
         roomNumber={roomData.roomNumber}
-        roomTypeName={roomData.roomType.name}
+        roomTypeName={catalogName(roomData.roomType.name)}
         nightlyPrice={money(roomData.roomType.nightlyPrice)}
         stayNights={nights || undefined}
         estimatedTotal={totalEstimate || undefined}
@@ -540,59 +521,48 @@ export function RoomDetailPage() {
         onClose={() => {
           if (!create.isPending) setConfirm(false);
         }}
-        title="Xác nhận đặt phòng"
+        title={tr("guest:roomPages.confirmReservation")}
       >
         <div className="dialog-booking-info guest-confirm-dialog-body">
           <div className="dialog-room-header">
-            <span className="eyebrow">THÔNG TIN KỲ NGHỈ ĐÃ CHỌN</span>
-            <p className="dialog-room-name">
-              <strong>Hạng {roomData.roomType.name}</strong>
-              <small>Phòng {roomData.roomNumber}</small>
-            </p>
+            <span className="eyebrow">{tr("guest:roomPages.yourSelectedStay")}</span>
+            <p className="dialog-room-name"><Trans ns="guest" i18nKey="roomPages.valueTypeRoomValue" values={{ value0: (catalogName(roomData.roomType.name)), value1: (roomData.roomNumber) }} components={{ part0: <strong />, part1: <small /> }} /></p>
           </div>
 
           {isValidDates && (
             <dl className="guest-facts dialog-facts">
               <div>
                 <dt>
-                  <Calendar size={14} /> Thời gian lưu trú
-                </dt>
-                <dd>
-                  <strong>{checkIn}</strong> → <strong>{checkOut}</strong> ({nights} đêm)
-                </dd>
+                  <Calendar size={14} /> {tr("guest:roomPages.stayDates")}</dt>
+                <dd><Trans ns="guest" i18nKey="roomPages.valueValueValueNights" values={{ value0: (checkIn), value1: (checkOut), value2: (nights) }} components={{ part0: <strong />, part1: <strong /> }} /></dd>
               </div>
               <div>
                 <dt>
-                  <Users size={14} /> Số khách đăng ký
-                </dt>
-                <dd>{guests} khách</dd>
+                  <Users size={14} /> {tr("guest:roomPages.registeredGuests")}</dt>
+                <dd>{tr("guest:bookingPages.valueGuests", { value0: (guests) })}</dd>
               </div>
               <div>
                 <dt>
-                  <Clock size={14} /> Giờ nhận & trả phòng
-                </dt>
-                <dd>Nhận từ 14:00 · Trả trước 12:00</dd>
+                  <Clock size={14} /> {tr("guest:roomPages.checkInCheckOutTimes")}</dt>
+                <dd>{tr("guest:roomPages.checkInFrom1400CheckOutBefore1200")}</dd>
               </div>
               <div className="dialog-fact-highlight">
                 <dt>
-                  <ShieldCheck size={14} /> Tổng tiền phòng dự kiến
-                </dt>
+                  <ShieldCheck size={14} /> {tr("guest:roomPages.estimatedRoomTotal")}</dt>
                 <dd>
                   <strong className="dialog-price-text">{totalEstimate}</strong>
                 </dd>
               </div>
               <div>
-                <dt>Hình thức thanh toán</dt>
-                <dd>Thanh toán 100% tiền phòng qua payOS khi đặt trên web</dd>
+                <dt>{tr("guest:roomPages.paymentMethod")}</dt>
+                <dd>{tr("guest:roomPages.payTheFullRoomChargeThroughPayosWhenBookingOnline")}</dd>
               </div>
             </dl>
           )}
 
           <div className="dialog-guarantee-note">
             <ShieldCheck size={16} />
-            <p>
-              Thanh toán tiền phòng để xác nhận đặt phòng.
-            </p>
+            <p>{tr("guest:roomPages.payTheRoomChargeToConfirmYourReservation")}</p>
           </div>
         </div>
 
@@ -604,12 +574,8 @@ export function RoomDetailPage() {
                 : guestError(create.error, 'booking')}
             </p>
             <div className="dialog-error-actions">
-              <LinkButton to="/rooms" variant="secondary">
-                Tìm lại phòng
-              </LinkButton>
-              <LinkButton to="/guest/bookings" variant="ghost">
-                Kiểm tra booking của tôi
-              </LinkButton>
+              <LinkButton to="/rooms" variant="secondary">{tr("guest:roomPages.searchRoomsAgain")}</LinkButton>
+              <LinkButton to="/guest/bookings" variant="ghost">{tr("guest:roomPages.checkMyReservations")}</LinkButton>
             </div>
           </div>
         )}
@@ -618,16 +584,12 @@ export function RoomDetailPage() {
             variant="secondary"
             disabled={create.isPending}
             onClick={() => setConfirm(false)}
-          >
-            Quay lại
-          </Button>
+          >{tr("guest:bookingPages.back")}</Button>
           <Button
             busy={create.isPending}
             disabled={!!create.error}
             onClick={() => create.mutate()}
-          >
-            Đặt phòng & thanh toán
-          </Button>
+          >{tr("guest:roomPages.bookPay")}</Button>
         </div>
       </Dialog>
     </div>
