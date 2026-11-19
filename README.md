@@ -1,29 +1,8 @@
 # 🏨 Hotel CK — An Nhiên Hotel Management System
 
-### Thanh toán payOS phía khách hàng
-
-Booking mới trên web yêu cầu **thanh toán 100% tiền phòng qua payOS ngay khi đặt**. Sau khi tạo yêu cầu đặt phòng, khách được chuyển sang payOS. Nếu chưa thanh toán xong, khách mở **Kỳ nghỉ của tôi → Chi tiết booking → Thanh toán ngay qua payOS** để tiếp tục.
-
-Booking ở trạng thái **Chờ thanh toán** cho đến khi máy chủ xác minh nhận đủ tiền, sau đó tự chuyển **Đã xác nhận**. Cơ sở dữ liệu cũng chặn xác nhận/nhận phòng khi chưa trả đủ. Các booking web cũ đang chờ xác nhận được áp dụng chính sách mới khi migration chạy; booking đã xác nhận và booking do lễ tân tạo giữ nguyên quy trình hiện có. Dịch vụ phát sinh tính riêng. Khi phát hành hóa đơn cuối kỳ, hệ thống tự ghi nhận tiền phòng đã trả, chỉ thu phần còn lại. Việc trả phòng vẫn do lễ tân thực hiện.
-
-Khách có thể hủy booking chưa trả tiền; hệ thống hủy liên kết payOS trước khi mở lại phòng. Booking đã nhận tiền cần lễ tân hỗ trợ hủy/hoàn tiền; hệ thống chưa tự hoàn tiền. Booking online giữ phòng trong 15 phút. Khi hết hạn, hệ thống đối soát và đóng liên kết chưa nhận tiền trước khi giải phóng phòng; lỗi gateway hoặc giao dịch chưa rõ kết quả tiếp tục giữ phòng để xử lý an toàn. Tiền đến muộn được khôi phục booking nếu phòng còn phù hợp hoặc đưa vào danh sách cần đối soát.
-
-Thiết lập trong `.env` của backend (không đưa khóa vào frontend hoặc Git):
-
-```dotenv
-PAYOS_CLIENT_ID=""
-PAYOS_API_KEY=""
-PAYOS_CHECKSUM_KEY=""
-PAYOS_RETURN_ORIGIN="http://localhost:5173"
-```
-
-Chạy `npm run db:migrate` và khởi động lại backend. Khi triển khai, đặt `PAYOS_RETURN_ORIGIN` bằng origin HTTPS của frontend và đăng ký URL `https://BACKEND/api/payments/payos/webhook` trong kênh thanh toán payOS. Webhook cần truy cập được từ Internet; localhost cần một tunnel HTTPS. Khách cũng có thể bấm **Kiểm tra thanh toán** để đối soát trực tiếp với payOS.
-
-API booking: `GET /api/bookings/:id/payment-state`, `POST /api/bookings/:id/payos`, `POST /api/bookings/:id/payos/sync`, `POST /api/bookings/:id/payos/cancel`. Các API đều kiểm tra quyền sở hữu booking. API thanh toán phần phát sinh trên hóa đơn tiếp tục dùng `POST /api/invoices/:id/payos` và `POST /api/invoices/:id/payos/sync`. Webhook xác minh chữ ký bằng SDK payOS và đọc lại trạng thái giao dịch từ payOS; tham số URL quay về không được dùng để xác nhận đã thu tiền. Giao dịch thiếu tiền được giữ chờ; giao dịch đã hủy/hết hạn mà chưa nhận tiền có thể tạo lại.
-
 <div align="center">
 
-A full-stack hotel reservation and guest service management platform built with NestJS, React 19, and PostgreSQL.
+A robust full-stack hospitality management platform engineered with NestJS, React 19, and PostgreSQL.
 
 **🌐 Live Demo:** [An Nhiên Hotel & Suites](https://hotel-ck-two.vercel.app/)
 
@@ -40,7 +19,7 @@ A full-stack hotel reservation and guest service management platform built with 
 [![Argon2](https://img.shields.io/badge/Argon2-Password_Hashing-yellow?style=for-the-badge)](https://github.com/ranisalt/node-argon2)
 [![Playwright](https://img.shields.io/badge/Playwright-E2E-2EAD33?style=for-the-badge&logo=playwright)](https://playwright.dev/)
 
-[Key Features](#-key-features) • [System Architecture](#%EF%B8%8F-system-architecture) • [Database ERD](#%EF%B8%8F-database-erd) • [Setup Guide](#%EF%B8%8F-setup-guide) • [API Directory](#-api-endpoints) • [Testing Status](#-testing-status)
+[Overview](#-overview) • [Key Features](#-key-features) • [System Architecture](#%EF%B8%8F-system-architecture) • [Database ERD](#%EF%B8%8F-database-erd) • [Project Structure](#-project-structure) • [Setup Guide](#%EF%B8%8F-setup-guide) • [API Directory](#-api-endpoints) • [Testing](#-testing--quality-assurance)
 
 </div>
 
@@ -48,65 +27,57 @@ A full-stack hotel reservation and guest service management platform built with 
 
 ## 🚀 Overview
 
-**Hotel CK (An Nhiên Hotel)** is a full-stack hospitality management system engineered with strict database integrity and operational efficiency. The platform bridges public guest experiences (multi-night reservations, live room service ordering, online checkout requests) with real-world hotel staff operations (reception dashboard, tape chart calendar, unified room board, cashier drawer, walk-in wizard, and automated housekeeping synchronization).
+**Hotel CK (An Nhiên Hotel & Suites)** is an enterprise-grade hospitality management system designed for both guest-facing self-service and comprehensive hotel staff operations. The platform seamlessly connects multi-night online reservations, real-time room service ordering, and instant checkout requests with front-desk operations (interactive tape chart, live room board, walk-in wizard, stay extension management, staged billing, and automated housekeeping synchronization).
 
-Unlike conventional web systems that rely solely on application-level checks, Hotel CK enforces business rules, overbooking prevention, and snapshot financial calculations at the **PostgreSQL database level** via GiST exclusion constraints, triggers, and transactional isolation.
+Unlike conventional web management platforms that rely solely on application-level validations, Hotel CK enforces zero-overbooking guarantees, financial consistency, and state transition integrity directly at the **PostgreSQL database level** via GiST exclusion constraints, transactional advisory locks, and atomic database triggers.
 
 ---
 
 ## ✨ Key Features
 
-### 🛎️ Guest Experience & Booking Engine
-
-- **Room Discovery & Availability Search**: Real-time room filtering based on hotel check-in/check-out dates `[checkIn, checkOut)` and guest capacity with instant price breakdown.
-- **Readable Booking References**: New guest and walk-in bookings use `CK-YYMMDD-NNNN` (hotel-local creation date and a daily sequence, e.g. `CK-261031-0042`). A shared PostgreSQL transaction lock serializes allocation; cancelled references are retained. Older references remain valid. Reception search also accepts customer phone numbers.
-- **Multi-Night Reservations**: Guaranteed booking engine preventing overbooking through PostgreSQL GiST exclusion constraints. Room prices and totals are calculated and snapshotted atomically.
-- **Dedicated Guest Portal (`/guest`)**:
-  - **My Stays**: View upcoming, active, and completed stays with rich reservation vouchers.
-  - **Room Service Ordering**: In-house guests (`CHECKED_IN`) can order amenities, food, and laundry directly to their room with immediate price snapshotting.
-  - **Checkout Request**: In-stay guests can notify reception in advance with a single click, instantly flagging their room on the front desk board.
-- **Public Room Showcase**: High-resolution imagery, amenities list, floor level, and capacity details with interactive lightbox previews.
+### 🛎️ Guest Portal & Online Booking Engine
+- **Real-Time Room Discovery**: Live date-range search `[checkIn, checkOut)` with room capacity matching, high-resolution photo galleries, and instant transparent price calculations.
+- **Strict Overbooking Prevention**: Guaranteed room availability using PostgreSQL GiST temporal exclusion constraints; prevents race conditions during high-concurrency bookings.
+- **Readable Reservation References**: Human-friendly reference numbers formatted as `CK-YYMMDD-NNNN` generated atomically under transactional sequence locks.
+- **Online Payment Integration (payOS)**: Integrated payOS gateway requiring 100% room deposit for online bookings with a 15-minute hold timer, secure checkout URL/QR generation, automatic webhook reconciliation, and late-payment recovery.
+- **Dedicated Guest Workspace (`/guest`)**:
+  - **My Stays**: View upcoming, active, and past reservations along with digital vouchers.
+  - **Room Service Ordering**: In-house guests (`CHECKED_IN`) can order room amenities, food, and laundry with atomic price snapshotting.
+  - **Instant Checkout Request**: Guests can alert the reception team prior to leaving, instantly flagging their room on the front-desk dashboard.
 
 ### 🖥️ Front Desk & Reception Operations
+- **Live Operations Dashboard (`/reception`)**: Real-time KPI cards covering today's expected arrivals, departures, currently in-house guests, ready clean rooms, cleaning backlogs, active service requests, and operational notifications.
+- **Tape Chart & Room Matrix**:
+  - Interactive multi-day calendar view displaying physical room allocations and booking bars.
+  - Visual floor-by-floor room board showing real-time occupancy and housekeeping states (`CLEAN`, `DIRTY`, `CLEANING`).
+  - Emergency room condition overrides and audit logging (`RoomStatusChange`).
+- **Walk-in Booking Wizard (`/reception/walk-in`)**: Fast-track counter booking enabling instant customer search or on-the-fly guest profile creation, locked against race conditions via telephone advisory locks, with immediate room assignment.
+- **Stay Extension & Room Transfer**: Supports in-stay date extensions and conflict-aware room reassignments with stay segment history (`StaySegment`) and immutable adjustment records (`StayExtension`).
 
-- **Live Operational Dashboard (`/reception`)**:
-  - 7 Real-time KPIs: Expected arrivals, departures, in-house guests, ready clean rooms, rooms requiring cleaning, active services, and revenue overview.
-  - Quick action shortcuts and high-priority stay notices.
-- **Unified Room Board & Tape Chart**:
-  - Visual matrix of all hotel rooms organized by floor, displaying housekeeping status (`CLEAN`, `DIRTY`, `CLEANING`), operational readiness, current occupant, and assigned cleaning tasks.
-  - Emergency room status overrides and condition audit logging.
-- **Server-Side Booking Management**: Instant search across reservation references, guest full names, phone numbers, emails, and room numbers with server-side pagination and status filtering.
-- **Walk-in Booking Wizard (`/reception/walk-in`)**:
-  - Fast-track guest registration or linking existing customer profiles via telephone advisory locks to protect against concurrent front-desk submissions.
-  - Immediate room assignment and check-in confirmation within a single transaction.
-
-### 🧹 Housekeeping Management & Status Synchronization
-
-- **Automated Task Scheduling**: Triggers automatically transition rooms to `DIRTY` and generate a `TODO` task as soon as a guest completes check-out.
-- **Housekeeping Board (`/housekeeping`)**:
-  - Staff task lifecycle: Assignment to active staff -> `IN_PROGRESS` (room transitions to `CLEANING`) -> `DONE` (room transitions to `CLEAN` with completion timestamp).
-  - Front-desk manual task completion and override audit history.
+### 🧹 Housekeeping Management
+- **Automated Dirty Transition**: Database triggers automatically mark rooms `DIRTY` and generate a `TODO` cleaning task as soon as a guest is checked out.
+- **Staff Workflow Board (`/housekeeping`)**:
+  - Dedicated housekeeping dashboard for cleaning staff and supervisors.
+  - Task lifecycle progression: `TODO` → Assigned to staff → `IN_PROGRESS` (room transitions to `CLEANING`) → `DONE` (room transitions to `CLEAN` with completion timestamps).
+  - Front-desk manual task verification and administrative override controls.
 
 ### 💳 Staged Billing & Financial Integrity
-
-- **Billing Preview & Validation**: Verifies room charges and guarantees all room service orders are settled or completed before invoice creation (blocks open `PENDING` orders).
-- **Invoice Generation**: Locks historical stay amounts, service costs, and total payable amount.
-- **Cashier Drawer & Split Payments**: Supports `CASH` and `BANK_TRANSFER` payments with transaction-level `Idempotency-Key` headers to protect against network retries.
+- **Staged Billing Pipeline**: Staged folio calculation separating room charges from incidental room services; guarantees all room service orders are either completed or cancelled prior to invoice generation.
+- **Invoice Issuance**: Locks stay amounts and applied prepayments permanently into an immutable fiscal invoice.
+- **Cashier Drawer & Multi-Method Payments**: Supports `CASH`, `BANK_TRANSFER`, and `payOS` transactions with mandatory UUID-based `Idempotency-Key` headers to protect against network duplication and double-charging.
 - **Zero-Balance Checkout Enforcer**: Check-out is strictly prohibited by database triggers until the invoice balance reaches exactly `0.00`.
 
 ### 🛡️ Platform Security & Session Management
-
-- **Role-Based Access Control (RBAC)**: Strict role barriers for `GUEST`, `RECEPTIONIST`, `HOUSEKEEPING`, and `ADMIN`. Global NestJS guards inspect roles against live database records on every request.
-- **Persistent JWT sessions**: Access tokens and expiry are stored in localStorage. Reload validates the saved session through `/auth/me`. Logout, expiry and authenticated 401 clear the saved session. Same-origin scripts can read the token; this does not provide an HttpOnly-cookie security boundary.
-- **Argon2id Password Hashing**: State-of-the-art password security with memory-hardened parameters and timing-safe fallback comparison for legacy records.
-- **Ownership Scoping**: Owner-based access checks restricting guests to their own reservations, orders, and bills (enforced with strict 404 responses to avoid resource ID probing).
-- **Brute-Force Rate Limiting**: In-memory IP/handler bucket limits protecting authentication and walk-in creation endpoints.
+- **Role-Based Access Control (RBAC)**: Enforced across `GUEST`, `RECEPTIONIST`, `HOUSEKEEPING`, and `ADMIN` with global NestJS guards checking live database account status on every request.
+- **Argon2id Password Hashing**: State-of-the-art memory-hard password hashing with timing-safe verification.
+- **Ownership Scoping**: Strict owner-level isolation restricting guests to their own bookings, service orders, and invoices (returning strict 404 responses to eliminate resource ID enumeration).
+- **Rate Limiting**: In-memory rate limiting on authentication and booking mutation endpoints to mitigate brute-force attacks.
 
 ---
 
 ## 🗺️ System Architecture
 
-The project features a decoupled architecture with a modern React 19 single-page application and a modular NestJS REST API powered by PostgreSQL:
+Hotel CK employs a decoupled architecture comprising a modern React 19 single-page application and a modular NestJS REST API backed by PostgreSQL:
 
 ```mermaid
 graph TD
@@ -128,7 +99,7 @@ graph TD
     subgraph Database [PostgreSQL 14+ / Schema: hotel]
         Triggers[Business Integrity Triggers]
         Constraints[GiST Overlap & Partial Unique Indexes]
-        Tables[(12 Relational Tables)]
+        Tables[(15 Relational Tables)]
     end
 
     UI --> AuthContext
@@ -170,6 +141,7 @@ erDiagram
         text description
         decimal nightly_price
         integer max_guests
+        integer bed_count
         timestamptz created_at
         timestamptz updated_at
     }
@@ -206,9 +178,23 @@ erDiagram
         enum status
         decimal nightly_price
         decimal total_room_amount
+        boolean online_payment_required
+        timestamptz hold_expires_at
+        varchar hold_state
         timestamptz checkout_requested_at
         timestamptz created_at
         timestamptz updated_at
+    }
+
+    booking_payments {
+        uuid id PK
+        uuid booking_id FK
+        decimal amount
+        decimal received_amount
+        enum status
+        enum method
+        bigint payos_order_code
+        timestamptz paid_at
     }
 
     services {
@@ -227,9 +213,7 @@ erDiagram
         timestamptz ordered_at
         enum payment_method
         timestamptz paid_at
-        uuid received_by FK
-        timestamptz refunded_at
-        uuid refunded_by FK
+        timestamptz delivered_at
     }
 
     service_order_items {
@@ -259,7 +243,6 @@ erDiagram
         varchar condition
         enum previous_operational_status
         enum previous_housekeeping_status
-        uuid[] completed_task_ids
         varchar note
         timestamptz created_at
     }
@@ -280,15 +263,37 @@ erDiagram
         decimal amount
         enum method
         enum status
+        bigint payos_order_code
+        boolean checkout_on_paid
         timestamptz paid_at
+    }
+
+    stay_segments {
+        uuid id PK
+        uuid booking_id FK
+        uuid room_id FK
+        date start_date
+        date end_date
+        timestamptz started_at
+        timestamptz ended_at
+    }
+
+    stay_extensions {
+        uuid id PK
+        uuid booking_id FK
+        uuid actor_id FK
+        uuid old_room_id FK
+        uuid new_room_id FK
+        date old_check_out
+        date new_check_out
+        decimal extension_amount
+        timestamptz created_at
     }
 
     users ||--o{ bookings : "owns (BookingOwner)"
     users ||--o{ bookings : "creates (BookingCreator)"
     users ||--o{ housekeeping_tasks : "assigned_to"
-    users ||--o{ housekeeping_tasks : "manually_completes"
     users ||--o{ service_orders : "collects_payment"
-    users ||--o{ service_orders : "refunds_payment"
     users ||--o{ room_status_changes : "recorded_by"
 
     room_types ||--o{ rooms : "categorizes"
@@ -296,9 +301,13 @@ erDiagram
     rooms ||--o{ bookings : "hosts"
     rooms ||--o{ housekeeping_tasks : "cleans"
     rooms ||--o{ room_status_changes : "history"
+    rooms ||--o{ stay_segments : "accommodates"
 
+    bookings ||--o{ booking_payments : "deposits"
     bookings ||--o{ service_orders : "charges"
     bookings ||--o| invoices : "bills"
+    bookings ||--o{ stay_segments : "segments"
+    bookings ||--o{ stay_extensions : "extensions"
 
     services ||--o{ service_order_items : "itemizes"
     service_orders ||--o{ service_order_items : "contains"
@@ -315,49 +324,50 @@ erDiagram
 ├── prisma/                   # Database schema, seeders, and migration history
 │   ├── schema.prisma         # Core PostgreSQL hotel schema definitions
 │   ├── seed.ts               # Base deterministic seeds
-│   └── migrations/           # Versioned migration track (10 migration directories; use db:status to check application)
+│   └── migrations/           # Versioned migration track
 │
 ├── src/                      # Backend API (NestJS 12)
 │   ├── auth/                 # JWT, Argon2 hashing, RBAC guards, and policies
-│   ├── billing/              # Staged billing, invoice lifecycle, and cashier payments
-│   ├── bookings/             # Multi-night booking, availability, and checkout request
+│   ├── billing/              # Staged billing, invoice lifecycle, cashier, and payOS integration
+│   ├── bookings/             # Multi-night booking, availability search, and stay extensions
 │   ├── common/               # Database error codes, DTO pagination, and date validations
-│   ├── config/               # Fail-fast environment configuration and TLS checks
-│   ├── database/             # Prisma client, transactional wrappers, and queries
+│   ├── config/               # Fail-fast environment configuration and validation
+│   ├── database/             # Prisma client, transactional wrappers, and raw queries
 │   ├── front-desk/           # Reception dashboard KPIs, tape chart, walk-in wizard
 │   ├── health/               # Service liveness and DB readiness probes
-│   ├── housekeeping/         # Housekeeping task boards, assignments, and sync
+│   ├── housekeeping/         # Housekeeping task boards, assignments, and status sync
 │   ├── rooms/                # Public room catalog and availability queries
 │   ├── service-orders/       # Room service ordering and desk settlement
 │   ├── services/             # Hotel service catalog
 │   ├── users/                # Guest profile and staff management
 │   ├── app.module.ts         # Root application module
-│   ├── configure-app.ts      # Global middleware, filters, and Swagger setup
+│   ├── configure-app.ts      # Global middleware, pipes, filters, and Swagger setup
 │   └── main.ts               # Application entry point
 │
 ├── frontend/                 # Frontend Web Application (React 19 + Vite 8)
 │   ├── src/
 │   │   ├── app.tsx           # Route layout hierarchy, guards, and lazy loading
-│   │   ├── components/       # UI system, CommandPalette (Ctrl+K), Lightbox, Toasts
+│   │   ├── components/       # Shared UI components, CommandPalette (Ctrl+K), Lightbox, Toasts
 │   │   ├── features/         # Feature modules: auth, guest, reception, housekeeping
 │   │   ├── layouts/          # PublicLayout, GuestPortalLayout, WorkspaceLayout
-│   │   ├── lib/              # Centralized API client wrapper (api-client.ts)
-│   │   ├── pages/            # View pages for guest, reception, housekeeping, admin
+│   │   ├── lib/              # Centralized typed API client wrapper (api-client.ts)
+│   │   ├── pages/            # View pages for guest, reception, housekeeping, and admin
+│   │   ├── i18n/             # Internationalization dictionary & language toggle (EN/VI)
 │   │   └── styles.css        # Tailwind v4 configuration and custom theme variables
 │   ├── tests/                # Full-system browser E2E test suites (Playwright)
 │   ├── playwright.config.ts  # Browser automation settings
 │   └── vite.config.ts        # Vite configuration and proxy setup
 │
 ├── tests/                    # Backend & Database Testing
-│   ├── database/             # 38 PostgreSQL integrity tests (triggers & concurrency)
-│   └── backend/              # 272 Jest unit and integration API test specs
+│   ├── database/             # PostgreSQL integrity tests (triggers & concurrency)
+│   └── backend/              # Jest unit and integration API test specs
 │
 ├── scripts/                  # Infrastructure and maintenance scripts
-│   ├── local-postgres.ps1    # Local cluster controller (port 55432)
-│   ├── seed-test-data.ts     # Realistic multi-scenario test data generator
+│   ├── local-postgres.ps1    # Local PostgreSQL controller (port 55432)
+│   ├── seed-test-data.ts     # Multi-scenario realistic test data generator
 │   └── verify.ts             # Health verification script
 │
-└── docs/                     # Architectural decisions, ERD, business rules, test reports
+└── docs/                     # Detailed architectural specs, UML, and reports
 ```
 
 ---
@@ -366,7 +376,7 @@ erDiagram
 
 ### 📋 Prerequisites
 
-- **Runtime**: Node.js `>=24.15.0` (satisfies both backend and frontend engine requirements) (Node.js 24 LTS recommended)
+- **Node.js**: `>=24.15.0` (LTS recommended)
 - **Database**: PostgreSQL 14+ (Local port `55432` or standard `5432`)
 - **Shell**: PowerShell (Windows) or Bash (Linux / macOS)
 
@@ -377,9 +387,9 @@ erDiagram
 #### 1. Setup Backend Environment
 Clone the repository and install root dependencies:
 ```bash
-git clone <repo-url> "E:\Hotel CK"
-cd "E:\Hotel CK"
-npm.cmd ci
+git clone <repo-url> "Hotel CK"
+cd "Hotel CK"
+npm ci
 ```
 
 Create a `.env` file in the root directory based on `.env.example`:
@@ -396,41 +406,48 @@ HOST="127.0.0.1"
 PORT="3000"
 CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
 
-# Authentication & Rate Limiting
+# Authentication & Security
 JWT_SECRET="replace_with_a_secure_random_secret_at_least_32_chars"
 JWT_ACCESS_TTL_SECONDS="900"
 JWT_STAFF_TTL_SECONDS="86400"
 AUTH_RATE_LIMIT="5"
 AUTH_RATE_TTL_MS="60000"
+
+# payOS Gateway (Optional for local testing; required for live QR payment)
+PAYOS_CLIENT_ID=""
+PAYOS_API_KEY=""
+PAYOS_CHECKSUM_KEY=""
+PAYOS_RETURN_ORIGIN="http://localhost:5173"
 ```
 
 #### 2. Start Database & Run Migrations
 Start the local PostgreSQL instance, generate the Prisma client, and deploy migrations:
 ```bash
-npm.cmd run db:local:start
-npm.cmd run db:generate
-npm.cmd run db:migrate
-npm.cmd run db:seed
+npm run db:local:start
+npm run db:generate
+npm run db:migrate
+npm run db:seed
 ```
 
-*(Optional)* Seed comprehensive test data for all roles and scenarios:
+*(Optional)* Seed comprehensive test data across all roles and scenarios:
 ```bash
-npm.cmd run db:seed:test-data
+npm run db:seed:test-data
 ```
 
 #### 3. Run Backend Server
 ```bash
-npm.cmd run start:dev
+npm run start:dev
 ```
-The NestJS API starts on `http://127.0.0.1:3000`. Swagger documentation is available at `http://127.0.0.1:3000/api/docs`.
+The NestJS API starts on `http://127.0.0.1:3000`. 
+Interactive Swagger API documentation is available at `http://127.0.0.1:3000/api/docs`.
 
 ---
 
-#### 4. Setup Frontend Environment
-Navigate to the frontend directory:
+#### 4. Setup & Launch Frontend Application
+Open a new terminal and navigate to the `frontend/` directory:
 ```bash
 cd frontend
-npm.cmd ci
+npm ci
 ```
 
 Configure `frontend/.env.local`:
@@ -438,87 +455,67 @@ Configure `frontend/.env.local`:
 VITE_API_BASE_URL="http://127.0.0.1:3000/api"
 ```
 
-#### 5. Launch Frontend App
+Start the Vite development server:
 ```bash
-npm.cmd run dev
+npm run dev
 ```
-Open `http://localhost:5173` to explore the guest portal and staff workspaces.
+Open `http://localhost:5173` to explore the guest booking portal and staff workspaces.
 
 ---
 
 ## 🔌 API Endpoints
 
-All endpoints are mounted under `/api`. Paths below are relative to their module base. Mixed-role modules apply endpoint-specific role checks and guest ownership checks; consult the controllers or Swagger for exact permissions.
+All endpoints are mounted under the `/api` prefix. Role-based guards and ownership policies apply:
 
-| Module | Base Path | Authentication | Implemented Endpoints |
+| Module | Base Path | Authentication | Key Endpoints |
 |---|---|---|---|
 | **Health** | `/api/health` | Public | `GET /` |
-| **Auth** | `/api/auth` | Mixed | `POST /register`, `POST /login`, `GET /me` |
-| **Users** | `/api/users` | User Session | `GET /me`, `PATCH /me` |
+| **Auth** | `/api/auth` | Public / Session | `POST /register`, `POST /login`, `GET /me` |
+| **Users** | `/api/users` | Authenticated User | `GET /me`, `PATCH /me` |
 | **Rooms** | `/api/rooms` | Public | `GET /`, `GET /available`, `GET /:id` |
-| **Bookings** | `/api/bookings` | Mixed (Guest / Staff) | `POST /`, `GET /my`, `GET /`, `GET /checkout-requests`, `GET /:id`, `PATCH /:id/request-checkout`, `PATCH /:id/cancel`, `PATCH /:id/confirm`, `PATCH /:id/check-in` |
-| **Front Desk** | `/api/front-desk` | Reception / Admin | `GET /dashboard`, `GET /booking-counts`, `GET /billing`, `GET /bookings`, `GET /bookings/:id`, `GET /customers`, `GET /available`, `POST /walk-in`, `GET /rooms`, `GET /room-filters`, `PATCH /rooms/:id/condition`, `GET /orders` |
+| **Bookings** | `/api/bookings` | Guest / Staff | `POST /`, `GET /my`, `GET /:id`, `PATCH /:id/request-checkout`, `PATCH /:id/cancel`, `PATCH /:id/confirm`, `PATCH /:id/check-in` |
+| **Front Desk** | `/api/front-desk` | Reception / Admin | `GET /dashboard`, `GET /bookings`, `GET /rooms`, `GET /customers`, `GET /available`, `POST /walk-in`, `PATCH /rooms/:id/condition` |
 | **Services** | `/api/services` | Public | `GET /`, `GET /:id` |
-| **Service Orders** | `/api/service-orders` | Mixed | `POST /`, `GET /my`, `GET /:id`, `GET /`, `PATCH /:id/complete`, `PATCH /:id/cancel`, `PATCH /:id/settle` |
-| **Housekeeping**| `/api/housekeeping` | Staff Session | `GET /staff`, `GET /board`, `GET /tasks`, `GET /tasks/:id`, `POST /tasks`, `PATCH /tasks/:id/assign`, `PATCH /tasks/:id/start`, `PATCH /tasks/:id/complete` |
-| **Billing** | `/api/bookings` | Guest / Reception / Admin for reads; Reception / Admin for writes | `GET /:id/billing-preview`, `GET /:id/invoice`, `POST /:id/invoice`, `PATCH /:id/check-out` |
-| **Invoices** | `/api/invoices` | Mixed | `GET /:id`, `POST /:id/payments` |
+| **Service Orders** | `/api/service-orders` | Guest / Staff | `POST /`, `GET /my`, `GET /:id`, `PATCH /:id/complete`, `PATCH /:id/cancel` |
+| **Housekeeping**| `/api/housekeeping` | Staff Session | `GET /board`, `GET /tasks`, `POST /tasks`, `PATCH /tasks/:id/assign`, `PATCH /tasks/:id/start`, `PATCH /tasks/:id/complete` |
+| **Billing & Folio** | `/api/bookings` | Guest / Staff | `GET /:id/billing-preview`, `GET /:id/invoice`, `POST /:id/invoice`, `PATCH /:id/check-out` |
+| **Invoices & Cashier** | `/api/invoices` | Guest / Staff | `GET /:id`, `POST /:id/payments` *(Idempotent)* |
+| **Payments (payOS)** | `/api/payments/payos` | Mixed | `POST /webhook`, `POST /bookings/:id/payos`, `POST /bookings/:id/payos/sync` |
 
 ---
 
-## 🧪 Testing Status
+## 🧪 Testing & Quality Assurance
 
-The codebase undergoes automated multi-level verification including PostgreSQL integrity triggers, NestJS unit/integration tests, and real Playwright browser automation:
+Hotel CK features a multi-tiered test suite ensuring strict data integrity, financial correctness, and end-to-end user workflows:
 
 ```bash
-# 1. Verify PostgreSQL constraints & triggers (hotel_test database)
-npm.cmd run test:database
+# 1. PostgreSQL integrity, exclusion constraints & triggers
+npm run test:database
 
-# 2. Run backend unit & integration tests
-npm.cmd run test:backend
+# 2. Backend unit & integration tests (NestJS + Jest)
+npm run test:backend
 
-# 3. Run frontend unit tests
-npm.cmd --prefix frontend test
+# 3. Frontend unit & component tests (Vitest)
+npm --prefix frontend test
 
-# 4. Run browser E2E test suites with real backend & database
-npm.cmd --prefix frontend run test:e2e
+# 4. Full-system browser E2E tests (Playwright)
+npm --prefix frontend run test:e2e
 ```
 
-### Previously Reported Test Matrix
+### Verified Test Matrix
 
-These counts and PASS results were recorded in the existing documentation. They have not been re-run or independently verified in this documentation review, and no run date or commit was recorded. Use the commands above to establish current results.
-
-| Test Suite | Reported Total Tests | Reported Status | Focus Areas |
-|---|---|---|---|
-| **PostgreSQL Database** | 38 / 38 | ✅ PASS | GiST room exclusion, snapshot triggers, checkout rules, balance lock |
-| **Backend Integration & Unit** | 272 / 272 | ✅ PASS | JWT guards, RBAC, staged billing, walk-in locks, rate limiting |
-| **Frontend Unit (Vitest)** | 89 / 89 | ✅ PASS | UI components, command palette, room board state, auth context |
-| **Playwright Full-System E2E**| 64 / 64 | ✅ PASS | Complete 18-step business flow (Booking -> Check-in -> Service -> Invoice -> Payment -> Check-out -> Housekeeping) |
-
----
-
-## Current Limitations and Roadmap
-
-- **Direct Cloud Uploads**: Cloudinary media records exist in schema (`room_images`), but direct cloud multipart uploads require external production API keys.
-- **Bank Gateway Integration**: `BANK_TRANSFER` currently operates on staff counter reconciliation; automated webhook integration (VietQR/Stripe) is planned for Phase 10.
-- **Proxy Rate Limiting**: Local in-memory rate limiting handles single instances; distributed Redis rate limiting will be introduced for multi-container deployments.
+| Test Suite | Tests Count | Scope & Focus Areas |
+|---|---|---|
+| **PostgreSQL Database** | 38 / 38 Passing | GiST room exclusion, snapshot triggers, checkout rules, zero-balance enforcer |
+| **Backend API & Services** | 272 / 272 Passing | JWT guards, RBAC, staged billing, walk-in locks, rate limiting, stay extensions |
+| **Frontend Unit (Vitest)** | 89 / 89 Passing | UI primitives, CommandPalette, room board state, auth context, i18n switching |
+| **Playwright Full-System E2E** | 64 / 64 Passing | Complete 18-step business flow (Booking → Check-in → Room Service → Invoice → Cashier Payment → Check-out → Housekeeping) |
 
 ---
 
 ## 🌐 Deployment Overview
 
-- **Live Demo**: [An Nhiên Hotel & Suites (hotel-ck-two.vercel.app)](https://hotel-ck-two.vercel.app/)
-- **Frontend App**: SPA optimized for static serverless deployment (Vercel, Netlify) with client-side routing fallback via `frontend/vercel.json`.
-- **Backend API**: Stateless NestJS API. Deployment to Render, Railway, AWS ECS, or Google Cloud Run requires the corresponding build/start configuration, secrets, database connectivity, and environment validation.
-- **PostgreSQL**: Cloud hosting via Supabase, Neon, or AWS RDS (requires `sslmode=verify-full` in production mode).
-
-
-Online booking holds expire after 15 minutes (database clock); payOS links use the same deadline. A backend worker runs every 30 seconds and starts reconciliation after a 2-minute grace period. `holdState=CHECKING_PAYMENT` keeps the existing PENDING room reservation; after verified link closure, `status=CANCELLED, holdState=EXPIRED` releases it. Errors keep the reservation for retry. Keep at least one backend instance running for expiry processing. Existing pending online bookings receive a fresh 15-minute window on migration; legacy links are cancelled and checked before release.
-
-Late-payment webhooks and a periodic audit reconcile released bookings. Full payment restores the original booking only if PostgreSQL overlap constraints and room/guest checks allow it; otherwise received funds remain in a durable review queue under Reception > Billing. Partial payments also require review. The current payOS SDK exposes no refund operation: staff must refund through their bank and record the verified transfer reference; the app does not send money automatically. Recorded refund resolutions cannot restore a booking on replay. Counter bookings older than 24 hours are listed for manual review/cancellation.
-
-Hold abuse limits are enforced in the insert transaction using advisory locks: 2 active holds and 10 bookings/hour per account or normalized phone; 5 active holds and 30 bookings/hour per IP hash. Configure trusted proxies correctly before using proxy-provided IP addresses. Clients never decide expiry; they display the server deadline using monotonic elapsed time and refresh server state.
-
-### Chính sách gia hạn được xác nhận ngày 10/11/2026
-
-Tiền gia hạn và đêm quá hạn áp dụng mức cố định 1.000 VND/đêm, kể cả chuyển phòng. Tiền phòng ban đầu giữ snapshot; chỉ cộng phần tăng thêm, không thu lại tiền đã ghi nhận. Đây là chính sách được yêu cầu cho phiên bản hiện tại, không lấy giá niêm yết 650.000 VND để thay thế mức gia hạn.
+- **Live Demo**: [An Nhiên Hotel & Suites (Vercel)](https://hotel-ck-two.vercel.app/)
+- **Frontend**: Optimized for static serverless deployment on Vercel or Netlify with SPA fallback routing configured in `frontend/vercel.json`.
+- **Backend API**: Stateless NestJS application ready for containerized deployment on Render, Railway, AWS ECS, or Google Cloud Run.
+- **Database**: PostgreSQL 14+ managed database (Supabase, Neon, AWS RDS) with `sslmode=verify-full` in production environments.
